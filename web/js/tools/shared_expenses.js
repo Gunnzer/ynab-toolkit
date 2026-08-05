@@ -1,0 +1,240 @@
+// Shared Expenses: convert transactions in a shared category into a native
+// YNAB split between two people.
+//
+// Ported from the desktop app, which was itself a port of the original
+// splitter script. The arithmetic is unchanged: person 1 gets a rounded
+// share and person 2 absorbs the remainder, so the two always sum back to
+// the original total.
+
+import { splitMilliunits } from "../money.js";
+
+export function isComplete(rule) {
+  return Boolean(rule.sharedId && rule.person1Id && rule.person2Id);
+}
+
+export function alreadySplit(transaction) {
+  return (transaction.subtransactions || []).length > 0;
+}
+
+export function withinEndDate(date, endDate) {
+  return !endDate || date <= endDate;
+}
+
+export function splitAmounts(total, person1Ratio) {
+  return splitMilliunits(total, person1Ratio);
+}
+
+/**
+ * Find every transaction the current rules would convert.
+ * Writes nothing; drives both the preview and the apply step so what you
+ * see is what gets sent.
+ */
+export function scan(transactions, rules, startDate, endDate, ratio, {
+  skipAlreadySplit = true,
+} = {}) {
+  const bySharedId = new Map();
+  for (const rule of rules) {
+    if (isComplete(rule)) bySharedId.set(rule.sharedId, rule);
+  }
+
+  const result = {
+    planned: [],
+    skippedAlreadySplit: 0,
+    skippedTransfers: 0,
+    scanned: 0,
+  };
+  if (bySharedId.size === 0) return result;
+
+  for (const transaction of transactions) {
+    if (transaction.deleted) continue;
+    if (startDate && transaction.date < startDate) continue;
+    if (!withinEndDate(transaction.date, endDate)) continue;
+
+    const rule = bySharedId.get(transaction.category_id);
+    if (!rule) continue;
+
+    result.scanned += 1;
+
+    // Transfers cannot carry a normal category, so a split write would be
+    // rejected by YNAB.
+    if (transaction.transfer_account_id) {
+      result.skippedTransfers += 1;
+      continue;
+    }
+    if (skipAlreadySplit && alreadySplit(transaction)) {
+      result.skippedAlreadySplit += 1;
+      continue;
+    }
+
+    const [person1Amount, person2Amount] = splitAmounts(transaction.amount, ratio);
+    result.planned.push({ transaction, rule, person1Amount, person2Amount });
+  }
+
+  result.planned.sort((a, b) => a.transaction.date.localeCompare(b.transaction.date));
+  return result;
+}
+
+/** The exact body sent to YNAB to turn one transaction into a split. */
+export function splitPayload(transaction, person1Amount, person2Amount, p1Cat, p2Cat) {
+  return {
+    id: transaction.id,
+    account_id: transaction.account_id,
+    date: transaction.date,
+    payee_id: transaction.payee_id ?? null,
+    memo: transaction.memo || "",
+    cleared: transaction.cleared,
+    approved: transaction.approved,
+    flag_color: transaction.flag_color ?? null,
+    category_id: null, // required for split transactions
+    amount: transaction.amount, // keep the original total
+    subtransactions: [
+      { amount: person1Amount, memo: transaction.memo || "", category_id: p1Cat },
+      { amount: person2Amount, memo: transaction.memo || "", category_id: p2Cat },
+    ],
+  };
+}
+
+/** Clearing subtransactions with an empty list turns a split back into a
+ *  normal transaction. That is what makes undo work. */
+export function restorePayload(record) {
+  return {
+    id: record.id,
+    account_id: record.accountId,
+    date: record.date,
+    payee_id: record.payeeId ?? null,
+    memo: record.memo || "",
+    cleared: record.cleared,
+    approved: record.approved,
+    flag_color: record.flagColor ?? null,
+    category_id: record.categoryId,
+    amount: record.amount,
+    subtransactions: [],
+  };
+}
+
+/** The pre-change state of a transaction, kept so it can be restored. */
+export function backupRecord(transaction) {
+  return {
+    id: transaction.id,
+    accountId: transaction.account_id,
+    date: transaction.date,
+    payeeId: transaction.payee_id ?? null,
+    payeeName: transaction.payee_name || "",
+    memo: transaction.memo || "",
+    cleared: transaction.cleared,
+    approved: transaction.approved,
+    flagColor: transaction.flag_color ?? null,
+    categoryId: transaction.category_id ?? null,
+    amount: transaction.amount,
+  };
+}
+
+/**
+ * Re-scan and split a previewed set into what is still valid and what moved.
+ *
+ * A preview can sit on screen for a while. Anything edited in YNAB in the
+ * meantime should not be overwritten blindly.
+ */
+export function driftCheck(planned, freshTransactions, startDate, endDate, {
+  skipAlreadySplit = true,
+} = {}) {
+  const rules = new Map();
+  for (const item of planned) rules.set(item.rule.sharedId, item.rule);
+
+  const fresh = scan(
+    freshTransactions, [...rules.values()], startDate, endDate, 0.5,
+    { skipAlreadySplit }
+  );
+  const current = new Map(fresh.planned.map((i) => [i.transaction.id, i]));
+
+  const stillValid = [];
+  const drifted = [];
+  for (const item of planned) {
+    const match = current.get(item.transaction.id);
+    if (!match) {
+      drifted.push({ item, reason: "no longer matches" });
+    } else if (match.transaction.amount !== item.transaction.amount) {
+      drifted.push({ item, reason: "amount changed" });
+    } else if (match.transaction.category_id !== item.transaction.category_id) {
+      drifted.push({ item, reason: "category changed" });
+    } else {
+      // Use the freshly fetched transaction so the write carries YNAB's
+      // current cleared/approved/memo values.
+      stillValid.push({
+        transaction: match.transaction,
+        rule: item.rule,
+        person1Amount: item.person1Amount,
+        person2Amount: item.person2Amount,
+      });
+    }
+  }
+  return { stillValid, drifted };
+}
+
+/**
+ * Convert each planned transaction, backing up the original first so an
+ * interrupted run can still be undone.
+ */
+export async function applySplits(client, budgetId, planned, backups, {
+  log = () => {}, shouldStop = () => false,
+} = {}) {
+  let changed = 0;
+  let failed = 0;
+
+  for (const item of planned) {
+    if (shouldStop()) {
+      log("Stopped.", "warn");
+      break;
+    }
+    const { transaction, rule, person1Amount, person2Amount } = item;
+    try {
+      if (!backups.some((record) => record.id === transaction.id)) {
+        backups.push(backupRecord(transaction));
+      }
+      await client.updateTransaction(
+        budgetId, transaction.id,
+        splitPayload(transaction, person1Amount, person2Amount,
+          rule.person1Id, rule.person2Id)
+      );
+      changed += 1;
+      log(`  split ${transaction.date}  ${rule.name}`, "ok");
+    } catch (error) {
+      failed += 1;
+      log(`  FAILED ${transaction.date} ${rule.name}: ${error.message}`, "error");
+    }
+  }
+  return { changed, failed };
+}
+
+/**
+ * Restore transactions from the backup list.
+ * ``ids`` limits the restore; anything not restored stays available.
+ */
+export async function undoFromBackup(client, budgetId, backups, {
+  ids = null, log = () => {}, shouldStop = () => false,
+} = {}) {
+  const wanted = ids ? new Set(ids) : null;
+  const targets = wanted ? backups.filter((r) => wanted.has(r.id)) : [...backups];
+  const remaining = wanted ? backups.filter((r) => !wanted.has(r.id)) : [];
+
+  let restored = 0;
+  let failed = 0;
+
+  for (const record of targets) {
+    if (shouldStop()) {
+      log("Stopped.", "warn");
+      remaining.push(record);
+      continue;
+    }
+    try {
+      await client.updateTransaction(budgetId, record.id, restorePayload(record));
+      restored += 1;
+      log(`  restored ${record.date}`, "ok");
+    } catch (error) {
+      failed += 1;
+      remaining.push(record);
+      log(`  FAILED ${record.id}: ${error.message}`, "error");
+    }
+  }
+  return { restored, failed, remaining };
+}

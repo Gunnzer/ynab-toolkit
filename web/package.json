@@ -1,0 +1,10 @@
+{
+  "name": "ynab-toolkit-web",
+  "private": true,
+  "type": "module",
+  "description": "Static web app. No dependencies, no build step: the files here are served as-is.",
+  "scripts": {
+    "test": "node --test \"tests/*.test.js\"",
+    "serve": "node serve.js"
+  }
+}

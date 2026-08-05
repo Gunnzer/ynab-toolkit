@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YNAB Toolkit</title>
+<meta name="description" content="Utilities for the parts of YNAB that need doing by hand.">
+<meta name="color-scheme" content="light">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">&#9673;</span>
+      <span class="brand-name">YNAB Toolkit</span>
+    </div>
+    <p class="sidebar-section">Tools</p>
+    <nav id="nav" class="nav" aria-label="Tools"></nav>
+    <div class="sidebar-footer">
+      <nav id="nav-setup" class="nav" aria-label="Setup"></nav>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-inner">
+        <h1 id="page-title">Home</h1>
+        <span id="status-pill" class="pill" hidden></span>
+        <span class="spacer"></span>
+        <span id="rate-limit" class="meta"></span>
+        <button id="help-button" class="btn btn-small" type="button">Help</button>
+      </div>
+    </header>
+
+    <main id="page" class="page" tabindex="-1"></main>
+
+    <footer class="statusbar">
+      <div class="statusbar-inner">
+        <span id="status-text">Ready.</span>
+        <span id="busy" class="busy" hidden><span class="busy-bar"></span></span>
+      </div>
+    </footer>
+  </div>
+</div>
+
+<dialog id="dialog" class="dialog">
+  <form method="dialog">
+    <h2 id="dialog-title"></h2>
+    <div id="dialog-body"></div>
+    <menu>
+      <button id="dialog-cancel" value="cancel" class="btn" type="submit"></button>
+      <button id="dialog-confirm" value="confirm" class="btn btn-accent" type="submit"></button>
+    </menu>
+  </form>
+</dialog>
+
+<script type="module" src="js/main.js"></script>
+<noscript>
+  <p style="padding:2rem">This app needs JavaScript. Everything runs in your
+  browser; there is no server.</p>
+</noscript>
+</body>
+</html>

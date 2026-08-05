@@ -1,0 +1,17 @@
+# The old PySide6 desktop app, kept locally but not published. It still
+# runs from desktop-archive/ if you ever need it; the web app replaced it.
+desktop-archive/
+
+# Node
+node_modules/
+
+# Local settings that could contain a token or a real budget id.
+# The app itself keeps nothing on disk, but be certain.
+*.local.json
+ynab_toolkit_config.json
+
+# Editors and OS
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini

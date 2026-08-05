@@ -1,0 +1,53 @@
+# The tests run first and the deploy depends on them. That matters more
+# here than usual: tests/privacy.test.js fails the build if a token, a
+# budget id, an email address or a third party host ever appears in the
+# source, so a mistake cannot reach a public URL.
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a running deploy finish rather than cancelling it half way.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run the test suite
+        run: node --test "web/tests/*.test.js"
+
+  # Publishing is opt in, run by hand from the Actions tab. GitHub Pages is
+  # not available for private repositories on the free plan, so deploying on
+  # every push would just fail on every push. Make the repository public, or
+  # upgrade the plan, and this becomes usable as it stands.
+  deploy:
+    needs: test
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - name: Upload the web folder
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+      - id: deployment
+        uses: actions/deploy-pages@v4
