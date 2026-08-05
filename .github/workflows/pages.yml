@@ -31,13 +31,8 @@ jobs:
       - name: Run the test suite
         run: node --test "web/tests/*.test.js"
 
-  # Publishing is opt in, run by hand from the Actions tab. GitHub Pages is
-  # not available for private repositories on the free plan, so deploying on
-  # every push would just fail on every push. Make the repository public, or
-  # upgrade the plan, and this becomes usable as it stands.
   deploy:
     needs: test
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

@@ -81,14 +81,14 @@ current hour has used.
 
 ## Publishing to GitHub Pages
 
-**This repository is private, and GitHub Pages is not available for private
-repositories on the free plan.** There is no hosted URL: run it locally with
-`node web/serve.js`. To share it with someone else, either make the
-repository public or upgrade the plan, then run the deploy workflow.
+The site is the `web/` folder as-is, published by
+`.github/workflows/pages.yml` on every push to `main`. The tests run first
+and the deploy depends on them, so a failing privacy check stops the
+publish rather than shipping it.
 
-When you do, the site is the `web/` folder as-is, published by
-`.github/workflows/pages.yml`. That workflow runs the tests on every push,
-and deploys only when started by hand from the Actions tab.
+The repository is public because GitHub Pages requires it on the free plan.
+That is safe here: the published files contain no token, no budget, no
+names and no payees, and every visitor's data stays in their own browser.
 
 Deploying from a branch is not an option here: that mode only serves the
 repository root or `/docs`, and this app lives in `web/`. The workflow

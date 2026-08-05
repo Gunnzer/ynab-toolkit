@@ -46,10 +46,10 @@ describe("owner detection", () => {
   });
 
   test("tags are read and stripped", () => {
-    assert.equal(sheet.accountTag("(J) Scotia Chequing"), "J");
-    assert.equal(sheet.accountTag("Scotia Chequing"), "");
-    assert.equal(sheet.stripAccountTag("(J) Scotia Chequing"), "Scotia Chequing");
-    assert.equal(sheet.stripAccountTag("Scotia Chequing"), "Scotia Chequing");
+    assert.equal(sheet.accountTag("(J) Metro Chequing"), "J");
+    assert.equal(sheet.accountTag("Metro Chequing"), "");
+    assert.equal(sheet.stripAccountTag("(J) Metro Chequing"), "Metro Chequing");
+    assert.equal(sheet.stripAccountTag("Metro Chequing"), "Metro Chequing");
   });
 });
 
@@ -271,7 +271,7 @@ describe("monthly summary", () => {
   const CYCLE = {
     ...SETTINGS,
     cycleStartDay: 6,
-    accountOwners: { "Amex Cobalt": "p1", "Joint Chequing": "joint" },
+    accountOwners: { "Blue Card": "p1", "Joint Chequing": "joint" },
   };
 
   test("a cycle runs from its start day to the day before the next", () => {
@@ -295,7 +295,7 @@ describe("monthly summary", () => {
   });
 
   test("who paid comes from the mapping, then the tag, then the name", () => {
-    assert.equal(sheet.payerOf("Amex Cobalt", CYCLE), "p1", "explicit mapping");
+    assert.equal(sheet.payerOf("Blue Card", CYCLE), "p1", "explicit mapping");
     assert.equal(sheet.payerOf("(A) Chequing", CYCLE), "p1", "account tag A is person 1");
     assert.equal(sheet.payerOf("(S) Visa", CYCLE), "p2", "account tag S is person 2");
     assert.equal(sheet.payerOf("Sam Visa", CYCLE), "p2", "starts with the name");
@@ -305,11 +305,11 @@ describe("monthly summary", () => {
 
   test("spend is grouped into cycles, newest first", () => {
     const rows = [
-      { Card: "Amex Cobalt", Date: new Date(2026, 1, 10), Amount: 100,
+      { Card: "Blue Card", Date: new Date(2026, 1, 10), Amount: 100,
         Owner: "SH", Share1: 65, Share2: 35, Memo: "" },
-      { Card: "Amex Cobalt", Date: new Date(2026, 2, 5), Amount: 50,
+      { Card: "Blue Card", Date: new Date(2026, 2, 5), Amount: 50,
         Owner: "SH", Share1: 32.5, Share2: 17.5, Memo: "" },
-      { Card: "Amex Cobalt", Date: new Date(2026, 2, 6), Amount: 10,
+      { Card: "Blue Card", Date: new Date(2026, 2, 6), Amount: 10,
         Owner: "SH", Share1: 6.5, Share2: 3.5, Memo: "" },
     ];
     const cycles = sheet.monthlySummary(rows, CYCLE);
@@ -324,7 +324,7 @@ describe("monthly summary", () => {
   test("settling up nets what each owes on the other's cards", () => {
     const rows = [
       // Person 1 paid; person 2 owes their 35.
-      { Card: "Amex Cobalt", Date: new Date(2026, 2, 10), Amount: 100,
+      { Card: "Blue Card", Date: new Date(2026, 2, 10), Amount: 100,
         Owner: "SH", Share1: 65, Share2: 35, Memo: "" },
       // Person 2 paid; person 1 owes their 13.
       { Card: "Sam Visa", Date: new Date(2026, 2, 11), Amount: 20,
@@ -347,13 +347,13 @@ describe("monthly summary", () => {
 
   test("each card is totalled, biggest first", () => {
     const rows = [
-      { Card: "Amex Cobalt", Date: new Date(2026, 2, 10), Amount: 20,
+      { Card: "Blue Card", Date: new Date(2026, 2, 10), Amount: 20,
         Owner: "SH", Share1: 13, Share2: 7, Memo: "" },
       { Card: "Sam Visa", Date: new Date(2026, 2, 11), Amount: 80,
         Owner: "SH", Share1: 52, Share2: 28, Memo: "" },
     ];
     const [cycle] = sheet.monthlySummary(rows, CYCLE);
-    assert.deepEqual(cycle.byCard.map((c) => c.name), ["Sam Visa", "Amex Cobalt"]);
+    assert.deepEqual(cycle.byCard.map((c) => c.name), ["Sam Visa", "Blue Card"]);
     assert.equal(cycle.byCard[0].amount, 80);
   });
 
@@ -366,9 +366,9 @@ describe("monthly summary", () => {
       new Date(2026, 2, 3).toDateString());
 
     const rows = [
-      { Card: "Amex Cobalt", Date: new Date(2026, 2, 2), Amount: 10,
+      { Card: "Blue Card", Date: new Date(2026, 2, 2), Amount: 10,
         Owner: "SH", Share1: 6.5, Share2: 3.5, Memo: "" },
-      { Card: "Amex Cobalt", Date: new Date(2026, 2, 4), Amount: 99,
+      { Card: "Blue Card", Date: new Date(2026, 2, 4), Amount: 99,
         Owner: "SH", Share1: 64, Share2: 35, Memo: "" },
     ];
     const cycles = sheet.monthlySummary(rows, settings);
@@ -391,7 +391,7 @@ describe("monthly summary", () => {
   });
 
   test("rows with no readable date are left out rather than bucketed wrongly", () => {
-    const rows = [{ Card: "Amex Cobalt", Date: null, Amount: 10,
+    const rows = [{ Card: "Blue Card", Date: null, Amount: 10,
       Owner: "SH", Share1: 6.5, Share2: 3.5, Memo: "" }];
     const cycles = sheet.monthlySummary(rows, CYCLE);
     assert.equal(cycles.length, 0);
