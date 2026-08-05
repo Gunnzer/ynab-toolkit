@@ -85,8 +85,19 @@ class App {
     this.status = document.getElementById("status-text");
     this.busy = document.getElementById("busy");
 
+    this.dataAge = document.getElementById("data-age");
+    this.refreshButton = document.getElementById("refresh-button");
+
     document.getElementById("help-button")
       .addEventListener("click", () => this.showHelp());
+
+    // Transactions are fetched once and shared between pages, so there has
+    // to be one obvious way to say "I changed something in YNAB, read it
+    // again".
+    this.refreshButton.addEventListener("click", () => {
+      this.state.invalidate();
+      this.setStatus("Loaded data cleared. Run the tool again to re-read.");
+    });
 
     this.state.subscribe(() => this.refreshChrome());
     this.state.store.subscribe(() => this.buildNav());
@@ -190,6 +201,10 @@ class App {
     setPill(this.pill, text, kind);
     this.rate.textContent = state.rateLimit
       ? `API calls used: ${state.rateLimit}` : "";
+
+    const age = state.dataAge();
+    this.dataAge.textContent = age ? `Transactions loaded ${age}` : "";
+    this.refreshButton.hidden = !age;
   }
 
   setBusy(busy) {

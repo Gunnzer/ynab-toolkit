@@ -265,8 +265,7 @@ export function autoAssignPage(app) {
   }
 
   async function buildPlan(month) {
-    const client = state.requireClient();
-    const monthData = await client.month(state.budgetId, month);
+    const monthData = (await state.month(month)).data;
     const names = Object.fromEntries(
       (settings.groupIds || []).map((id) => [id, state.groupName(id, "")]));
     return autoassign.buildPlan(
@@ -330,6 +329,7 @@ export function autoAssignPage(app) {
     }, { log, buttons: [previewButton, applyButton, undoButton] });
 
     if (!result) return;
+    state.invalidate();
     log.write(`Allocated ${fmt(result.moved)} into ${result.applied} ` +
       `categor(ies).` + (result.failed ? ` ${result.failed} failed.` : ""),
       result.failed ? "warn" : "ok");

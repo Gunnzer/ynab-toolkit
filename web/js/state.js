@@ -14,6 +14,9 @@ export class AppState {
     // idle | connecting | connected | failed
     this.connection = "idle";
     this.listeners = new Set();
+    // Fetched once, shared by every page. See transactions() and month().
+    this.txCache = null;
+    this.monthCache = new Map();
   }
 
   subscribe(listener) {
@@ -35,6 +38,75 @@ export class AppState {
     return new YnabClient(this.token, (limit) => {
       this.rateLimit = limit;
     });
+  }
+
+  // ---------- fetched data, shared between pages ----------
+  //
+  // Every tool wants the same transactions, and YNAB allows 200 requests an
+  // hour. Fetching once and handing the same list to each page keeps that
+  // budget for the writes that actually need it, and makes switching pages
+  // instant instead of a round trip.
+
+  /**
+   * Transactions since a date, from cache when the cache already covers it.
+   *
+   * A cache fetched from an earlier date covers any later one, so widening
+   * the range refetches but narrowing it does not.
+   */
+  async transactions(since, { force = false } = {}) {
+    const cache = this.txCache;
+    const usable = !force && cache &&
+      cache.budgetId === this.budgetId && cache.since <= since;
+
+    if (usable) {
+      return {
+        list: cache.list.filter((item) => item.date >= since),
+        fetchedAt: cache.at,
+        cached: true,
+      };
+    }
+
+    const list = await this.requireClient().transactions(this.budgetId, since);
+    this.txCache = { budgetId: this.budgetId, since, at: Date.now(), list };
+    this.notify();
+    return { list, fetchedAt: this.txCache.at, cached: false };
+  }
+
+  /** One budget month, cached per budget. */
+  async month(month, { force = false } = {}) {
+    const key = `${this.budgetId}|${month}`;
+    const cached = this.monthCache.get(key);
+    if (!force && cached) {
+      return { data: cached.data, fetchedAt: cached.at, cached: true };
+    }
+
+    const data = await this.requireClient().month(this.budgetId, month);
+    this.monthCache.set(key, { data, at: Date.now() });
+    return { data, fetchedAt: Date.now(), cached: false };
+  }
+
+  /**
+   * Throw away fetched data.
+   *
+   * Called after anything that writes to YNAB, because the copy in hand no
+   * longer matches the budget, and a tool acting on stale figures would be
+   * worse than one that simply refetches.
+   */
+  invalidate() {
+    this.txCache = null;
+    this.monthCache.clear();
+    this.notify();
+  }
+
+  /** How old the transaction cache is, in words, or null when empty. */
+  dataAge() {
+    if (!this.txCache || this.txCache.budgetId !== this.budgetId) return null;
+    const seconds = (Date.now() - this.txCache.at) / 1000;
+    if (seconds < 90) return "just now";
+    const minutes = Math.round(seconds / 60);
+    if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+    const hours = Math.round(minutes / 60);
+    return `${hours} hour${hours === 1 ? "" : "s"} ago`;
   }
 
   requireClient() {
@@ -59,6 +131,8 @@ export class AppState {
       // Category ids are budget-scoped; a stale cache would mislead.
       this.categoryGroups = [];
       this.accounts = [];
+      this.txCache = null;
+      this.monthCache.clear();
     }
     this.store.set("budgetId", id);
     this.store.set("budgetName", name);

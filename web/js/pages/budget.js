@@ -416,7 +416,7 @@ export function budgetPage(app) {
 
     const result = await app.run(async () => {
       const client = state.requireClient();
-      const data = { month: await client.month(state.budgetId, wanted) };
+      const data = { month: (await state.month(wanted)).data };
       // The category and account lists may be stale, or missing entirely if
       // the page was opened straight from a bookmark.
       if (!state.hasBudgetData) {

@@ -166,9 +166,10 @@ export function duplicatesPage(app) {
     log.write(`Reading transactions since ${sinceInput.value} ...`, "head");
 
     const found = await app.run(async () => {
-      const client = state.requireClient();
-      const transactions = await client.transactions(state.budgetId, sinceInput.value);
-      log.write(`${transactions.length} transaction(s) read.`);
+      const fetched = await state.transactions(sinceInput.value);
+      const transactions = fetched.list;
+      log.write(`${transactions.length} transaction(s) read` +
+        (fetched.cached ? ` (already loaded ${state.dataAge()}).` : "."));
       return duplicates.find(transactions, {
         withinDays: settings.withinDays ?? 3,
         ignoreTransfers: settings.ignoreTransfers !== false,
@@ -214,6 +215,7 @@ export function duplicatesPage(app) {
     }, { log, buttons: [scanButton, flagButton] });
 
     if (!result) return;
+    state.invalidate();
     log.write(`Flagged ${result.flagged} transaction(s).` +
       (result.failed ? ` ${result.failed} failed.` : ""),
       result.failed ? "warn" : "ok");

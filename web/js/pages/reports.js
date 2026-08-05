@@ -312,14 +312,18 @@ export function reportsPage(app) {
     log.write(`Reading transactions since ${settings.since} ...`, "head");
 
     const fetched = await app.run(async () => {
-      const client = state.requireClient();
-      return client.transactions(state.budgetId, settings.since);
+      return state.transactions(settings.since);
     }, { log, buttons: [runButton] });
     if (!fetched) return;
 
+    if (fetched.cached) {
+      log.write(`Using transactions already loaded ${state.dataAge()}. ` +
+        "Refresh in the footer to re-read from YNAB.", "muted");
+    }
+
     const groupOf = groupLookup();
-    entries = reports.toEntries(fetched, groupOf, state.withPeople({}));
-    log.write(`${fetched.length} transaction(s), ${entries.length} line(s) ` +
+    entries = reports.toEntries(fetched.list, groupOf, state.withPeople({}));
+    log.write(`${fetched.list.length} transaction(s), ${entries.length} line(s) ` +
       "after splitting.", "ok");
     state.recordRun("reports");
     render();

@@ -5,7 +5,7 @@ import { parseDelimited } from "../tools/bank_convert.js";
 import * as sheet from "../tools/split_sheet.js";
 import {
   button, card, checkbox, clear, customDialog, download, el, emptyRow, field,
-  hint, logPane, monthsAgoIso, pageHeading, pickFile, radioGroup, sectionTitle,
+  hint, icon, logPane, monthsAgoIso, pageHeading, pickFile, radioGroup, sectionTitle,
   select, table, textInput, todayIso,
 } from "../ui.js";
 
@@ -354,6 +354,68 @@ export function splitSheetPage(app) {
     return { 1: "st", 2: "nd", 3: "rd" }[day % 10] || "th";
   }
 
+  /**
+   * The settle up, shown as arithmetic rather than a conclusion.
+   *
+   * Every figure here is traceable back to rows in the preview, so a
+   * surprising number can be checked instead of taken on faith.
+   */
+  function explainSettle(cycle) {
+    const money = (value) => fmt(value * 1000);
+    const name = (which) => state.personName(which);
+
+    const step = (number, title, ...lines) => el("div", { class: "step" },
+      el("span", { class: "step-number", text: String(number) }),
+      el("div", { class: "step-body" },
+        el("p", { class: "step-title", text: title }),
+        ...lines.filter(Boolean).map(
+          (line) => el("p", { class: "hint", text: line }))));
+
+    const side = (which) => {
+      const paid = cycle.paidBy[which === 1 ? "p1" : "p2"];
+      const other = which === 1 ? 2 : 1;
+      if (!paid.count) {
+        return step(which, `${name(which)} paid for nothing this cycle.`,
+          `So ${name(other)} owes them nothing.`);
+      }
+      return step(which,
+        `${name(which)} paid ${money(paid.total)} across ` +
+        `${paid.count} transaction(s).`,
+        paid.cards.map((card) => `${card.name}: ${money(card.amount)}`).join("     "),
+        `${name(other)}'s share of those comes to ${money(paid.owedByOther)}.`);
+    };
+
+    customDialog(`Settle up: ${cycle.label}`, (body) => {
+      body.append(side(1), side(2));
+
+      const owed1 = cycle.paidBy.p1.owedByOther;
+      const owed2 = cycle.paidBy.p2.owedByOther;
+      body.append(step(3, "The two cancel out.",
+        `${money(owed1)} owed to ${name(1)}, less ${money(owed2)} owed to ` +
+        `${name(2)}, is ${money(cycle.net)}.`,
+        cycle.settleFrom === 0
+          ? "They are even, so no payment is needed."
+          : `${name(cycle.settleFrom)} pays ` +
+            `${name(cycle.settleFrom === 1 ? 2 : 1)} ` +
+            `${money(cycle.settleAmount)}.`));
+
+      const joint = cycle.paidBy.joint;
+      if (joint.count) {
+        body.append(el("p", { class: "hint is-warn", text:
+          `${joint.count} transaction(s) totalling ${money(joint.total)} were ` +
+          "on joint or unrecognised accounts. They count as spending but " +
+          "not towards who owes whom, because nobody fronted the money for " +
+          "the other." }));
+      }
+
+      body.append(hint(
+        `Totals for the cycle: ${name(1)} ${money(cycle.share1)}, ` +
+        `${name(2)} ${money(cycle.share2)}, ${money(cycle.total)} in all.`));
+
+      return { value: () => true };
+    }, { confirmText: "Close", cancelText: "" , hideCancel: true });
+  }
+
   function showSummary() {
     clear(summaryHost).append(summaryTable);
     if (!rows || !rows.length) {
@@ -386,10 +448,16 @@ export function splitSheetPage(app) {
         el("td", { class: "num", text: fmt(cycle.share1 * 1000) }),
         el("td", { class: "num", text: fmt(cycle.share2 * 1000) }),
         el("td", { class: "num", text: fmt(cycle.total * 1000) }),
-        el("td", {
-          class: cycle.settleFrom === 0 ? "hint" : "",
-          text: settle,
-        })));
+        el("td", {},
+          el("div", { class: "settle-cell" },
+            el("span", { class: cycle.settleFrom === 0 ? "hint" : "", text: settle }),
+            el("button", {
+              type: "button",
+              class: "info-button",
+              "aria-label": `How the settle up for ${cycle.label} was worked out`,
+              title: "How this was worked out",
+              onClick: () => explainSettle(cycle),
+            }, icon("info", { size: 15 }))))));
 
       // The cards behind that cycle, so a surprising total can be traced.
       if (cycle.byCard.length > 1) {
@@ -617,13 +685,16 @@ export function splitSheetPage(app) {
 
       log.write(`Reading transactions from ${sinceInput.value} ...`, "head");
       const fetched = await app.run(async () => {
-        const client = state.requireClient();
-        return client.transactions(state.budgetId, sinceInput.value);
+        return state.transactions(sinceInput.value);
       }, { log, buttons: [convertButton] });
       if (!fetched) return;
 
+      if (fetched.cached) {
+        log.write(`Using transactions already loaded ${state.dataAge()}. ` +
+          "Refresh in the footer to re-read from YNAB.", "muted");
+      }
       const until = untilInput.value;
-      const inRange = fetched.filter((item) => !until || item.date <= until);
+      const inRange = fetched.list.filter((item) => !until || item.date <= until);
       log.write(`${inRange.length} transaction(s) in range.`);
 
       const groupOf = buildGroupLookup();

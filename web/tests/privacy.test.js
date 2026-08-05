@@ -6,7 +6,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, extname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -87,6 +87,28 @@ test("no em dashes or en dashes in anything a user reads", () => {
     assert.equal(/[–—]/.test(file.text), false,
       `${file.name} contains a dash character that should be a plain hyphen`);
   }
+});
+
+test("no em dashes or en dashes outside web/ either", () => {
+  // The scan above starts at web/, so files above it need naming. They are
+  // read by people too, and the README is the first thing anyone sees.
+  //
+  // Paths resolve from this file, so the repository root is two levels up.
+  // A missing file fails rather than being skipped: a typo here would
+  // otherwise leave the test passing while checking nothing.
+  const outside = ["../../README.md", "../../.github/workflows/pages.yml"];
+  let checked = 0;
+
+  for (const name of outside) {
+    const path = fileURLToPath(new URL(name, import.meta.url));
+    assert.ok(existsSync(path), `${name} was not found at ${path}`);
+    const text = readFileSync(path, "utf8");
+    assert.equal(/[–—]/.test(text), false,
+      `${name} contains a dash character that should be a plain hyphen`);
+    checked += 1;
+  }
+
+  assert.equal(checked, outside.length);
 });
 
 test("defaults are a clean slate", () => {

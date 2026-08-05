@@ -512,6 +512,13 @@ export function monthlySummary(rows, settings = {}) {
         share1: 0, share2: 0, total: 0, count: 0,
         owedToP1: 0, owedToP2: 0,
         byCard: new Map(),
+        // Kept so the settle up can show its working rather than just its
+        // answer: a number nobody can check is a number nobody trusts.
+        paidBy: {
+          p1: { count: 0, total: 0, owedByOther: 0, cards: new Map() },
+          p2: { count: 0, total: 0, owedByOther: 0, cards: new Map() },
+          joint: { count: 0, total: 0, cards: new Map() },
+        },
       });
     }
 
@@ -527,16 +534,33 @@ export function monthlySummary(rows, settings = {}) {
     const payer = payerOf(row.Card, settings);
     if (payer === "p1") cycle.owedToP1 += row.Share2;
     else if (payer === "p2") cycle.owedToP2 += row.Share1;
+
+    const bucket = cycle.paidBy[payer];
+    bucket.count += 1;
+    bucket.total += row.Amount;
+    bucket.cards.set(card, (bucket.cards.get(card) || 0) + row.Amount);
+    // What the other person owes on this row. A joint card owes nobody.
+    if (payer === "p1") bucket.owedByOther += row.Share2;
+    else if (payer === "p2") bucket.owedByOther += row.Share1;
   }
 
   const result = [...cycles.values()]
     .map((cycle) => {
       const net = cycle.owedToP1 - cycle.owedToP2;
+      const cardList = (map) => [...map.entries()]
+        .map(([name, amount]) => ({ name, amount: round2(amount) }))
+        .sort((a, b) => b.amount - a.amount);
+
       return {
         ...cycle,
         byCard: [...cycle.byCard.entries()]
           .map(([name, amount]) => ({ name, amount }))
           .sort((a, b) => b.amount - a.amount),
+        paidBy: {
+          p1: { ...cycle.paidBy.p1, cards: cardList(cycle.paidBy.p1.cards) },
+          p2: { ...cycle.paidBy.p2, cards: cardList(cycle.paidBy.p2.cards) },
+          joint: { ...cycle.paidBy.joint, cards: cardList(cycle.paidBy.joint.cards) },
+        },
         net: Math.round(net * 100) / 100,
         // Who pays, and how much, to settle the cycle.
         settleFrom: net > 0 ? 2 : net < 0 ? 1 : 0,

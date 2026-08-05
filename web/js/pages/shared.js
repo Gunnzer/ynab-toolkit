@@ -381,9 +381,12 @@ export function sharedExpensesPage(app) {
     log.write(`Scanning ${startDate.value} to ${endDate.value} ...`, "head");
 
     const result = await app.run(async () => {
-      const client = state.requireClient();
-      const transactions = await client.transactions(state.budgetId, startDate.value);
-      return shared.scan(transactions, checked.complete, startDate.value,
+      const fetched = await state.transactions(startDate.value);
+      if (fetched.cached) {
+        log.write(`Using transactions already loaded ${state.dataAge()}. ` +
+          "Applying re-reads from YNAB regardless.", "muted");
+      }
+      return shared.scan(fetched.list, checked.complete, startDate.value,
         endDate.value, checked.value,
         { skipAlreadySplit: skipSplit.querySelector("input").checked });
     }, { log, buttons: [previewButton] });
@@ -419,8 +422,9 @@ export function sharedExpensesPage(app) {
       const client = state.requireClient();
 
       // The preview may be minutes old. Re-scan and drop anything that
-      // changed in YNAB since, rather than overwriting it.
-      const fresh = await client.transactions(state.budgetId, startDate.value);
+      // changed in YNAB since, rather than overwriting it. Deliberately
+      // forced past the cache: the whole point is to see the current truth.
+      const { list: fresh } = await state.transactions(startDate.value, { force: true });
       const { stillValid, drifted } = shared.driftCheck(
         chosen, fresh, startDate.value, endDate.value,
         { skipAlreadySplit: skipSplit.querySelector("input").checked });
@@ -442,6 +446,7 @@ export function sharedExpensesPage(app) {
     saveBackups(stored);
     if (!result) return;
 
+    state.invalidate();
     log.write(`Done. Converted ${result.changed} transaction(s).` +
       (result.failed ? ` ${result.failed} failed.` : ""),
       result.failed ? "warn" : "ok");
