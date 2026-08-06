@@ -106,6 +106,11 @@ h1, h2, h3 { margin: 0; font-weight: 600; line-height: 1.3; }
   position: sticky;
   top: 0;
   height: 100vh;
+  /* .sidebar and .main are siblings with no z-index between them, so
+     .main - later in the document - would otherwise paint over anything
+     that pops out of the sidebar, sticky table headers included. This
+     puts the whole sidebar, flyouts and all, above all page content. */
+  z-index: 10;
 }
 
 .brand {
@@ -169,6 +174,52 @@ h1, h2, h3 { margin: 0; font-weight: 600; line-height: 1.3; }
 .nav-item[aria-current="page"] svg { opacity: 1; }
 .nav-item:focus-visible {
   outline: 2px solid #fff;
+  outline-offset: -2px;
+}
+
+/* ---------- nav item that pops out a menu ---------- */
+
+.nav-item-wrap { position: relative; }
+.nav-caret { margin-left: auto; flex: 0 0 auto; font-size: 13px; opacity: .6; }
+
+.nav-flyout {
+  display: none;
+  position: absolute;
+  left: 100%;
+  top: 0;
+  margin-left: 6px;
+  min-width: 190px;
+  padding: 6px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: 20;
+}
+.nav-item-wrap:hover .nav-flyout,
+.nav-item-wrap.is-open .nav-flyout { display: block; }
+
+.nav-flyout-item {
+  display: block;
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.nav-flyout-item:hover { background: var(--sunken); color: var(--accent); }
+.nav-flyout-item[aria-current="page"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+.nav-flyout-item:focus-visible {
+  outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 
@@ -1063,6 +1114,10 @@ td .btn-small { min-height: 28px; padding: 0 9px; font-size: 12.5px; }
   .nav { flex-direction: row; flex-wrap: wrap; padding: 0; }
   .nav-item { width: auto; padding: 7px 11px; font-size: 13.5px; }
   .sidebar-footer { margin: 0 0 0 auto; padding: 0; border-top: 0; }
+
+  /* No room to pop out sideways in a horizontal bar, so it drops down
+     underneath its parent instead. */
+  .nav-flyout { left: 0; top: 100%; margin-left: 0; margin-top: 6px; }
 
   .page { padding-top: 20px; }
   .page-body > .section-title, .page-body > .section-head { margin-top: 30px; }

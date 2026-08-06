@@ -480,3 +480,54 @@ export function monthsAgoIso(months) {
   date.setMonth(date.getMonth() - months);
   return date.toISOString().slice(0, 10);
 }
+
+// ---------- month picking ----------
+//
+// The one month-dropdown component every page with a month picker uses, so
+// "March 2026" reads the same everywhere and there is exactly one place
+// that decides how far back the list goes.
+
+export function thisMonth() {
+  return new Date().toISOString().slice(0, 7);
+}
+
+/** "YYYY-MM" for N months before this one. */
+export function monthsAgo(n) {
+  const date = new Date();
+  date.setDate(1);
+  date.setMonth(date.getMonth() - n);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/** "YYYY-MM" -> "March 2026". */
+export function monthLabel(monthStr) {
+  const [y, m] = monthStr.split("-").map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString(undefined, {
+    month: "long", year: "numeric",
+  });
+}
+
+// However far back is used when a budget has not said when it starts, e.g.
+// before a first connection.
+const FALLBACK_MONTH_WINDOW = 96;
+// A hard stop so a garbled first_month cannot loop this forever.
+const MAX_MONTH_OPTIONS = 720;
+
+/**
+ * { value, label } options for a month <select>, newest first, going back
+ * only as far as the budget itself does.
+ */
+export function monthOptions(earliestMonth) {
+  const options = [];
+  const cursor = new Date();
+  cursor.setDate(1);
+  const stop = earliestMonth || monthsAgo(FALLBACK_MONTH_WINDOW - 1);
+
+  for (let i = 0; i < MAX_MONTH_OPTIONS; i += 1) {
+    const value = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`;
+    options.push({ value, label: monthLabel(value) });
+    if (value <= stop) break;
+    cursor.setMonth(cursor.getMonth() - 1);
+  }
+  return options;
+}

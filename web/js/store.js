@@ -27,6 +27,15 @@ export const DEFAULTS = {
   explorer: { includeHidden: false },
   // Which category groups are rolled up on the Budget page, by group id.
   budgetOverview: { collapsedGroups: [] },
+  classicBudget: {
+    collapsedGroups: [],
+    // categoryId -> planned amount in milliunits. Applies to every month
+    // right now, not just the one you set it from - there is no history
+    // yet. Kept as a flat map (not nested under a month) on purpose, so
+    // adding dated entries per category later does not need a migration,
+    // just a richer value where this one is now a plain number.
+    plannedByBudget: {},
+  },
   // The two people, defined once. Shared Expenses and Bill Splitting both mean
   // the same two humans, so holding a copy each would let them disagree.
   //

@@ -7,6 +7,7 @@ import { alertDialog, clear, el, icon, setPill } from "./ui.js";
 import { homePage } from "./pages/home.js";
 import { setupPage } from "./pages/setup.js";
 import { budgetPage } from "./pages/budget.js";
+import { classicBudgetPage } from "./pages/classicbudget.js";
 import { reportsPage } from "./pages/reports.js";
 import { splitSheetPage } from "./pages/splitsheet.js";
 import { sharedExpensesPage } from "./pages/shared.js";
@@ -21,10 +22,20 @@ export const PAGES = [
     id: "home", title: "Home", icon: "home", build: homePage,
   },
   {
-    id: "budget", title: "Budget", icon: "chart", key: "budgetOverview",
+    id: "budget", title: "YNAB Budget", icon: "chart", key: "budgetOverview",
     build: budgetPage,
     blurb: "See where a month stands: what is left to assign, what is " +
       "overspent, and what every category holds.",
+    // Pops out as one "Budget" item in the sidebar with both choices under
+    // it, rather than two separate nav entries.
+    group: "budget", groupLabel: "Budget", groupIcon: "chart",
+  },
+  {
+    id: "classic-budget", title: "Classic Budget", icon: "chart",
+    key: "budgetOverview", build: classicBudgetPage,
+    blurb: "Your categories with a plan of your own next to them: set what " +
+      "you meant to spend, and see whether a category ran over it.",
+    group: "budget", groupLabel: "Budget", groupIcon: "chart",
   },
   {
     id: "reports", title: "Reports", icon: "trend", key: "reports",
@@ -133,7 +144,15 @@ class App {
   buildNav() {
     const render = (host, pages) => {
       clear(host);
+      const doneGroups = new Set();
       for (const page of pages) {
+        if (page.group) {
+          if (doneGroups.has(page.group)) continue;
+          doneGroups.add(page.group);
+          host.append(this.buildNavGroup(page,
+            pages.filter((p) => p.group === page.group)));
+          continue;
+        }
         host.append(el("button", {
           type: "button",
           class: "nav-item",
@@ -145,6 +164,53 @@ class App {
     };
     render(this.nav, this.visiblePages());
     render(this.navSetup, [SETUP_PAGE]);
+  }
+
+  /** One sidebar entry that pops out a small menu of its member pages. */
+  buildNavGroup(representative, members) {
+    const isActive = members.some((page) => page.id === this.current);
+    const parent = el("button", {
+      type: "button",
+      class: "nav-item nav-item-parent",
+      "aria-current": isActive ? "page" : null,
+      "aria-haspopup": "true",
+      "aria-expanded": "false",
+    }, icon(representative.groupIcon || representative.icon),
+      el("span", { text: representative.groupLabel || representative.title }),
+      el("span", { class: "nav-caret", "aria-hidden": "true", text: "›" }));
+
+    const flyout = el("div", { class: "nav-flyout", role: "menu" });
+    for (const page of members) {
+      flyout.append(el("button", {
+        type: "button",
+        class: "nav-flyout-item",
+        role: "menuitem",
+        "aria-current": this.current === page.id ? "page" : null,
+        onClick: () => { this.go(page.id); close(); },
+      }, el("span", { text: page.title })));
+    }
+
+    const wrap = el("div", { class: "nav-item-wrap" }, parent, flyout);
+    const close = () => {
+      wrap.classList.remove("is-open");
+      parent.setAttribute("aria-expanded", "false");
+    };
+    const open = () => {
+      wrap.classList.add("is-open");
+      parent.setAttribute("aria-expanded", "true");
+    };
+
+    // Hover is the primary way in; click and Escape cover keyboard and
+    // touch, where there is no hover to open or close it with.
+    wrap.addEventListener("mouseleave", close);
+    parent.addEventListener("click", () => {
+      wrap.classList.contains("is-open") ? close() : open();
+    });
+    parent.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") close();
+    });
+
+    return wrap;
   }
 
   routeFromHash() {

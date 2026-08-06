@@ -5,8 +5,8 @@ import { parseDelimited } from "../tools/bank_convert.js";
 import * as sheet from "../tools/split_sheet.js";
 import {
   button, card, checkbox, clear, customDialog, download, el, emptyRow, field,
-  hint, icon, logPane, pageHeading, pickFile, radioGroup, sectionTitle,
-  select, table, textInput,
+  hint, icon, logPane, monthOptions, pageHeading, pickFile, radioGroup,
+  sectionTitle, select, table, textInput,
 } from "../ui.js";
 
 const LOG_EMPTY =
@@ -14,24 +14,6 @@ const LOG_EMPTY =
   "tracker and never changes anything in YNAB.";
 
 const PREVIEW_ROWS = 60;
-
-/** "March 2026" style options for a month dropdown, newest first. */
-function monthOptions(earliestMonth) {
-  const pad2 = (n) => String(n).padStart(2, "0");
-  const stop = earliestMonth || "2015-01";
-  const options = [];
-  const cursor = new Date();
-  cursor.setDate(1);
-  for (let i = 0; i < 720; i += 1) {
-    const value = `${cursor.getFullYear()}-${pad2(cursor.getMonth() + 1)}`;
-    options.push({ value, label: cursor.toLocaleDateString(undefined, {
-      month: "long", year: "numeric",
-    }) });
-    if (value <= stop) break;
-    cursor.setMonth(cursor.getMonth() - 1);
-  }
-  return options;
-}
 
 export function splitSheetPage(app) {
   const state = app.state;

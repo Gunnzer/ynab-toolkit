@@ -4,8 +4,9 @@ import { fmt } from "../money.js";
 import * as reports from "../tools/reports.js";
 import {
   button, card, checkbox, clear, confirmDialog, customDialog, el, emptyRow,
-  field, hint, logPane, monthsAgoIso, pageHeading, radioGroup, sectionTitle,
-  select, table, textInput, todayIso,
+  field, hint, logPane, monthLabel as monthLabelLong, monthOptions, monthsAgo,
+  monthsAgoIso, pageHeading, radioGroup, sectionTitle, select, table,
+  textInput, thisMonth, todayIso,
 } from "../ui.js";
 
 const LOG_EMPTY =
@@ -18,52 +19,8 @@ function pad2(n) {
   return String(n).padStart(2, "0");
 }
 
-function thisMonth() {
-  return new Date().toISOString().slice(0, 7);
-}
-
 function previousMonth() {
   return monthsAgo(1);
-}
-
-/** "YYYY-MM" for N months before this one. */
-function monthsAgo(n) {
-  const date = new Date();
-  date.setDate(1);
-  date.setMonth(date.getMonth() - n);
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}`;
-}
-
-function monthLabel2(monthStr) {
-  const [y, m] = monthStr.split("-").map(Number);
-  return new Date(y, m - 1, 1).toLocaleDateString(undefined, {
-    month: "long", year: "numeric",
-  });
-}
-
-// However far back is used when YNAB has not said when the budget starts,
-// e.g. before a first connection.
-const FALLBACK_MONTH_WINDOW = 96;
-// A hard stop so a garbled first_month cannot loop the page forever.
-const MAX_MONTH_OPTIONS = 720;
-
-/**
- * "March 2026" style options for a month dropdown, newest first, going
- * back only as far as the budget itself does.
- */
-function monthOptions(earliestMonth) {
-  const options = [];
-  const cursor = new Date();
-  cursor.setDate(1);
-  const stop = earliestMonth || monthsAgo(FALLBACK_MONTH_WINDOW - 1);
-
-  for (let i = 0; i < MAX_MONTH_OPTIONS; i += 1) {
-    const value = `${cursor.getFullYear()}-${pad2(cursor.getMonth() + 1)}`;
-    options.push({ value, label: monthLabel2(value) });
-    if (value <= stop) break;
-    cursor.setMonth(cursor.getMonth() - 1);
-  }
-  return options;
 }
 
 /** The first and last calendar day of a "YYYY-MM" month. */
@@ -174,7 +131,7 @@ export function reportsPage(app) {
   const rangeRow = el("div", { class: "card-grid" },
     field("From month", rangeFromInput), field("To month", rangeToInput));
   const earliestNote = hint(state.firstBudgetMonth
-    ? `This budget's data starts ${monthLabel2(state.firstBudgetMonth)}.`
+    ? `This budget's data starts ${monthLabelLong(state.firstBudgetMonth)}.`
     : "Connect on the Setup page to limit this list to when your budget " +
       "actually starts.");
 
@@ -412,9 +369,9 @@ export function reportsPage(app) {
   /** A short readable line for a filter, e.g. "March 2026   ·   Everyone". */
   function describeFilters(f) {
     const parts = [];
-    if (f.periodMode === "month") parts.push(monthLabel2(f.periodMonth));
+    if (f.periodMode === "month") parts.push(monthLabelLong(f.periodMonth));
     else if (f.periodMode === "range") {
-      parts.push(`${monthLabel2(f.rangeFrom)} to ${monthLabel2(f.rangeTo)}`);
+      parts.push(`${monthLabelLong(f.rangeFrom)} to ${monthLabelLong(f.rangeTo)}`);
     } else if (f.periodMode === "ytd") parts.push("Year to date");
     else parts.push(`${formatFriendly(f.since)} to ${formatFriendly(f.until)}`);
 
