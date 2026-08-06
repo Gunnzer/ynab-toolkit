@@ -5,8 +5,8 @@ import { parseDelimited } from "../tools/bank_convert.js";
 import * as sheet from "../tools/split_sheet.js";
 import {
   button, card, checkbox, clear, customDialog, download, el, emptyRow, field,
-  hint, icon, logPane, monthsAgoIso, pageHeading, pickFile, radioGroup, sectionTitle,
-  select, table, textInput, todayIso,
+  hint, icon, logPane, pageHeading, pickFile, radioGroup, sectionTitle,
+  select, table, textInput,
 } from "../ui.js";
 
 const LOG_EMPTY =
@@ -14,6 +14,24 @@ const LOG_EMPTY =
   "tracker and never changes anything in YNAB.";
 
 const PREVIEW_ROWS = 60;
+
+/** "March 2026" style options for a month dropdown, newest first. */
+function monthOptions(earliestMonth) {
+  const pad2 = (n) => String(n).padStart(2, "0");
+  const stop = earliestMonth || "2015-01";
+  const options = [];
+  const cursor = new Date();
+  cursor.setDate(1);
+  for (let i = 0; i < 720; i += 1) {
+    const value = `${cursor.getFullYear()}-${pad2(cursor.getMonth() + 1)}`;
+    options.push({ value, label: cursor.toLocaleDateString(undefined, {
+      month: "long", year: "numeric",
+    }) });
+    if (value <= stop) break;
+    cursor.setMonth(cursor.getMonth() - 1);
+  }
+  return options;
+}
 
 export function splitSheetPage(app) {
   const state = app.state;
@@ -170,11 +188,39 @@ export function splitSheetPage(app) {
 
   // ---------- source ----------
 
-  const sinceInput = textInput(settings.sinceDate || monthsAgoIso(1), {
-    type: "date", onInput: save,
+  // Month pickers, not raw dates: since a cycle is already set up under
+  // "Cycle and accounts", picking "March" should mean that whole cycle,
+  // not the 1st to the 31st.
+  const thisMonthStr = new Date().toISOString().slice(0, 7);
+  const monthOpts = monthOptions(state.firstBudgetMonth);
+  if (!settings.sinceMonth) settings.sinceMonth = thisMonthStr;
+  if (!settings.toMonth) settings.toMonth = thisMonthStr;
+
+  // From and To name the start-month and end-month of ONE cycle (most
+  // cycles span two calendar months), not two separate cycles to add
+  // together - so each just applies the relevant day-of-month directly to
+  // its own month, rather than walking out to "the next cycle after this
+  // one". Feb -> Mar with a 6th-to-5th cycle is one cycle, Feb 6 to Mar 5,
+  // not Feb's cycle plus March's.
+  function cycleIso(monthStr, which) {
+    const [y, m] = monthStr.split("-").map(Number);
+    const lastDay = new Date(y, m, 0).getDate();
+    const startDay = settings.cycleStartDay || 1;
+    const day = which === "start" ? startDay
+      : settings.cycleEndDay || (startDay > 1 ? startDay - 1 : lastDay);
+    return new Date(y, m - 1, Math.min(day, lastDay)).toISOString().slice(0, 10);
+  }
+
+  const sinceInput = { get value() { return cycleIso(settings.sinceMonth, "start"); } };
+  const untilInput = { get value() { return cycleIso(settings.toMonth, "end"); } };
+
+  const fromMonthInput = select(monthOpts, settings.sinceMonth, (value) => {
+    settings.sinceMonth = value;
+    store.save();
   });
-  const untilInput = textInput(settings.toDate || todayIso(), {
-    type: "date", onInput: save,
+  const toMonthInput = select(monthOpts, settings.toMonth, (value) => {
+    settings.toMonth = value;
+    store.save();
   });
   const fileNote = hint("No file chosen yet.");
 
@@ -188,7 +234,7 @@ export function splitSheetPage(app) {
   });
 
   const apiRow = el("div", { class: "card-grid" },
-    field("From date", sinceInput), field("To date", untilInput));
+    field("From month", fromMonthInput), field("To month", toMonthInput));
 
   const dropzone = el("div", { class: "dropzone" },
     el("div", { class: "card-row" },
@@ -503,8 +549,6 @@ export function splitSheetPage(app) {
     settings.skipPayeeSubstrings = skipList.value
       .split(",").map((part) => part.trim()).filter(Boolean);
     settings.splitMemoPattern = splitPattern.value.trim();
-    settings.sinceDate = sinceInput.value;
-    settings.toDate = untilInput.value;
     store.save();
     paintPreviewHeadings();
   }

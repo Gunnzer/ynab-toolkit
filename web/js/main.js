@@ -91,18 +91,26 @@ class App {
     document.getElementById("help-button")
       .addEventListener("click", () => this.showHelp());
 
-    // Transactions are fetched once and shared between pages, so there has
-    // to be one obvious way to say "I changed something in YNAB, read it
-    // again".
-    this.refreshButton.addEventListener("click", () => {
-      this.state.invalidate();
-      this.setStatus("Loaded data cleared. Run the tool again to re-read.");
+    // Everything is fetched once at connect and shared between pages, so
+    // there has to be one obvious way to say "I changed something in YNAB,
+    // read it again" that does not mean visiting every tool in turn.
+    this.refreshButton.addEventListener("click", async () => {
+      const result = await this.run(async () => this.state.reloadAll(),
+        { buttons: [this.refreshButton] });
+      if (!result) return;
+      this.setStatus("Re-read from YNAB.");
+      this.refresh();
     });
 
     this.state.subscribe(() => this.refreshChrome());
     this.state.store.subscribe(() => this.buildNav());
 
     window.addEventListener("hashchange", () => this.routeFromHash());
+
+    // refreshChrome() only otherwise runs when something changes. Without
+    // this, "just now" would sit there unchanged for as long as the tab
+    // stays open and nothing else happens to trigger a repaint.
+    setInterval(() => this.refreshChrome(), 30000);
   }
 
   // ---------- tools ----------
@@ -253,6 +261,16 @@ class App {
     const state = this.state;
     if (!state.token || state.connection !== "idle") return;
 
+    // A plain page reload lands here too. If this tab already fetched
+    // everything for this budget, that is still good: reuse it rather
+    // than asking YNAB again just because the page happened to reload.
+    if (state.restoreSession()) {
+      state.connection = "connected";
+      state.notify();
+      this.refresh();
+      return;
+    }
+
     state.connection = "connecting";
     state.notify();
     this.setStatus("Reconnecting to YNAB...");
@@ -263,13 +281,22 @@ class App {
       let index = budgets.findIndex((budget) => budget.id === state.budgetId);
       if (index < 0 && budgets.length) index = 0;
 
+      state.budgets = budgets;
       if (index >= 0) {
         state.setBudget(budgets[index].id, budgets[index].name);
-        state.categoryGroups = await client.categories(budgets[index].id);
-        state.accounts = await client.accounts(budgets[index].id);
+        const [groups, accounts, transactions] = await Promise.all([
+          client.categories(budgets[index].id),
+          client.accounts(budgets[index].id),
+          // The full history, fetched once here so no other page ever
+          // has to ask YNAB for it again this session.
+          client.transactions(budgets[index].id),
+        ]);
+        state.categoryGroups = groups;
+        state.accounts = accounts;
+        state.cacheTransactions(transactions);
       }
-      state.budgets = budgets;
       state.connection = "connected";
+      state.persistSession();
     } catch {
       // Silent: the status pill says "Connection failed", and Setup explains
       // it properly if they go looking.

@@ -85,7 +85,7 @@ export function setupPage(app) {
     el("div", { class: "card-row" },
       el("label", { class: "field-label", style: "margin:0", text: "Budget" }),
       el("div", { class: "grow" }, budgetSelect),
-      button("Reload categories", { onClick: loadBudgetData }),
+      button("Reload data", { onClick: loadBudgetData }),
       button("View budget", { onClick: () => app.go("budget") })),
     budgetStatus));
 
@@ -233,10 +233,14 @@ export function setupPage(app) {
       let data = null;
       if (index >= 0) {
         const budgetId = budgets[index].id;
-        data = {
-          groups: await client.categories(budgetId),
-          accounts: await client.accounts(budgetId),
-        };
+        const [groups, accounts, transactions] = await Promise.all([
+          client.categories(budgetId),
+          client.accounts(budgetId),
+          // Every tool reads transactions from this same fetch for the
+          // rest of the session, rather than each asking YNAB on its own.
+          client.transactions(budgetId),
+        ]);
+        data = { groups, accounts, transactions };
       }
       return { budgets, index, fellBack, data };
     }, { log, buttons: [connectButton] });
@@ -276,14 +280,17 @@ export function setupPage(app) {
     if (data) {
       state.categoryGroups = data.groups;
       state.accounts = data.accounts;
+      state.cacheTransactions(data.transactions);
       const visible = state.flatCategories(false).length;
       const total = state.flatCategories(true).length;
       log.write(
         `Loaded ${state.groups().length} group(s), ${visible} visible ` +
         `categories (${total - visible} hidden), ${data.accounts.length} ` +
-        "account(s).", "ok");
+        `account(s), ${data.transactions.length} transaction(s).`, "ok");
     }
 
+    // So a plain page reload can reuse this instead of fetching again.
+    state.persistSession();
     state.notify();
     setBudgetStatus();
   }
@@ -300,21 +307,13 @@ export function setupPage(app) {
     if (!state.budgetId) return log.write("Select a budget first.", "warn");
     if (!state.token) return log.write("Connect with a token first.", "warn");
 
-    log.write(`Loading categories for '${state.budgetName}'...`, "head");
-    const result = await app.run(async () => {
-      const client = state.requireClient();
-      return {
-        groups: await client.categories(state.budgetId),
-        accounts: await client.accounts(state.budgetId),
-      };
-    }, { log });
+    log.write(`Loading data for '${state.budgetName}'...`, "head");
+    const result = await app.run(async () => state.reloadAll(), { log });
 
     if (!result) return;
-    state.categoryGroups = result.groups;
-    state.accounts = result.accounts;
     const visible = state.flatCategories(false).length;
     log.write(`Loaded ${state.groups().length} group(s), ${visible} ` +
-      "visible categories.", "ok");
+      `visible categories, ${result.transactions.length} transaction(s).`, "ok");
     state.notify();
     setBudgetStatus();
   }
@@ -327,6 +326,7 @@ export function setupPage(app) {
     state.budgets = [];
     state.categoryGroups = [];
     state.accounts = [];
+    state.clearSession();
     tokenInput.value = "";
     clear(budgetSelect);
     budgetSelect.disabled = true;
@@ -376,6 +376,7 @@ export function setupPage(app) {
     state.categoryGroups = [];
     state.accounts = [];
     state.connection = "idle";
+    state.clearSession();
     state.notify();
     app.go("setup");
   }

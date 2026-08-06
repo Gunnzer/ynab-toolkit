@@ -390,37 +390,69 @@ h1, h2, h3 { margin: 0; font-weight: 600; line-height: 1.3; }
   background: var(--accent);
 }
 .progress.is-full span { background: var(--ok); }
-.progress.bar-wide { width: 100%; min-width: 90px; height: 8px; }
 
-/* ---------- saved filter chips ---------- */
+/* The by-month bar sits inline next to the month name, not in a column of
+   its own, and is free to run longer since it shares the wide label cell. */
+.progress.month-bar { flex: 1 1 auto; height: 8px; }
 
-.chip {
-  display: inline-flex;
-  align-items: stretch;
-  border: 1px solid var(--border-strong);
-  border-radius: 999px;
-  overflow: hidden;
+/* ---------- saved filter list ---------- */
+
+.saved-filter-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.saved-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   background: var(--card);
 }
-.chip-main, .chip-remove {
-  border: 0;
+.saved-filter-row.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.saved-filter-main { flex: 1; min-width: 0; }
+
+/* Specificity has to beat the global input[type="text"] rule further down
+   this file, which is why this is qualified rather than a bare class. */
+.saved-filter-row input.saved-filter-name {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  padding: 2px 6px;
+  margin: -2px 0 -2px -6px;
+  border: 1px solid transparent;
+  border-radius: 4px;
   background: none;
-  font: inherit;
+  font-size: 14.5px;
+  font-weight: 600;
   color: var(--text);
-  cursor: pointer;
-  padding: 6px 8px 6px 14px;
-  font-size: 13px;
 }
-.chip-remove {
-  padding: 6px 12px 6px 6px;
-  color: var(--faint);
-  font-size: 16px;
-  line-height: 1;
+.saved-filter-row input.saved-filter-name:hover { border-color: var(--border-strong); }
+.saved-filter-row input.saved-filter-name:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--card);
+  box-shadow: 0 0 0 3px var(--accent-ring);
 }
-.chip-main:hover { color: var(--accent); }
-.chip-remove:hover { color: var(--error); }
-.chip:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
-.chip-main:focus-visible, .chip-remove:focus-visible { outline: none; }
+.saved-filter-row.is-active input.saved-filter-name { color: var(--accent-hover); }
+
+.saved-filter-summary { margin-top: 3px; }
+
+.saved-filter-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+.saved-filter-actions .pill { flex: 0 0 auto; }
 
 /* ---------- home tool cards ---------- */
 
@@ -768,6 +800,32 @@ tr.group-row td {
 }
 tr.group-row:hover td { background: var(--sunken); }
 tr.group-row td:first-child { padding: 0; }
+
+/*
+ * Reports' four tables sit one after another and are read as a set, so
+ * their Items/Spent columns need to land in the same place in every one.
+ * A plain <table> sizes each column from its own content, and "Category
+ * group" against "Payee" against "Month" never agree on where that should
+ * be. table-layout: fixed plus an identical width per column, scoped to
+ * just these four tables, is what actually locks them into a straight
+ * line; nothing else in the app opts into it.
+ */
+.report-table table { table-layout: fixed; }
+.report-table .col-label {
+  overflow-wrap: break-word;
+  white-space: normal;
+}
+/* Items sits narrow and close to the label, so Spent - the number that
+   actually matters - gets a clear gap of its own rather than butting
+   straight up against it. */
+.report-table .col-items { width: 60px; }
+.report-table .col-spent { width: 118px; }
+.report-table th.col-spent, .report-table td.col-spent { padding-left: 30px; }
+
+/* The month name and its bar, sitting in one cell so the bar reads as
+   belonging to that row rather than as a column of its own. */
+.month-cell { display: flex; align-items: center; gap: 12px; }
+.month-cell-name { flex: 0 0 auto; white-space: nowrap; }
 
 .group-toggle {
   display: flex;

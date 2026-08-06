@@ -3,6 +3,12 @@
 import { YnabClient, flattenCategories } from "./api.js";
 import { Store } from "./store.js";
 
+// sessionStorage, not localStorage: this is fetched YNAB data, not a
+// setting, and it should not survive past this tab closing. Its only job
+// is making a plain page reload (F5) free, not becoming another place your
+// budget sits around forever.
+const SESSION_KEY = "ynab-toolkit.session";
+
 export class AppState {
   constructor() {
     this.store = new Store().load();
@@ -72,6 +78,98 @@ export class AppState {
     return { list, fetchedAt: this.txCache.at, cached: false };
   }
 
+  /**
+   * The whole transaction history, fetched once. An empty since sorts
+   * before any real date, so this satisfies every narrower request after
+   * it: every tool that asks for "since some date" gets served from this
+   * without another call to YNAB.
+   */
+  async loadAllTransactions({ force = false } = {}) {
+    return this.transactions("", { force });
+  }
+
+  /**
+   * Record transactions already in hand, e.g. fetched alongside categories
+   * and accounts in one connect. Used instead of loadAllTransactions()
+   * when the caller already has the list, so nothing is fetched twice.
+   */
+  cacheTransactions(list) {
+    this.txCache = { budgetId: this.budgetId, since: "", at: Date.now(), list };
+    this.notify();
+  }
+
+  /**
+   * Refetch categories, accounts and the full transaction history for the
+   * current budget, in parallel. This is the one place "start over" means
+   * for the whole app: every page reads from this same cache, so nothing
+   * else needs to call YNAB again until this runs.
+   */
+  async reloadAll() {
+    const client = this.requireClient();
+    const [groups, accounts, transactions] = await Promise.all([
+      client.categories(this.budgetId),
+      client.accounts(this.budgetId),
+      client.transactions(this.budgetId),
+    ]);
+    this.categoryGroups = groups;
+    this.accounts = accounts;
+    this.cacheTransactions(transactions);
+    this.persistSession();
+    this.notify();
+    return { groups, accounts, transactions };
+  }
+
+  // ---------- surviving a page reload ----------
+  //
+  // A plain browser refresh throws away everything above: it is a new page
+  // load, so a new AppState, so an empty cache. Without this, pressing F5
+  // would silently repeat the connect-time fetch every time, which is
+  // exactly the incidental API use the shared cache was built to avoid.
+  // Only the token and settings (in localStorage) are meant to survive
+  // that; this mirrors them into sessionStorage, tab-scoped and gone when
+  // the tab closes, so refreshing is free but nothing lingers indefinitely.
+
+  persistSession() {
+    try {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+        budgetId: this.budgetId,
+        budgets: this.budgets,
+        categoryGroups: this.categoryGroups,
+        accounts: this.accounts,
+        txCache: this.txCache,
+      }));
+    } catch {
+      // Private browsing or a full quota. Refreshing just costs a fetch.
+    }
+  }
+
+  /** True if this tab already had everything for the current budget. */
+  restoreSession() {
+    try {
+      const raw = sessionStorage.getItem(SESSION_KEY);
+      if (!raw) return false;
+      const saved = JSON.parse(raw);
+      if (!saved || saved.budgetId !== this.budgetId) return false;
+      if (!saved.txCache || !Array.isArray(saved.budgets)) return false;
+
+      this.budgets = saved.budgets;
+      this.categoryGroups = saved.categoryGroups || [];
+      this.accounts = saved.accounts || [];
+      this.txCache = saved.txCache;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  clearSession() {
+    try {
+      sessionStorage.removeItem(SESSION_KEY);
+    } catch {
+      /* nothing to do */
+    }
+  }
+
   /** One budget month, cached per budget. */
   async month(month, { force = false } = {}) {
     const key = `${this.budgetId}|${month}`;
@@ -126,6 +224,21 @@ export class AppState {
     return this.store.get("budgetName", "");
   }
 
+  /**
+   * The selected budget's own summary, straight from YNAB's /budgets list.
+   * Carries first_month/last_month, which is what "as far back as your
+   * budget goes" actually means, rather than a guess.
+   */
+  get currentBudget() {
+    return (this.budgets || []).find((b) => b.id === this.budgetId) || null;
+  }
+
+  /** "YYYY-MM" for the earliest month this budget has data for, if known. */
+  get firstBudgetMonth() {
+    const value = this.currentBudget?.first_month;
+    return typeof value === "string" && value.length >= 7 ? value.slice(0, 7) : null;
+  }
+
   setBudget(id, name) {
     if (id !== this.budgetId) {
       // Category ids are budget-scoped; a stale cache would mislead.
@@ -155,7 +268,7 @@ export class AppState {
         !group.deleted &&
         (includeHidden || !group.hidden) &&
         group.name !== "Internal Master Category")
-      .map((group) => ({ id: group.id, name: group.name }));
+      .map((group) => ({ id: group.id, name: group.name, hidden: Boolean(group.hidden) }));
   }
 
   categoryName(id, fallback = "(unknown category)") {

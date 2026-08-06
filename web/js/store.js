@@ -45,9 +45,9 @@ export const DEFAULTS = {
       reports: true,
       sharedExpenses: true,
       splitSheet: true,
-      autoAssign: true,
-      // Off to start with: it is the one tool most people never need, and
-      // an unused tool in the sidebar is just noise. Switch it on in Setup.
+      // Off to start with: most people never need these, and an unused
+      // tool in the sidebar is just noise. Switch either on in Setup.
+      autoAssign: false,
       duplicates: false,
       bankImport: true,
     },
@@ -97,13 +97,22 @@ export const DEFAULTS = {
     // ambiguous date in a YNAB export was read day first.
     dateOrder: "dayFirst",
     source: "api",
-    sinceDate: "",
-    toDate: "",
+    // "YYYY-MM"; the actual since/until dates come from these plus the
+    // cycle start/end day above, so picking a month always pulls one full
+    // statement cycle rather than a plain calendar month.
+    sinceMonth: "",
+    toMonth: "",
     columns: {},
   },
   reports: {
+    // since/until are the effective dates every filter actually runs on.
+    // The fields below drive them; which ones apply depends on periodMode.
     since: "",
     until: "",
+    periodMode: "month",    // month | range | ytd | custom
+    periodMonth: "",        // month mode: "YYYY-MM"
+    rangeFrom: "",          // range mode: "YYYY-MM"
+    rangeTo: "",            // range mode: "YYYY-MM"
     owner: "all",
     groupNames: [],
     excludeCategoryIds: [],
@@ -111,6 +120,8 @@ export const DEFAULTS = {
     includeInflow: false,
     // Named filters, so a report you look at every month is one click.
     saved: [],
+    // Which saved filter, if any, the controls currently match.
+    activeSavedName: "",
   },
   duplicates: {
     since: "",
