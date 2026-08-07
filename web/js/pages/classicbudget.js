@@ -9,8 +9,8 @@
 import { fmt, toMilliunits } from "../money.js";
 import {
   button, card, checkbox, clear, customDialog, el, emptyRow, field, hint,
-  logPane, monthOptions, pageHeading, sectionTitle, select, table, textInput,
-  thisMonth,
+  logPane, monthOptions, pageHeading, pill, sectionTitle, select, table,
+  textInput, thisMonth,
 } from "../ui.js";
 
 const LOG_EMPTY =
@@ -48,6 +48,71 @@ export function classicBudgetPage(app) {
     el("label", { class: "field-label", style: "margin:0", text: "Month" }),
     el("div", { class: "narrow" }, monthInput),
     loadedNote)));
+
+  // ---------- overbudget ----------
+
+  const overbudgetHost = el("div");
+  root.append(
+    sectionTitle("Overbudget"),
+    hint("Categories that spent more than the plan you set for them, in " +
+      "the same order as the list below."),
+    overbudgetHost);
+
+  function renderOverbudget() {
+    clear(overbudgetHost);
+    if (!month) {
+      overbudgetHost.append(card(hint("Pick a month above to see this.")));
+      return;
+    }
+
+    const monthById = new Map((month.categories || []).map((c) => [c.id, c]));
+
+    // Walk state.categoryGroups in the same order the Categories table
+    // below does, rather than sorting by how far over each one is - so the
+    // two lists always agree on order.
+    const over = [];
+    for (const group of state.categoryGroups || []) {
+      for (const base of group.categories || []) {
+        const category = monthById.get(base.id);
+        if (!category || category.deleted || category.hidden) continue;
+        const planned = plannedFor(base.id);
+        if (planned === null) continue;
+        const spent = Math.max(0, -(category.activity || 0));
+        const overBy = spent - planned;
+        if (overBy > 0) over.push({ category, groupName: group.name, planned, overBy });
+      }
+    }
+
+    if (!over.length) {
+      overbudgetHost.append(card(el("div", { class: "card-row" },
+        pill("All clear", "ok"),
+        el("span", { class: "grow", text:
+          "Nothing has gone over the plan you set for it." }))));
+      return;
+    }
+
+    const totalOver = over.reduce((sum, entry) => sum + entry.overBy, 0);
+
+    const list = table([
+      { key: "category", label: "Category" },
+      { key: "group", label: "Group" },
+      { key: "planned", label: "Budgeted", className: "num" },
+      { key: "amount", label: "Over by", className: "num" },
+    ]);
+    for (const { category, groupName, planned, overBy } of over) {
+      list.tbody.append(el("tr", {},
+        el("td", { text: category.name }),
+        el("td", { class: "hint", text: groupName }),
+        el("td", { class: "num", text: fmt(planned) }),
+        el("td", { class: "num is-error", text: fmt(overBy) })));
+    }
+
+    overbudgetHost.append(
+      el("div", { class: "card-row" },
+        el("span", { class: "hint is-error", text:
+          `${over.length} categor(ies) over budget by ${fmt(totalOver)}.` })),
+      list);
+  }
 
   // ---------- planned amounts ----------
 
@@ -136,8 +201,6 @@ export function classicBudgetPage(app) {
   const categoryTable = table([
     { key: "name", label: "Group / Category" },
     { key: "planned", label: "Budgeted", className: "num" },
-    { key: "difference", label: "$ Difference", className: "num" },
-    { key: "percentDifference", label: "% Difference", className: "num" },
     { key: "activity", label: "Activity", className: "num" },
   ]);
   const categoryStatus = hint("");
@@ -149,9 +212,9 @@ export function classicBudgetPage(app) {
       button("Set budgeted amounts", { small: true, onClick: setPlannedAmounts }),
       button("Collapse all", { small: true, onClick: () => setAllCollapsed(true) }),
       button("Expand all", { small: true, onClick: () => setAllCollapsed(false) })),
-    hint("Budgeted is a plan you set, not a YNAB figure. The difference " +
-      "columns are green while spending stays at or under that plan, and " +
-      "red once spending goes over it."),
+    hint("Budgeted is a plan you set, not a YNAB figure. Activity is green " +
+      "while spending stays under that plan, grey when it lands exactly on " +
+      "it, and red once it goes over."),
     el("div", { class: "card-row" },
       el("div", { class: "grow" }, search), hiddenBox, unbudgetedBox),
     categoryTable,
@@ -198,6 +261,7 @@ export function classicBudgetPage(app) {
   }
 
   function renderCategories() {
+    renderOverbudget();
     if (!state.hasBudgetData) {
       emptyRow(categoryTable,
         "No categories loaded. Connect and choose a budget on the Setup page.");
@@ -239,7 +303,6 @@ export function classicBudgetPage(app) {
           el("span", { class: "caret", "aria-hidden": "true", text: "▾" }),
           el("span", { text: group.name + (group.hidden ? "  (hidden)" : "") }),
           el("span", { class: "count", text: `${matches.length}` }))),
-        el("td", { class: "num" }), el("td", { class: "num" }),
         el("td", { class: "num" }), el("td", { class: "num" })));
 
       if (isCollapsed) {
@@ -255,11 +318,10 @@ export function classicBudgetPage(app) {
         // Activity is negative when money leaves the category; spent is
         // the plain positive amount that reads naturally against a plan.
         const spent = Math.max(0, -(category.activity || 0));
-        // Flipped on purpose: + and red mean overspent, - and green mean
-        // under. To revert, swap back to `planned - spent` and swap the
-        // `is-error`/`is-ok` branches below.
-        const difference = planned === null ? null : spent - planned;
-        const percentDifference = planned ? (difference / planned) * 100 : null;
+        const activityClass = planned === null ? ""
+          : spent === 0 || spent === planned ? "is-muted"
+            : spent > planned ? "is-error"
+              : "is-ok";
 
         categoryTable.tbody.append(el("tr", {},
           el("td", { class: "indent",
@@ -268,19 +330,7 @@ export function classicBudgetPage(app) {
             class: "num",
             text: planned === null ? "not set" : fmt(planned),
           }),
-          el("td", {
-            class: `num ${difference === null ? "" : difference >= 0 ? "is-error" : "is-ok"}`,
-            text: difference === null
-              ? "not set"
-              : (difference >= 0 ? "+" : "") + fmt(difference),
-          }),
-          el("td", {
-            class: `num ${percentDifference === null ? "" : percentDifference >= 0 ? "is-error" : "is-ok"}`,
-            text: percentDifference === null
-              ? "not set"
-              : (percentDifference >= 0 ? "+" : "") + percentDifference.toFixed(1) + "%",
-          }),
-          el("td", { class: "num", text: fmt(category.activity) })));
+          el("td", { class: `num ${activityClass}`, text: fmt(spent) })));
       }
     }
 

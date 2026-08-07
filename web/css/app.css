@@ -346,6 +346,7 @@ h1, h2, h3 { margin: 0; font-weight: 600; line-height: 1.3; }
 .is-ok { color: var(--ok); }
 .is-warn { color: var(--warn); }
 .is-error { color: var(--error); }
+.is-muted { color: var(--muted); }
 
 /* ==========================================================================
    Cards

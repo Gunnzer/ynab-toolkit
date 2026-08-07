@@ -7,6 +7,8 @@ import * as shared from "../js/tools/shared_expenses.js";
 import * as autoassign from "../js/tools/autoassign.js";
 import * as duplicates from "../js/tools/duplicates.js";
 import * as bank from "../js/tools/bank_convert.js";
+import * as sheet from "../js/tools/split_sheet.js";
+import { CATEGORY_GROUPS, TRANSACTIONS } from "./fixtures/test_budget.js";
 
 describe("money", () => {
   test("round trip", () => {
@@ -390,5 +392,75 @@ describe("duplicates", () => {
     assert.equal(puts[0].flag_color, "red");
     assert.equal(puts[0].amount, -100);
     assert.ok(!("subtransactions" in puts[0]));
+  });
+});
+
+// Exercises real tools against the fake budget in tests/fixtures/test_budget.js
+// instead of a one-off inline fixture, so these scenarios stay realistic and
+// shared across whatever else ends up testing against the same budget.
+describe("fake budget: bill splitting", () => {
+  const settings = {
+    person1GroupPrefix: "Alex", person1Name: "Alex",
+    person2GroupPrefix: "Sam", person2Name: "Sam",
+    person1AccountTag: "A", person2AccountTag: "S",
+    codes: { person1: "P1", person2: "P2", shared: "S", custom: "C" },
+    tolerance: 0.02,
+  };
+
+  function groupNameFor(categoryId) {
+    for (const group of CATEGORY_GROUPS) {
+      if (group.categories.some((c) => c.id === categoryId)) return group.name;
+    }
+    return "";
+  }
+
+  test("every transfer leg is skipped, nothing else is", () => {
+    const { items, skippedTransfers } = sheet.fromApi(TRANSACTIONS, groupNameFor, settings);
+    const expectedTransfers = TRANSACTIONS.filter(
+      (t) => !t.deleted && t.transfer_account_id).length;
+    const expectedItems = TRANSACTIONS.filter(
+      (t) => !t.deleted && !t.transfer_account_id).length;
+    assert.equal(skippedTransfers, expectedTransfers);
+    assert.equal(items.length, expectedItems);
+  });
+
+  test("the split Costco transaction becomes one row with two parts", () => {
+    const { items } = sheet.fromApi(TRANSACTIONS, groupNameFor, settings);
+    const costco = items.find((item) => item.payee === "Costco Wholesale");
+    assert.ok(costco);
+    assert.equal(costco.parts.length, 2);
+    // Groceries is a shared category (no group prefix), Personal Care is
+    // Alex's - fromApi() folds bare "shared" parts onto person 1.
+    assert.deepEqual(costco.parts.map((p) => p.owner), ["p1", "p1"]);
+    const total = costco.parts.reduce((sum, p) => sum + p.amount, 0);
+    assert.ok(Math.abs(total - 212.18) < 0.001);
+  });
+
+  test("the joint savings account with no tag falls back to shared", () => {
+    assert.equal(sheet.accountTag("Emergency Savings"), "");
+    assert.equal(
+      sheet.ownerOf("Shared Bills", "Emergency Savings", settings), "shared");
+  });
+});
+
+describe("fake budget: duplicates", () => {
+  test("the same-day gas station charge on two cards is flagged", () => {
+    const groups = duplicates.find(TRANSACTIONS);
+    const gasGroup = groups.find((g) => g.transactions[0].payee_name.includes("Shell"));
+    assert.ok(gasGroup, "expected the Shell Gas Station pair to be found");
+    assert.equal(gasGroup.transactions.length, 2);
+    assert.equal(gasGroup.amount, -52000);
+  });
+
+  test("same-account-only mode drops the cross-card pair", () => {
+    const groups = duplicates.find(TRANSACTIONS, { requireSameAccount: true });
+    assert.ok(!groups.some((g) => g.transactions[0].payee_name.includes("Shell")));
+  });
+
+  test("deleted and transfer transactions are never candidates", () => {
+    const groups = duplicates.find(TRANSACTIONS, { ignoreTransfers: true });
+    const flagged = groups.flatMap((g) => g.transactions);
+    assert.ok(!flagged.some((t) => t.deleted));
+    assert.ok(!flagged.some((t) => t.transfer_account_id));
   });
 });
