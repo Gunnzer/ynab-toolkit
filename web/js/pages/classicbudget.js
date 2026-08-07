@@ -37,9 +37,11 @@ export function classicBudgetPage(app) {
 
   // Same dropdown as Reports and Bill Splitting, not a native date input:
   // one consistent way to pick a month across the app. Loads as soon as a
-  // month is picked, no separate Load button.
-  const monthInput = select(monthOptions(state.firstBudgetMonth), thisMonth(),
-    () => load());
+  // month is picked, no separate Load button. The choice is remembered
+  // across refreshes, same as Reports.
+  if (!settings.month) settings.month = thisMonth();
+  const monthInput = select(monthOptions(state.firstBudgetMonth), settings.month,
+    () => { settings.month = monthInput.value; store.save(); load(); });
   const loadedNote = hint("");
 
   root.append(card(el("div", { class: "card-row" },
@@ -125,6 +127,11 @@ export function classicBudgetPage(app) {
       store.set("explorer.includeHidden", checked);
       renderCategories();
     });
+  const unbudgetedBox = checkbox(
+    "Hide unbudgeted", store.get("classicBudget.hideUnbudgeted"), (checked) => {
+      store.set("classicBudget.hideUnbudgeted", checked);
+      renderCategories();
+    });
 
   const categoryTable = table([
     { key: "name", label: "Group / Category" },
@@ -142,11 +149,11 @@ export function classicBudgetPage(app) {
       button("Set budgeted amounts", { small: true, onClick: setPlannedAmounts }),
       button("Collapse all", { small: true, onClick: () => setAllCollapsed(true) }),
       button("Expand all", { small: true, onClick: () => setAllCollapsed(false) })),
-    hint("Budgeted is a plan you set, not a YNAB figure. It is green while " +
-      "spending stays at or under that plan, and red once spending goes " +
-      "over it."),
+    hint("Budgeted is a plan you set, not a YNAB figure. The difference " +
+      "columns are green while spending stays at or under that plan, and " +
+      "red once spending goes over it."),
     el("div", { class: "card-row" },
-      el("div", { class: "grow" }, search), hiddenBox),
+      el("div", { class: "grow" }, search), hiddenBox, unbudgetedBox),
     categoryTable,
     categoryStatus,
     log);
@@ -200,6 +207,7 @@ export function classicBudgetPage(app) {
 
     const query = search.value.trim().toLowerCase();
     const includeHidden = hiddenBox.querySelector("input").checked;
+    const hideUnbudgeted = unbudgetedBox.querySelector("input").checked;
     const rolledUp = collapsed();
     clear(categoryTable.tbody);
 
@@ -210,6 +218,7 @@ export function classicBudgetPage(app) {
       const matches = (group.categories || []).filter((category) => {
         if (category.deleted) return false;
         if (category.hidden && !includeHidden) return false;
+        if (hideUnbudgeted && plannedFor(category.id) === null) return false;
         if (!query) return true;
         return category.name.toLowerCase().includes(query) ||
           group.name.toLowerCase().includes(query);
@@ -246,25 +255,27 @@ export function classicBudgetPage(app) {
         // Activity is negative when money leaves the category; spent is
         // the plain positive amount that reads naturally against a plan.
         const spent = Math.max(0, -(category.activity || 0));
-        const overBy = planned === null ? null : spent - planned;
-        const difference = planned === null ? null : planned - spent;
+        // Flipped on purpose: + and red mean overspent, - and green mean
+        // under. To revert, swap back to `planned - spent` and swap the
+        // `is-error`/`is-ok` branches below.
+        const difference = planned === null ? null : spent - planned;
         const percentDifference = planned ? (difference / planned) * 100 : null;
 
         categoryTable.tbody.append(el("tr", {},
           el("td", { class: "indent",
             text: base.name + (base.hidden ? "  (hidden)" : "") }),
           el("td", {
-            class: `num ${overBy === null ? "" : overBy > 0 ? "is-error" : "is-ok"}`,
+            class: "num",
             text: planned === null ? "not set" : fmt(planned),
           }),
           el("td", {
-            class: `num ${difference === null ? "" : difference < 0 ? "is-error" : "is-ok"}`,
+            class: `num ${difference === null ? "" : difference >= 0 ? "is-error" : "is-ok"}`,
             text: difference === null
               ? "not set"
               : (difference >= 0 ? "+" : "") + fmt(difference),
           }),
           el("td", {
-            class: `num ${percentDifference === null ? "" : percentDifference < 0 ? "is-error" : "is-ok"}`,
+            class: `num ${percentDifference === null ? "" : percentDifference >= 0 ? "is-error" : "is-ok"}`,
             text: percentDifference === null
               ? "not set"
               : (percentDifference >= 0 ? "+" : "") + percentDifference.toFixed(1) + "%",

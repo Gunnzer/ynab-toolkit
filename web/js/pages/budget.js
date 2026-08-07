@@ -7,16 +7,13 @@
 import { fmt } from "../money.js";
 import {
   button, card, checkbox, clear, download, el, emptyRow, hint, logPane,
-  pageHeading, pill, sectionTitle, table, textInput,
+  monthOptions, pageHeading, pill, sectionTitle, select, table, textInput,
+  thisMonth,
 } from "../ui.js";
 
 const LOG_EMPTY =
-  "Nothing loaded yet. Pick a month and press Load. This page only reads: " +
-  "it never changes your budget.";
-
-function thisMonth() {
-  return new Date().toISOString().slice(0, 7);
-}
+  "Nothing loaded yet. Pick a month above to load it. This page only " +
+  "reads: it never changes your budget.";
 
 /** A headline number with its label. */
 function stat(label, value, { kind = "", note = "" } = {}) {
@@ -57,14 +54,16 @@ export function budgetPage(app) {
 
   // ---------- controls ----------
 
-  const monthInput = textInput(thisMonth(), { type: "month" });
-  const loadButton = button("Load", { accent: true, onClick: load });
+  // Same dropdown as Reports, Bill Splitting and Classic Budget, not a
+  // native date input. Loads as soon as a month is picked, no separate
+  // Load button.
+  const monthInput = select(monthOptions(state.firstBudgetMonth), thisMonth(),
+    () => load());
   const loadedNote = hint("");
 
   root.append(card(el("div", { class: "card-row" },
     el("label", { class: "field-label", style: "margin:0", text: "Month" }),
     el("div", { class: "narrow" }, monthInput),
-    loadButton,
     button("Export CSV", { onClick: exportCategories }),
     loadedNote)));
 
@@ -424,7 +423,7 @@ export function budgetPage(app) {
         data.accounts = await client.accounts(state.budgetId);
       }
       return data;
-    }, { log, buttons: [loadButton] });
+    }, { log });
 
     if (!result) return;
 
@@ -474,6 +473,7 @@ export function budgetPage(app) {
   renderAttention();
   renderAccounts();
   renderCategories();
+  if (state.token && state.budgetId) load();
 
   return root;
 }

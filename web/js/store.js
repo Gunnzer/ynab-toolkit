@@ -29,6 +29,8 @@ export const DEFAULTS = {
   budgetOverview: { collapsedGroups: [] },
   classicBudget: {
     collapsedGroups: [],
+    hideUnbudgeted: false,
+    month: "",              // last month picked: "YYYY-MM"
     // categoryId -> planned amount in milliunits. Applies to every month
     // right now, not just the one you set it from - there is no history
     // yet. Kept as a flat map (not nested under a month) on purpose, so
@@ -151,6 +153,12 @@ export const DEFAULTS = {
     // matches the PowerShell original, which parsed with InvariantCulture.
     dateOrder: "monthFirst",
     invertAmount: false,
+    // Named column mappings, e.g. "EQ" -> { dateColumn: "Date", ... }, so
+    // switching banks does not mean remapping every column again.
+    presets: {},
+    presetName: "",
+    // Which account "Push to YNAB" writes into, remembered across visits.
+    accountId: "",
     // A generic starting rule for Interac e-Transfers. It contains no
     // personal information; delete it on the Bank Import page if your bank
     // words things differently.

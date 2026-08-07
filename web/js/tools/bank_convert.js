@@ -293,6 +293,10 @@ export function convert({ headers, rows }, settings) {
     const date = parseDate(row[dateColumn], settings.dateFormat || "yyyy-MM-dd",
       { dateOrder: settings.dateOrder || MONTH_FIRST });
     if (!date.ok) result.unparsedDates += 1;
+    // Always kept in ISO too, alongside the display-formatted Date above:
+    // the API needs "yyyy-MM-dd" regardless of what the CSV is set to write.
+    const isoDate = parseDate(row[dateColumn], "yyyy-MM-dd",
+      { dateOrder: settings.dateOrder || MONTH_FIRST });
 
     let amount;
     let amountOk;
@@ -317,6 +321,7 @@ export function convert({ headers, rows }, settings) {
       Payee: payee.trim(),
       Memo: memoColumn ? String(row[memoColumn] ?? "").trim() : "",
       Amount: amount.toFixed(2),
+      ISODate: isoDate.value,
     });
   }
 
@@ -334,6 +339,33 @@ export function toCsv(rows) {
     lines.push(YNAB_COLUMNS.map((column) => escape(row[column])).join(","));
   }
   return lines.join("\r\n") + "\r\n";
+}
+
+/**
+ * Turn converted rows into YNAB API transaction payloads for the given
+ * account. import_id follows YNAB's own "YNAB:<milliunits>:<date>:<n>"
+ * convention (n counts same-day, same-amount repeats), so pushing the same
+ * file twice is recognised as a re-import and skipped rather than
+ * duplicated.
+ */
+export function toYnabTransactions(rows, accountId) {
+  const seen = new Map();
+  return rows.map((row) => {
+    const milliunits = Math.round(Number(row.Amount) * 1000);
+    const key = `${milliunits}:${row.ISODate}`;
+    const occurrence = (seen.get(key) || 0) + 1;
+    seen.set(key, occurrence);
+
+    return {
+      account_id: accountId,
+      date: row.ISODate,
+      payee_name: row.Payee || null,
+      memo: row.Memo || null,
+      amount: milliunits,
+      cleared: "uncleared",
+      import_id: `YNAB:${milliunits}:${row.ISODate}:${occurrence}`,
+    };
+  });
 }
 
 /** Guess a sensible mapping from the file's own headers. */

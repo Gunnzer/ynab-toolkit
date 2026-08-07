@@ -122,6 +122,29 @@ describe("bank import", () => {
     assert.equal(guess.payeeColumn, "Description");
     assert.equal(guess.amountColumn, "Amount");
   });
+
+  test("converted rows carry an ISO date regardless of the display format", () => {
+    const text = "Transfer date,Description,Amount\n03/05/2025,Coffee,-4.50\n";
+    const parsed = bank.parseDelimited(text);
+    const result = bank.convert(parsed, { ...settings, dateFormat: "MM/dd/yyyy" });
+    assert.equal(result.rows[0].Date, "03/05/2025");
+    assert.equal(result.rows[0].ISODate, "2025-03-05");
+  });
+
+  test("YNAB transactions get milliunits and a stable, deduping import_id", () => {
+    const rows = [
+      { Date: "2025-03-05", Payee: "Coffee", Memo: "", Amount: "-4.50", ISODate: "2025-03-05" },
+      { Date: "2025-03-05", Payee: "Coffee", Memo: "", Amount: "-4.50", ISODate: "2025-03-05" },
+    ];
+    const [first, second] = bank.toYnabTransactions(rows, "acct-1");
+    assert.equal(first.account_id, "acct-1");
+    assert.equal(first.date, "2025-03-05");
+    assert.equal(first.amount, -4500);
+    assert.equal(first.import_id, "YNAB:-4500:2025-03-05:1");
+    // Same day, same amount, second occurrence: the counter must bump so
+    // a real repeated charge is not mistaken for a re-import of the first.
+    assert.equal(second.import_id, "YNAB:-4500:2025-03-05:2");
+  });
 });
 
 describe("shared expenses", () => {

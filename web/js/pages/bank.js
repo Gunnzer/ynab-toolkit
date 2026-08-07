@@ -27,8 +27,17 @@ const DATE_ORDERS = [
   { value: "dayFirst", label: "3rd May (day first)" },
 ];
 
+// What a saved bank preset carries. Payee rules stay global on purpose -
+// most people write those against words in a payee name, not against a
+// particular bank's export format.
+const PRESET_FIELDS = [
+  "dateColumn", "payeeColumn", "amountColumn", "memoColumn",
+  "outflowColumn", "inflowColumn", "dateFormat", "dateOrder", "invertAmount",
+];
+
 export function bankImportPage(app) {
-  const store = app.state.store;
+  const state = app.state;
+  const store = state.store;
   const settings = store.section("bankImport");
 
   const root = el("div", { class: "page-body" });
@@ -91,6 +100,84 @@ export function bankImportPage(app) {
   });
 
   root.append(card(dropzone));
+
+  // ---------- bank presets ----------
+
+  function presets() {
+    return settings.presets || (settings.presets = {});
+  }
+
+  function presetOptions() {
+    return [{ value: "", label: "(custom, not saved)" }]
+      .concat(Object.keys(presets()).sort().map((name) => ({ value: name, label: name })));
+  }
+
+  const presetSelect = select(presetOptions(), settings.presetName || "",
+    (name) => applyPreset(name));
+  const presetSaveButton = button("Save as...", { small: true, onClick: savePreset });
+  const presetDeleteButton = button("Delete", { small: true, danger: true, onClick: deletePreset });
+
+  root.append(card(
+    sectionTitle("Bank"),
+    hint("Save this column mapping under a bank's name (EQ, Tangerine, ...) " +
+      "so switching banks is one click instead of remapping every column."),
+    el("div", { class: "card-row" },
+      el("div", { class: "narrow" }, presetSelect), presetSaveButton, presetDeleteButton)));
+
+  function applyPreset(name) {
+    settings.presetName = name;
+    const preset = presets()[name];
+    if (preset) Object.assign(settings, preset);
+    store.save();
+    renderMapping();
+  }
+
+  async function savePreset() {
+    const result = await customDialog("Save bank preset", (body) => {
+      const nameInput = textInput(settings.presetName || "", {
+        placeholder: "e.g. EQ Bank",
+      });
+      const error = el("p", { class: "hint is-error" });
+      body.append(field("Bank name", nameInput), error);
+      return {
+        validate: () => {
+          if (!nameInput.value.trim()) {
+            error.textContent = "Give it a name.";
+            return false;
+          }
+          return true;
+        },
+        value: () => nameInput.value.trim(),
+      };
+    }, { confirmText: "Save" });
+
+    if (!result) return;
+    const snapshot = {};
+    for (const key of PRESET_FIELDS) snapshot[key] = settings[key];
+    presets()[result] = snapshot;
+    settings.presetName = result;
+    store.save();
+    presetSelect.replaceChildren(...presetOptions().map(
+      (option) => el("option", { value: option.value, text: option.label })));
+    presetSelect.value = result;
+    log.write(`Saved the current mapping as '${result}'.`, "ok");
+  }
+
+  async function deletePreset() {
+    const name = settings.presetName;
+    if (!name || !presets()[name]) return;
+    const confirmed = await confirmDialog("Delete bank preset",
+      `Delete the saved mapping for '${name}'?`, { confirmText: "Delete" });
+    if (!confirmed) return;
+
+    delete presets()[name];
+    settings.presetName = "";
+    store.save();
+    presetSelect.replaceChildren(...presetOptions().map(
+      (option) => el("option", { value: option.value, text: option.label })));
+    presetSelect.value = "";
+    log.write(`Deleted '${name}'.`, "ok");
+  }
 
   // ---------- mapping ----------
 
@@ -318,6 +405,72 @@ export function bankImportPage(app) {
 
   root.append(el("div", { class: "card-row" }, convertButton, saveButton, summary));
 
+  // Pushing writes straight to YNAB over the API, same idea as Shared
+  // Expenses: convert first (that is the preview), pick an account, push.
+  // Saving the CSV above is untouched and still works exactly as before.
+  const accountSelect = select([{ value: "", label: "(choose an account)" }], "",
+    (id) => { settings.accountId = id; store.save(); });
+  const pushButton = button("Push to YNAB...", { accent: true, onClick: pushToYnab });
+  pushButton.disabled = true;
+
+  root.append(el("div", { class: "card-row" },
+    el("span", { class: "field-label", text: "Push to" }),
+    el("div", { class: "narrow" }, accountSelect),
+    pushButton));
+
+  function renderAccountOptions() {
+    const accounts = (state.accounts || []).filter((a) => !a.deleted && !a.closed);
+    const options = [{
+      value: "",
+      label: accounts.length ? "(choose an account)" : "(load a budget on Setup first)",
+    }].concat(accounts.map((a) => ({ value: a.id, label: a.name })));
+    accountSelect.replaceChildren(
+      ...options.map((o) => el("option", { value: o.value, text: o.label })));
+    accountSelect.disabled = !accounts.length;
+    accountSelect.value = accounts.some((a) => a.id === settings.accountId)
+      ? settings.accountId : "";
+  }
+
+  async function pushToYnab() {
+    if (!converted || !converted.rows.length) {
+      return log.write("Convert a file first.", "warn");
+    }
+    if (!state.token) return log.write("Connect on the Setup page first.", "error");
+    if (!state.budgetId) {
+      return log.write("Select a budget on the Setup page first.", "error");
+    }
+    renderAccountOptions();
+    const accountId = accountSelect.value;
+    if (!accountId) return log.write("Choose an account to push to.", "error");
+    const accountName = (state.accounts || []).find((a) => a.id === accountId)?.name
+      || "that account";
+
+    const confirmed = await confirmDialog("Push to YNAB",
+      `Create ${converted.rows.length} transaction(s) in '${accountName}'?\n\n` +
+      "YNAB recognises re-pushes of the same file and skips them, the same " +
+      "way its own CSV import does.", { confirmText: "Push" });
+    if (!confirmed) return;
+
+    log.clearLog();
+    log.write(`Pushing ${converted.rows.length} transaction(s) to '${accountName}'...`, "head");
+
+    const result = await app.run(async () => {
+      const client = state.requireClient();
+      const transactions = bank.toYnabTransactions(converted.rows, accountId);
+      return client.createTransactions(state.budgetId, transactions);
+    }, { log, buttons: [convertButton, saveButton, pushButton] });
+
+    if (!result) return;
+
+    const created = (result.transaction_ids || []).length;
+    const skipped = (result.duplicate_import_ids || []).length;
+    state.invalidate();
+    log.write(`Done. Created ${created} transaction(s).` +
+      (skipped ? ` ${skipped} looked like duplicates already in YNAB and ` +
+        "were skipped." : ""), "ok");
+    if (created) state.recordRun("bankImport");
+  }
+
   const preview = table([
     { key: "Date", label: "Date" },
     { key: "Payee", label: "Payee" },
@@ -372,6 +525,7 @@ export function bankImportPage(app) {
     emptyRow(preview, "Press Convert to see the result.");
     summary.textContent = "";
     saveButton.disabled = true;
+    pushButton.disabled = true;
   }
 
   function runConvert() {
@@ -418,6 +572,7 @@ export function bankImportPage(app) {
       `${result.rows.length} row(s) ready.` +
       (result.unparsedDates || result.unparsedAmounts ? " Some rows need a look." : "");
     saveButton.disabled = result.rows.length === 0;
+    pushButton.disabled = result.rows.length === 0;
   }
 
   function saveCsv() {
@@ -433,8 +588,10 @@ export function bankImportPage(app) {
 
   renderMapping();
   renderRules();
+  renderAccountOptions();
   emptyRow(preview, "Choose a file and press Convert.");
   saveButton.disabled = true;
+  pushButton.disabled = true;
 
   return root;
 }

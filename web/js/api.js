@@ -142,6 +142,18 @@ export class YnabClient {
       )
     ).category;
   }
+
+  /**
+   * Bulk-create transactions. Give each one an import_id
+   * ("YNAB:<milliunits>:<date>:<occurrence>") and YNAB itself will skip
+   * anything that looks like a re-import, the same way its own CSV import
+   * does - so pushing the same file twice is safe.
+   */
+  async createTransactions(budgetId, transactions) {
+    return this.request("POST", `/budgets/${budgetId}/transactions`, {
+      body: { transactions },
+    });
+  }
 }
 
 // Flatten grouped categories into [{group, category}]. Deleted entries are
