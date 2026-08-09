@@ -291,9 +291,30 @@ export const MONTHS = {
 //  - a deleted transaction
 //  - a transaction filed under the hidden category
 //  - unapproved and uncleared transactions
+//  - paycheques: inflow-only, and uncategorised (category_id: null) the way
+//    most people's direct-deposit payroll actually lands in YNAB, since
+//    they are not assigned to a category at the point they are received
 
 export const TRANSACTIONS = [
   // ---- June 2026 ----
+  {
+    // Paycheque: positive amount, no category - matches how income
+    // usually arrives in a real budget (nobody categorises their own pay).
+    id: "txn-2026-06-01-payroll-alex", date: "2026-06-01", amount: m(2250.00),
+    memo: "", cleared: "cleared", approved: true, flag_color: null,
+    account_id: "acct-alex-checking", account_name: "(A) Alex Checking",
+    payee_id: "payee-payroll", payee_name: "Acme Corp Payroll",
+    category_id: null, category_name: null,
+    transfer_account_id: null, deleted: false,
+  },
+  {
+    id: "txn-2026-06-01-payroll-sam", date: "2026-06-01", amount: m(2250.00),
+    memo: "", cleared: "cleared", approved: true, flag_color: null,
+    account_id: "acct-sam-checking", account_name: "(S) Sam Checking",
+    payee_id: "payee-payroll-sam", payee_name: "Globex Payroll",
+    category_id: null, category_name: null,
+    transfer_account_id: null, deleted: false,
+  },
   {
     id: "txn-2026-06-01-rent", date: "2026-06-01", amount: m(-1800.00),
     memo: "June rent", cleared: "reconciled", approved: true, flag_color: null,
@@ -536,6 +557,22 @@ export const TRANSACTIONS = [
 
   // ---- July 2026 ----
   {
+    id: "txn-2026-07-01-payroll-alex", date: "2026-07-01", amount: m(2250.00),
+    memo: "", cleared: "cleared", approved: true, flag_color: null,
+    account_id: "acct-alex-checking", account_name: "(A) Alex Checking",
+    payee_id: "payee-payroll", payee_name: "Acme Corp Payroll",
+    category_id: null, category_name: null,
+    transfer_account_id: null, deleted: false,
+  },
+  {
+    id: "txn-2026-07-01-payroll-sam", date: "2026-07-01", amount: m(2250.00),
+    memo: "", cleared: "cleared", approved: true, flag_color: null,
+    account_id: "acct-sam-checking", account_name: "(S) Sam Checking",
+    payee_id: "payee-payroll-sam", payee_name: "Globex Payroll",
+    category_id: null, category_name: null,
+    transfer_account_id: null, deleted: false,
+  },
+  {
     id: "txn-2026-07-01-rent", date: "2026-07-01", amount: m(-1800.00),
     memo: "July rent", cleared: "reconciled", approved: true, flag_color: null,
     account_id: "acct-joint-checking", account_name: "(J) Joint Checking",
@@ -683,6 +720,22 @@ export const TRANSACTIONS = [
   },
 
   // ---- August 2026 (partial month) ----
+  {
+    id: "txn-2026-08-01-payroll-alex", date: "2026-08-01", amount: m(1100.00),
+    memo: "", cleared: "cleared", approved: true, flag_color: null,
+    account_id: "acct-alex-checking", account_name: "(A) Alex Checking",
+    payee_id: "payee-payroll", payee_name: "Acme Corp Payroll",
+    category_id: null, category_name: null,
+    transfer_account_id: null, deleted: false,
+  },
+  {
+    id: "txn-2026-08-01-payroll-sam", date: "2026-08-01", amount: m(1100.00),
+    memo: "", cleared: "cleared", approved: true, flag_color: null,
+    account_id: "acct-sam-checking", account_name: "(S) Sam Checking",
+    payee_id: "payee-payroll-sam", payee_name: "Globex Payroll",
+    category_id: null, category_name: null,
+    transfer_account_id: null, deleted: false,
+  },
   {
     id: "txn-2026-08-01-rent", date: "2026-08-01", amount: m(-1800.00),
     memo: "August rent", cleared: "reconciled", approved: true, flag_color: null,

@@ -147,6 +147,29 @@ describe("bank import", () => {
     // a real repeated charge is not mistaken for a re-import of the first.
     assert.equal(second.import_id, "YNAB:-4500:2025-03-05:2");
   });
+
+  test("undoPush deletes exactly the ids it was given, and reports failures", async () => {
+    const deleted = [];
+    const client = {
+      async deleteTransaction(budgetId, id) {
+        if (id === "bad") throw new Error("already deleted");
+        deleted.push([budgetId, id]);
+      },
+    };
+    const result = await bank.undoPush(client, "budget-1", ["t1", "bad", "t2"]);
+    assert.deepEqual(result, { deleted: 2, failed: 1 });
+    assert.deepEqual(deleted, [["budget-1", "t1"], ["budget-1", "t2"]]);
+  });
+
+  test("undoPush stops early when shouldStop says to", async () => {
+    const deleted = [];
+    const client = { async deleteTransaction(_b, id) { deleted.push(id); } };
+    const result = await bank.undoPush(client, "budget-1", ["t1", "t2", "t3"], {
+      shouldStop: () => deleted.length >= 1,
+    });
+    assert.deepEqual(deleted, ["t1"]);
+    assert.equal(result.deleted, 1);
+  });
 });
 
 describe("shared expenses", () => {
@@ -414,13 +437,19 @@ describe("fake budget: bill splitting", () => {
     return "";
   }
 
-  test("every transfer leg is skipped, nothing else is", () => {
-    const { items, skippedTransfers } = sheet.fromApi(TRANSACTIONS, groupNameFor, settings);
+  test("every transfer leg and bare inflow is skipped, nothing else is", () => {
+    const { items, skippedTransfers, skippedIncome } =
+      sheet.fromApi(TRANSACTIONS, groupNameFor, settings);
+    const isBareInflow = (t) =>
+      !(t.subtransactions || []).length && (t.amount || 0) > 0;
     const expectedTransfers = TRANSACTIONS.filter(
       (t) => !t.deleted && t.transfer_account_id).length;
+    const expectedIncome = TRANSACTIONS.filter(
+      (t) => !t.deleted && !t.transfer_account_id && isBareInflow(t)).length;
     const expectedItems = TRANSACTIONS.filter(
-      (t) => !t.deleted && !t.transfer_account_id).length;
+      (t) => !t.deleted && !t.transfer_account_id && !isBareInflow(t)).length;
     assert.equal(skippedTransfers, expectedTransfers);
+    assert.equal(skippedIncome, expectedIncome);
     assert.equal(items.length, expectedItems);
   });
 
@@ -430,10 +459,25 @@ describe("fake budget: bill splitting", () => {
     assert.ok(costco);
     assert.equal(costco.parts.length, 2);
     // Groceries is a shared category (no group prefix), Personal Care is
-    // Alex's - fromApi() folds bare "shared" parts onto person 1.
-    assert.deepEqual(costco.parts.map((p) => p.owner), ["p1", "p1"]);
+    // Alex's. The raw owner is kept as "shared" here, not folded onto
+    // person 1 - buildRows() is what divides a shared part by ratio.
+    assert.deepEqual(costco.parts.map((p) => p.owner), ["shared", "p1"]);
     const total = costco.parts.reduce((sum, p) => sum + p.amount, 0);
     assert.ok(Math.abs(total - 212.18) < 0.001);
+  });
+
+  test("a split's shared part is divided by ratio, not credited whole to person 1", () => {
+    const { items } = sheet.fromApi(TRANSACTIONS, groupNameFor, settings);
+    const costco = items.find((item) => item.payee === "Costco Wholesale");
+    const [row] = sheet.buildRows([costco], settings);
+
+    // Groceries ($180.18, shared, split 50/50 with no ratio preset
+    // configured) plus Personal Care ($32.00, wholly Alex's/p1):
+    // paid1 = 32 + 90.09 = 122.09, paid2 = 90.09 - a genuine one-off mix,
+    // not the 100%-to-Alex result the old fold-to-p1 behaviour produced.
+    assert.ok(Math.abs(row.Share1 - 122.09) < 0.01, row.Share1);
+    assert.ok(Math.abs(row.Share2 - 90.09) < 0.01, row.Share2);
+    assert.equal(row.Owner, "C");
   });
 
   test("the joint savings account with no tag falls back to shared", () => {

@@ -7,10 +7,11 @@
 // column tell you, at a glance, whether a category ran over that plan.
 
 import { fmt, toMilliunits } from "../money.js";
+import { ownerOf } from "../tools/split_sheet.js";
 import {
   button, card, checkbox, clear, customDialog, el, emptyRow, field, hint,
-  logPane, monthOptions, pageHeading, pill, sectionTitle, select, table,
-  textInput, thisMonth,
+  logPane, monthOptions, pageActions, pageHeading, pill, sectionTitle,
+  select, table, textInput, thisMonth,
 } from "../ui.js";
 
 const LOG_EMPTY =
@@ -44,7 +45,7 @@ export function classicBudgetPage(app) {
     () => { settings.month = monthInput.value; store.save(); load(); });
   const loadedNote = hint("");
 
-  root.append(card(el("div", { class: "card-row" },
+  root.append(pageActions(el("div", { class: "card-row" },
     el("label", { class: "field-label", style: "margin:0", text: "Month" }),
     el("div", { class: "narrow" }, monthInput),
     loadedNote)));
@@ -67,11 +68,11 @@ export function classicBudgetPage(app) {
 
     const monthById = new Map((month.categories || []).map((c) => [c.id, c]));
 
-    // Walk state.categoryGroups in the same order the Categories table
-    // below does, rather than sorting by how far over each one is - so the
-    // two lists always agree on order.
+    // Walk the same groups, in the same order, as the Categories table
+    // below - including its Whose/hidden filters - rather than sorting by
+    // how far over each one is, so the two lists always agree.
     const over = [];
-    for (const group of state.categoryGroups || []) {
+    for (const group of visibleGroups()) {
       for (const base of group.categories || []) {
         const category = monthById.get(base.id);
         if (!category || category.deleted || category.hidden) continue;
@@ -198,6 +199,23 @@ export function classicBudgetPage(app) {
       renderCategories();
     });
 
+  // Same "Whose" filter as Reports: which category groups count, decided
+  // by the same person/group-prefix setup from the Setup page.
+  const ownerSelect = select([
+    { value: "all", label: "Everyone" },
+    { value: "p1", label: state.personName(1) },
+    { value: "p2", label: state.personName(2) },
+    { value: "shared", label: "Shared" },
+  ], settings.owner || "all", (value) => {
+    settings.owner = value;
+    store.save();
+    renderCategories();
+  });
+
+  function groupOwner(groupName) {
+    return ownerOf(groupName, "", state.withPeople(settings));
+  }
+
   const categoryTable = table([
     { key: "name", label: "Group / Category" },
     { key: "planned", label: "Budgeted", className: "num" },
@@ -215,8 +233,9 @@ export function classicBudgetPage(app) {
     hint("Budgeted is a plan you set, not a YNAB figure. Activity is green " +
       "while spending stays under that plan, grey when it lands exactly on " +
       "it, and red once it goes over."),
-    el("div", { class: "card-row" },
-      el("div", { class: "grow" }, search), hiddenBox, unbudgetedBox),
+    el("div", { class: "card-grid" },
+      field("Filter", search), field("Whose", ownerSelect)),
+    el("div", { class: "card-row" }, hiddenBox, unbudgetedBox),
     categoryTable,
     categoryStatus,
     log);
@@ -249,10 +268,12 @@ export function classicBudgetPage(app) {
 
   function visibleGroups() {
     const includeHidden = hiddenBox.querySelector("input").checked;
+    const owner = ownerSelect.value;
     return (state.categoryGroups || []).filter((group) =>
       !group.deleted &&
       (includeHidden || !group.hidden) &&
-      group.name !== "Internal Master Category");
+      group.name !== "Internal Master Category" &&
+      (owner === "all" || groupOwner(group.name) === owner));
   }
 
   function monthCategory(id) {

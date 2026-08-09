@@ -63,6 +63,9 @@ const ICONS = {
     '<path d="M4 7.5h8"/><path d="M18.5 7.5H20"/><path d="M4 16.5h2.5"/>' +
     '<path d="M13 16.5h7"/><circle cx="15.2" cy="7.5" r="2.6"/>' +
     '<circle cx="9.2" cy="16.5" r="2.6"/>',
+  collapse:
+    '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/>' +
+    '<path d="M9.5 4.5v15"/><path d="m7.2 10.4-1.8 1.6 1.8 1.6"/>',
 };
 
 /** An inline SVG icon. Inherits colour, so it works on any background. */
@@ -100,6 +103,18 @@ export function pageHeading(title, intro) {
 
 export function card(...children) {
   return el("div", { class: "card" }, ...children);
+}
+
+/**
+ * A shell for the page's primary actions (Convert, Save, Push, Load...)
+ * that sticks just below the topbar as the page scrolls, so a long
+ * category table or transaction list never scrolls the actions themselves
+ * out of reach. Pass one or more `.card-row` elements as the rows inside -
+ * most pages need just one, but a page can stack a second (an account
+ * picker plus its own button, say) underneath the first.
+ */
+export function pageActions(...rows) {
+  return el("div", { class: "page-actions" }, ...rows);
 }
 
 export function sectionTitle(text) {

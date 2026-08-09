@@ -24,6 +24,7 @@ export const DEFAULTS = {
   budgetId: "",
   budgetName: "",
   rememberToken: false,
+  sidebarCollapsed: false,
   explorer: { includeHidden: false },
   // Which category groups are rolled up on the Budget page, by group id.
   budgetOverview: { collapsedGroups: [] },
@@ -31,6 +32,7 @@ export const DEFAULTS = {
     collapsedGroups: [],
     hideUnbudgeted: false,
     month: "",              // last month picked: "YYYY-MM"
+    owner: "all",            // "Whose" filter: all | p1 | p2 | shared
     // categoryId -> planned amount in milliunits. Applies to every month
     // right now, not just the one you set it from - there is no history
     // yet. Kept as a flat map (not nested under a month) on purpose, so
@@ -159,6 +161,11 @@ export const DEFAULTS = {
     presetName: "",
     // Which account "Push to YNAB" writes into, remembered across visits.
     accountId: "",
+    // The single most recent push per budget, by budget id, so "Undo last
+    // push" knows exactly which transactions to delete. Only ever holds
+    // one entry per budget - pushing again replaces it, it is not a
+    // history.
+    lastPushByBudget: {},
     // A generic starting rule for Interac e-Transfers. It contains no
     // personal information; delete it on the Bank Import page if your bank
     // words things differently.

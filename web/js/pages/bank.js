@@ -6,8 +6,8 @@
 import * as bank from "../tools/bank_convert.js";
 import {
   button, card, checkbox, clear, confirmDialog, customDialog, download, el,
-  emptyRow, field, hint, logPane, pageHeading, pickFile, sectionTitle, select,
-  table, textInput,
+  emptyRow, field, hint, logPane, pageActions, pageHeading, pickFile,
+  sectionTitle, select, table, textInput,
 } from "../ui.js";
 
 const LOG_EMPTY =
@@ -403,8 +403,6 @@ export function bankImportPage(app) {
   const saveButton = button("Save YNAB CSV...", { onClick: saveCsv });
   const summary = hint("");
 
-  root.append(el("div", { class: "card-row" }, convertButton, saveButton, summary));
-
   // Pushing writes straight to YNAB over the API, same idea as Shared
   // Expenses: convert first (that is the preview), pick an account, push.
   // Saving the CSV above is untouched and still works exactly as before.
@@ -412,11 +410,28 @@ export function bankImportPage(app) {
     (id) => { settings.accountId = id; store.save(); });
   const pushButton = button("Push to YNAB...", { accent: true, onClick: pushToYnab });
   pushButton.disabled = true;
+  const undoButton = button("Undo last push", { danger: true, onClick: undoLastPush });
+  const undoLabel = hint("");
 
-  root.append(el("div", { class: "card-row" },
-    el("span", { class: "field-label", text: "Push to" }),
-    el("div", { class: "narrow" }, accountSelect),
-    pushButton));
+  root.append(pageActions(
+    el("div", { class: "card-row" }, convertButton, saveButton, summary),
+    el("div", { class: "card-row" },
+      el("span", { class: "field-label", text: "Push to" }),
+      el("div", { class: "narrow" }, accountSelect),
+      pushButton, undoButton, undoLabel)));
+
+  function lastPushes() {
+    return store.get("bankImport.lastPushByBudget", {}) || {};
+  }
+
+  function paintUndoButton() {
+    const backup = lastPushes()[state.budgetId];
+    undoButton.disabled = !backup;
+    undoLabel.textContent = backup
+      ? `${backup.count} transaction(s) pushed to '${backup.accountName}' ` +
+        `${new Date(backup.pushedAt).toLocaleString()}.`
+      : "";
+  }
 
   function renderAccountOptions() {
     const accounts = (state.accounts || []).filter((a) => !a.deleted && !a.closed);
@@ -462,13 +477,60 @@ export function bankImportPage(app) {
 
     if (!result) return;
 
-    const created = (result.transaction_ids || []).length;
+    const createdIds = (result.transactions || []).map((t) => t.id)
+      .filter(Boolean);
+    const created = createdIds.length;
     const skipped = (result.duplicate_import_ids || []).length;
     state.invalidate();
     log.write(`Done. Created ${created} transaction(s).` +
       (skipped ? ` ${skipped} looked like duplicates already in YNAB and ` +
         "were skipped." : ""), "ok");
-    if (created) state.recordRun("bankImport");
+
+    if (created) {
+      state.recordRun("bankImport");
+      const all = { ...lastPushes() };
+      all[state.budgetId] = {
+        accountName, transactionIds: createdIds, count: created,
+        pushedAt: Date.now(),
+      };
+      store.set("bankImport.lastPushByBudget", all);
+      paintUndoButton();
+    }
+  }
+
+  async function undoLastPush() {
+    const backup = lastPushes()[state.budgetId];
+    if (!backup) return;
+    if (!state.token) return log.write("Connect on the Setup page first.", "error");
+
+    const confirmed = await confirmDialog("Undo last push",
+      `Delete the ${backup.count} transaction(s) pushed to ` +
+      `'${backup.accountName}' on ${new Date(backup.pushedAt).toLocaleString()}?` +
+      "\n\nThis deletes them from YNAB and cannot be undone from here.",
+      { confirmText: "Delete" });
+    if (!confirmed) return;
+
+    log.clearLog();
+    log.write(`Deleting ${backup.transactionIds.length} transaction(s)...`, "head");
+
+    const result = await app.run(async ({ shouldStop }) => {
+      const client = state.requireClient();
+      return bank.undoPush(client, state.budgetId, backup.transactionIds, {
+        log: (message, level) => log.write(message, level), shouldStop,
+      });
+    }, { log, buttons: [pushButton, undoButton] });
+
+    if (!result) return;
+
+    const all = { ...lastPushes() };
+    delete all[state.budgetId];
+    store.set("bankImport.lastPushByBudget", all);
+    paintUndoButton();
+
+    state.invalidate();
+    log.write(`Done. Deleted ${result.deleted} transaction(s).` +
+      (result.failed ? ` ${result.failed} failed.` : ""),
+      result.failed ? "warn" : "ok");
   }
 
   const preview = table([
@@ -589,6 +651,7 @@ export function bankImportPage(app) {
   renderMapping();
   renderRules();
   renderAccountOptions();
+  paintUndoButton();
   emptyRow(preview, "Choose a file and press Convert.");
   saveButton.disabled = true;
   pushButton.disabled = true;

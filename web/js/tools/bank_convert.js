@@ -368,6 +368,34 @@ export function toYnabTransactions(rows, accountId) {
   });
 }
 
+/**
+ * Undo a push: delete exactly the transactions it created, one at a time
+ * (the API has no bulk delete). Stops early if `shouldStop` says to, same
+ * as every other multi-step write in this app.
+ */
+export async function undoPush(client, budgetId, transactionIds, {
+  log = () => {}, shouldStop = () => false,
+} = {}) {
+  let deleted = 0;
+  let failed = 0;
+
+  for (const id of transactionIds) {
+    if (shouldStop()) {
+      log("Stopped.", "warn");
+      break;
+    }
+    try {
+      await client.deleteTransaction(budgetId, id);
+      deleted += 1;
+    } catch (error) {
+      failed += 1;
+      log(`  could not delete ${id}: ${error.message}`, "error");
+    }
+  }
+
+  return { deleted, failed };
+}
+
 /** Guess a sensible mapping from the file's own headers. */
 export function guessColumns(headers) {
   const lowered = new Map(headers.map((h) => [h.toLowerCase(), h]));

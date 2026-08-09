@@ -127,7 +127,41 @@ h1, h2, h3 { margin: 0; font-weight: 600; line-height: 1.3; }
   font-size: 15px;
   font-weight: 600;
   letter-spacing: .01em;
+  flex: 1;
 }
+
+.sidebar-toggle {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--sidebar-muted);
+  cursor: pointer;
+}
+.sidebar-toggle:hover { background: var(--sidebar-raised); color: #fff; }
+.sidebar-toggle:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+.sidebar-toggle svg { width: 17px; height: 17px; }
+
+/*
+ * Collapsed: an icon-only rail. Nav items, the brand name and section
+ * label all hide their text, leaving just the icons (with a native title
+ * tooltip on each nav item for what they are) - width comes down from the
+ * full sidebar to just enough for an icon and its padding.
+ */
+.sidebar.is-collapsed { width: 68px; flex: 0 0 68px; }
+.sidebar.is-collapsed .brand { justify-content: center; padding: 0 10px; }
+.sidebar.is-collapsed .brand-name,
+.sidebar.is-collapsed .sidebar-section,
+.sidebar.is-collapsed .nav-item span,
+.sidebar.is-collapsed .nav-caret { display: none; }
+.sidebar.is-collapsed .nav-item { justify-content: center; padding: 9px; }
+.sidebar.is-collapsed .nav-flyout { left: 100%; top: 0; }
 
 .sidebar-section {
   margin: 20px 0 6px;
@@ -385,6 +419,31 @@ h1, h2, h3 { margin: 0; font-weight: 600; line-height: 1.3; }
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   padding: 14px 18px;
+  gap: 10px;
+}
+
+/*
+ * Sticks just below .topbar (60px tall + 1px border) so the page's action
+ * buttons stay reachable while a long table scrolls underneath. z-index
+ * sits below .topbar's (5) and above ordinary page content.
+ *
+ * A shell, not a row: it gives itself the card look directly (rather than
+ * relying on the .page-body > .card-row rule, since it usually is not a
+ * direct child once other pages nest it) and stacks whatever .card-row(s)
+ * are passed to it - one page might need only "Convert / Save", another
+ * "Convert / Save" plus a separate "Push to..." row underneath.
+ */
+.page-actions {
+  position: sticky;
+  top: 61px;
+  z-index: 4;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
   gap: 10px;
 }
 .page-body > .card-row > .hint:last-child {
@@ -1099,7 +1158,7 @@ td .btn-small { min-height: 28px; padding: 0 9px; font-size: 12.5px; }
   :root { --gutter: 18px; }
 
   .app { flex-direction: column; }
-  .sidebar {
+  .sidebar, .sidebar.is-collapsed {
     width: 100%;
     flex: none;
     height: auto;
@@ -1115,6 +1174,11 @@ td .btn-small { min-height: 28px; padding: 0 9px; font-size: 12.5px; }
   .nav { flex-direction: row; flex-wrap: wrap; padding: 0; }
   .nav-item { width: auto; padding: 7px 11px; font-size: 13.5px; }
   .sidebar-footer { margin: 0 0 0 auto; padding: 0; border-top: 0; }
+  /* Already a horizontal bar with no room to gain from collapsing. */
+  .sidebar-toggle { display: none; }
+  .sidebar.is-collapsed .brand-name,
+  .sidebar.is-collapsed .nav-item span,
+  .sidebar.is-collapsed .nav-caret { display: revert; }
 
   /* No room to pop out sideways in a horizontal bar, so it drops down
      underneath its parent instead. */
@@ -1124,6 +1188,7 @@ td .btn-small { min-height: 28px; padding: 0 9px; font-size: 12.5px; }
   .page-body > .section-title, .page-body > .section-head { margin-top: 30px; }
   .card { padding: 16px; }
   .topbar-inner { height: 54px; gap: 10px; }
+  .page-actions { top: 55px; }
   .topbar h1 { font-size: 17px; }
   .meta { display: none; }
 }

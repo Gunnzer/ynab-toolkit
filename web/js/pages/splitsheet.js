@@ -406,9 +406,15 @@ export function splitSheetPage(app) {
         return step(which, `${name(which)} paid for nothing this cycle.`,
           `So ${name(other)} owes them nothing.`);
       }
+      // A refund (or an inflow left counted as a normal row) can outweigh
+      // what was actually spent on a card, so the net can land at or below
+      // zero. "Paid -$X" would not make sense, so this is worded as what
+      // actually happened instead of assuming the total is always a cost.
+      const verb = paid.total > 0 ? `paid ${money(paid.total)}`
+        : paid.total < 0 ? `came out ${money(-paid.total)} ahead`
+          : "came out even";
       return step(which,
-        `${name(which)} paid ${money(paid.total)} across ` +
-        `${paid.count} transaction(s).`,
+        `${name(which)} ${verb} across ${paid.count} transaction(s).`,
         paid.cards.map((card) => `${card.name}: ${money(card.amount)}`).join("     "),
         `${name(other)}'s share of those comes to ${money(paid.owedByOther)}.`);
     };
@@ -509,7 +515,23 @@ export function splitSheetPage(app) {
     { key: "Memo", label: "Memo" },
   ]);
 
-  root.append(sectionTitle("Preview"), preview, log);
+  // Filters the preview only - rows itself (what Save/Copy write and the
+  // monthly summary above adds up) is never touched by it.
+  const filterColumn = select([
+    { value: "Description", label: "Description" },
+    { value: "Card", label: "Card" },
+    { value: "Owner", label: "Owner" },
+    { value: "Memo", label: "Memo" },
+  ], "Description", () => drawPreview());
+  const filterValue = textInput("", {
+    placeholder: "Filter...", onInput: () => drawPreview(),
+  });
+
+  root.append(
+    sectionTitle("Preview"),
+    el("div", { class: "card-row" },
+      field("Filter by", filterColumn), filterValue),
+    preview, log);
 
   // ---------- settings plumbing ----------
 
@@ -738,6 +760,11 @@ export function splitSheetPage(app) {
       log.write(`Skipped ${source.skippedAccounts} transaction(s) from ` +
         "excluded accounts.", "muted");
     }
+    if (source.skippedIncome) {
+      log.write(`Skipped ${source.skippedIncome} inflow(s) with nothing spent ` +
+        "(paycheques, interest, refunds) - not an expense either of you " +
+        "shared.", "muted");
+    }
 
     rows = sheet.buildRows(source.items, active());
     // A fresh result starts capped again, whatever the last one was showing.
@@ -761,8 +788,19 @@ export function splitSheetPage(app) {
       return;
     }
 
-    const limit = showAll ? rows.length : PREVIEW_ROWS;
-    for (const row of rows.slice(0, limit)) {
+    const column = filterColumn.value;
+    const query = filterValue.value.trim().toLowerCase();
+    const filtered = query
+      ? rows.filter((row) => String(row[column] ?? "").toLowerCase().includes(query))
+      : rows;
+
+    if (!filtered.length) {
+      emptyRow(preview, `Nothing in ${column} matches "${filterValue.value.trim()}".`);
+      return;
+    }
+
+    const limit = showAll ? filtered.length : PREVIEW_ROWS;
+    for (const row of filtered.slice(0, limit)) {
       preview.tbody.append(el("tr", {},
         el("td", { text: row.Card }),
         el("td", { text: sheet.formatDate(row.Date) }),
@@ -773,16 +811,16 @@ export function splitSheetPage(app) {
         el("td", { class: "num", text: row.Share2.toFixed(2) }),
         el("td", { class: "hint", text: row.Memo })));
     }
-    if (rows.length > PREVIEW_ROWS) {
-      const hidden = rows.length - PREVIEW_ROWS;
+    if (filtered.length > PREVIEW_ROWS) {
+      const hidden = filtered.length - PREVIEW_ROWS;
       preview.tbody.append(el("tr", { class: "empty-row" },
         el("td", { colspan: String(preview.columns.length) },
           el("div", { class: "card-row", style: "justify-content:center" },
             el("span", { text: showAll
-              ? `Showing all ${rows.length} rows.`
+              ? `Showing all ${filtered.length} rows.`
               : `Showing the first ${PREVIEW_ROWS}. ${hidden} more are saved ` +
                 "but not drawn." }),
-            button(showAll ? `Show first ${PREVIEW_ROWS}` : `Show all ${rows.length}`, {
+            button(showAll ? `Show first ${PREVIEW_ROWS}` : `Show all ${filtered.length}`, {
               small: true,
               onClick: () => {
                 showAll = !showAll;

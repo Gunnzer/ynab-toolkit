@@ -89,6 +89,8 @@ class App {
 
     this.nav = document.getElementById("nav");
     this.navSetup = document.getElementById("nav-setup");
+    this.sidebar = document.querySelector(".sidebar");
+    this.sidebarToggle = document.getElementById("sidebar-toggle");
     this.pageHost = document.getElementById("page");
     this.title = document.getElementById("page-title");
     this.pill = document.getElementById("status-pill");
@@ -101,6 +103,14 @@ class App {
 
     document.getElementById("help-button")
       .addEventListener("click", () => this.showHelp());
+
+    this.sidebarToggle.append(icon("collapse"));
+    this.applySidebarCollapsed(this.state.store.get("sidebarCollapsed", false));
+    this.sidebarToggle.addEventListener("click", () => {
+      const collapsed = !this.sidebar.classList.contains("is-collapsed");
+      this.state.store.set("sidebarCollapsed", collapsed);
+      this.applySidebarCollapsed(collapsed);
+    });
 
     // Everything is fetched once at connect and shared between pages, so
     // there has to be one obvious way to say "I changed something in YNAB,
@@ -141,6 +151,13 @@ class App {
 
   // ---------- navigation ----------
 
+  applySidebarCollapsed(collapsed) {
+    this.sidebar.classList.toggle("is-collapsed", collapsed);
+    this.sidebarToggle.setAttribute("aria-label",
+      collapsed ? "Expand sidebar" : "Collapse sidebar");
+    this.sidebarToggle.title = collapsed ? "Expand sidebar" : "Collapse sidebar";
+  }
+
   buildNav() {
     const render = (host, pages) => {
       clear(host);
@@ -157,6 +174,7 @@ class App {
           type: "button",
           class: "nav-item",
           "data-page": page.id,
+          title: page.title,
           "aria-current": this.current === page.id ? "page" : null,
           onClick: () => this.go(page.id),
         }, icon(page.icon), el("span", { text: page.title })));
@@ -172,6 +190,7 @@ class App {
     const parent = el("button", {
       type: "button",
       class: "nav-item nav-item-parent",
+      title: representative.groupLabel || representative.title,
       "aria-current": isActive ? "page" : null,
       "aria-haspopup": "true",
       "aria-expanded": "false",

@@ -23,18 +23,23 @@ const SETTINGS = {
 };
 
 describe("owner detection", () => {
-  test("the category group decides", () => {
+  test("a group prefixed with a person's name wins outright", () => {
     assert.equal(sheet.ownerOf("Alex Wants", "", SETTINGS), "p1");
     assert.equal(sheet.ownerOf("Sam Needs", "", SETTINGS), "p2");
     assert.equal(sheet.ownerOf("Household", "", SETTINGS), "shared");
+    // The account tag must not override a group that names a person.
+    assert.equal(sheet.ownerOf("Sam Needs", "(A) Chequing", SETTINGS), "p2");
   });
 
-  test("a group naming neither person is shared, not the payer's", () => {
-    // The account tag must not override a group that is present.
-    assert.equal(sheet.ownerOf("Groceries", "(A) Chequing", SETTINGS), "shared");
+  test("a group naming neither person falls back to the account tag", () => {
+    // "Groceries" names nobody, so Alex's own tagged account decides it.
+    assert.equal(sheet.ownerOf("Groceries", "(A) Chequing", SETTINGS), "p1");
+    // On a joint (or untagged) account, with no group match either, it is
+    // genuinely shared.
+    assert.equal(sheet.ownerOf("Groceries", "Joint Chequing", SETTINGS), "shared");
   });
 
-  test("the account tag only applies when there is no group", () => {
+  test("no group at all also falls back to the account tag", () => {
     assert.equal(sheet.ownerOf("", "(A) Chequing", SETTINGS), "p1");
     assert.equal(sheet.ownerOf("", "(S) Visa", SETTINGS), "p2");
     assert.equal(sheet.ownerOf("", "Joint Chequing", SETTINGS), "shared");
@@ -43,6 +48,7 @@ describe("owner detection", () => {
   test("an unset tag never matches", () => {
     const settings = { ...SETTINGS, person1AccountTag: "", person2AccountTag: "" };
     assert.equal(sheet.ownerOf("", "() Chequing", settings), "shared");
+    assert.equal(sheet.ownerOf("Groceries", "(A) Chequing", settings), "shared");
   });
 
   test("tags are read and stripped", () => {
@@ -252,18 +258,95 @@ describe("reading from the API", () => {
     assert.equal(rows[0].Memo, "new desk");
   });
 
-  test("transfers are skipped and inflows go negative", () => {
+  test("transfers and bare inflows are both skipped", () => {
     const result = sheet.fromApi([
       { date: "2026-03-05", payee_name: "Transfer : Savings", amount: -5000,
         transfer_account_id: "acc2", account_name: "" },
       { date: "2026-03-06", payee_name: "Refund Co", amount: 25000,
         category_id: "c1", account_name: "Joint" },
+      { date: "2026-03-07", payee_name: "Grocery Store", amount: -4000,
+        category_id: "c1", account_name: "Joint" },
     ], groupOf, SETTINGS);
 
     assert.equal(result.skippedTransfers, 1);
+    assert.equal(result.skippedIncome, 1);
     const rows = sheet.buildRows(result.items, SETTINGS);
     assert.equal(rows.length, 1);
-    assert.equal(rows[0].Amount, -25);
+    assert.equal(rows[0].Description, "Grocery Store");
+  });
+
+  test("a split's shared leg is divided by the shared ratio, not credited whole to person 1", () => {
+    // c1 ("Household") has no group prefix and the account is untagged
+    // (joint), so it is genuinely shared - fromApi() used to fold that
+    // onto p1, making a $1000 split with a $650 shared leg and a $350
+    // Alex leg (c2, matched by group regardless of account) read as 100%
+    // Alex's.
+    const result = sheet.fromApi([{
+      date: "2026-03-05", payee_name: "Costco", account_name: "Joint Chequing",
+      amount: -1000000, category_id: null, memo: "",
+      subtransactions: [
+        { category_id: "c1", amount: -650000, memo: "" },
+        { category_id: "c2", amount: -350000, memo: "" },
+      ],
+    }], groupOf, SETTINGS);
+
+    assert.deepEqual(result.items[0].parts.map((p) => p.owner), ["shared", "p1"]);
+
+    // SETTINGS' shared ratio ("SH" preset) is 65% to person 1:
+    // paid1 = 350 (all Alex's) + 650*0.65 (Alex's share of the shared
+    // leg) = 772.5; paid2 = 650*0.35 = 227.5.
+    const rows = sheet.buildRows(result.items, SETTINGS);
+    assert.equal(rows.length, 1);
+    const paid1 = 350 + 650 * 0.65;
+    const paid2 = 650 * 0.35;
+    assert.ok(Math.abs(rows[0].Share1 - paid1) < 0.01, rows[0].Share1);
+    assert.ok(Math.abs(rows[0].Share2 - paid2) < 0.01, rows[0].Share2);
+  });
+});
+
+describe("shared ratio", () => {
+  test("uses the preset matching defaultSharedCode", () => {
+    assert.equal(sheet.sharedRatio(SETTINGS), 0.65);
+  });
+
+  test("falls back to 50/50 when no preset matches", () => {
+    assert.equal(sheet.sharedRatio({ defaultSharedCode: "NOPE", ratioPresets: [] }), 0.5);
+    assert.equal(sheet.sharedRatio({}), 0.5);
+  });
+});
+
+describe("income is never counted as an expense", () => {
+  const groupOf = (id) => ({ c1: "Household" }[id] || "");
+
+  test("isBareInflow: money in, nothing out", () => {
+    assert.equal(sheet.isBareInflow(0, 500), true);
+    assert.equal(sheet.isBareInflow(10, 500), false);
+    assert.equal(sheet.isBareInflow(0, 0), false);
+  });
+
+  test("fromApi skips a bare inflow regardless of category", () => {
+    const result = sheet.fromApi([
+      { date: "2026-03-05", payee_name: "Acme Payroll", amount: 500000,
+        category_id: null, account_name: "(A) Chequing" },
+      { date: "2026-03-06", payee_name: "Refund Co", amount: 25000,
+        category_id: "c1", account_name: "Joint" },
+    ], groupOf, SETTINGS);
+
+    assert.equal(result.skippedIncome, 2);
+    assert.equal(result.items.length, 0);
+  });
+
+  test("fromExport skips a bare inflow the same way", () => {
+    const result = sheet.fromExport({
+      headers: ["Account", "Date", "Payee", "Category Group", "Memo", "Outflow", "Inflow"],
+      rows: [{
+        Account: "(A) Chequing", Date: "2026-03-05", Payee: "Acme Payroll",
+        "Category Group": "", Memo: "", Outflow: "", Inflow: "500",
+      }],
+    }, SETTINGS);
+
+    assert.equal(result.skippedIncome, 1);
+    assert.equal(result.items.length, 0);
   });
 });
 

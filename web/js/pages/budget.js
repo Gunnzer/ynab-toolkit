@@ -7,8 +7,8 @@
 import { fmt } from "../money.js";
 import {
   button, card, checkbox, clear, download, el, emptyRow, hint, logPane,
-  monthOptions, pageHeading, pill, sectionTitle, select, table, textInput,
-  thisMonth,
+  monthOptions, pageActions, pageHeading, pill, sectionTitle, select, table,
+  textInput, thisMonth,
 } from "../ui.js";
 
 const LOG_EMPTY =
@@ -61,7 +61,7 @@ export function budgetPage(app) {
     () => load());
   const loadedNote = hint("");
 
-  root.append(card(el("div", { class: "card-row" },
+  root.append(pageActions(el("div", { class: "card-row" },
     el("label", { class: "field-label", style: "margin:0", text: "Month" }),
     el("div", { class: "narrow" }, monthInput),
     button("Export CSV", { onClick: exportCategories }),

@@ -27,6 +27,15 @@ export const DEFAULT_COLUMNS = {
 
 export class SplitSheetError extends Error {}
 
+/**
+ * A bare inflow - money in, nothing out - is income (a paycheque,
+ * interest), not an expense either person fronted, so it is left out of
+ * the split entirely rather than becoming a negative-amount row.
+ */
+export function isBareInflow(outflow, inflow) {
+  return inflow > 0 && !outflow;
+}
+
 // ---------- classification ----------
 
 /** YNAB writes transfers as "Transfer : Account Name". */
@@ -67,10 +76,13 @@ export function stripAccountTag(accountName) {
 /**
  * Whose expense is this: "p1", "p2" or "shared".
  *
- * The category group decides it. Only when a transaction has no group at
- * all does the account tag get a say, which matches the original: a group
- * that names neither person means the cost is shared, rather than falling
- * through to whoever happened to pay.
+ * The category group decides it first: a group prefixed with a person's
+ * name is theirs. When the group does not name either person - including
+ * when there is no group at all - the account tag gets a second say, so a
+ * personal category nobody bothered to rename with a person's prefix still
+ * counts as theirs as long as it is on their own tagged account. Only when
+ * neither the group nor the account says whose it is does the cost count
+ * as shared.
  */
 export function ownerOf(groupName, accountName, settings) {
   const group = String(groupName || "").trim().toLowerCase();
@@ -82,7 +94,6 @@ export function ownerOf(groupName, accountName, settings) {
   if (group) {
     if (p1 && group.startsWith(p1)) return "p1";
     if (p2 && group.startsWith(p2)) return "p2";
-    return "shared";
   }
 
   const tag = accountTag(accountName);
@@ -93,6 +104,19 @@ export function ownerOf(groupName, accountName, settings) {
       settings.person2AccountTag) return "p2";
   }
   return "shared";
+}
+
+/**
+ * Person 1's share of a shared cost, as a fraction, from the ratio preset
+ * named by the "Shared, no split rows" code (defaultSharedCode). Falls
+ * back to 50/50 if that code has no matching preset, same as an empty
+ * budget's own shipped default.
+ */
+export function sharedRatio(settings) {
+  const code = settings.defaultSharedCode || (settings.codes || {}).shared || "S";
+  const preset = (settings.ratioPresets || []).find((entry) => entry.code === code);
+  const target = preset ? Number(preset.person1Percent) / 100 : NaN;
+  return Number.isFinite(target) ? target : 0.5;
 }
 
 /**
@@ -207,6 +231,7 @@ export function fromExport({ headers, rows }, settings) {
   let skippedTransfers = 0;
   let skippedPayees = 0;
   let skippedAccounts = 0;
+  let skippedIncome = 0;
 
   for (const row of rows) {
     const payee = String(row[columns.payeeColumn] ?? "").trim();
@@ -233,13 +258,16 @@ export function fromExport({ headers, rows }, settings) {
     const base = { accountName, date, payee, groupName, memo };
 
     if (!isSplit) {
+      if (isBareInflow(outflow, inflow)) { skippedIncome += 1; continue; }
       items.push({ ...base, outflow, inflow, parts: null });
       continue;
     }
 
-    // Each half of a split was paid by one person out of their own account.
-    let side = ownerOf(groupName, accountName, settings);
-    if (side === "shared") side = "p1";
+    // Each half of a split was paid by one person out of their own
+    // account, category, or a shared one - buildRows() divides a "shared"
+    // part by the usual shared ratio rather than crediting it whole to
+    // person 1, so a mixed split's owner code reflects the real mix.
+    const side = ownerOf(groupName, accountName, settings);
 
     const key = `${date ? date.toDateString() : ""}|${payee.toLowerCase()}`;
     if (!groups.has(key)) {
@@ -263,7 +291,7 @@ export function fromExport({ headers, rows }, settings) {
     });
   }
 
-  return { items, skippedTransfers, skippedPayees, skippedAccounts };
+  return { items, skippedTransfers, skippedPayees, skippedAccounts, skippedIncome };
 }
 
 /**
@@ -278,6 +306,7 @@ export function fromApi(transactions, groupNameFor, settings) {
   let skippedTransfers = 0;
   let skippedPayees = 0;
   let skippedAccounts = 0;
+  let skippedIncome = 0;
 
   for (const transaction of transactions) {
     if (transaction.deleted) continue;
@@ -307,9 +336,10 @@ export function fromApi(transactions, groupNameFor, settings) {
     const subs = (transaction.subtransactions || []).filter((sub) => !sub.deleted);
     if (subs.length) {
       const parts = subs.map((sub) => {
-        let side = ownerOf(groupNameFor(sub.category_id), base.accountName, settings);
-        if (side === "shared") side = "p1";
-        // Milliunits, and outflows are negative in the API.
+        // Milliunits, and outflows are negative in the API. buildRows()
+        // splits a "shared" part by the usual ratio rather than crediting
+        // it whole to person 1.
+        const side = ownerOf(groupNameFor(sub.category_id), base.accountName, settings);
         return { owner: side, amount: -(sub.amount || 0) / 1000 };
       });
       const memos = subs
@@ -320,15 +350,13 @@ export function fromApi(transactions, groupNameFor, settings) {
     }
 
     const amount = (transaction.amount || 0) / 1000;
-    items.push({
-      ...base,
-      outflow: amount < 0 ? -amount : 0,
-      inflow: amount > 0 ? amount : 0,
-      parts: null,
-    });
+    const outflow = amount < 0 ? -amount : 0;
+    const inflow = amount > 0 ? amount : 0;
+    if (isBareInflow(outflow, inflow)) { skippedIncome += 1; continue; }
+    items.push({ ...base, outflow, inflow, parts: null });
   }
 
-  return { items, skippedTransfers, skippedPayees, skippedAccounts };
+  return { items, skippedTransfers, skippedPayees, skippedAccounts, skippedIncome };
 }
 
 // ---------- conversion ----------
@@ -341,13 +369,23 @@ export function buildRows(items, settings) {
   const card = (accountName) => settings.stripAccountTag
     ? stripAccountTag(accountName) : String(accountName || "").trim();
 
+  const sharedFraction = sharedRatio(settings);
+
   for (const item of items) {
     if (item.parts) {
       let paid1 = 0;
       let paid2 = 0;
       for (const part of item.parts) {
+        // A part with no group of its own is genuinely shared, not
+        // person 1's by default - it is split by the usual shared ratio
+        // rather than credited whole to one side, so a mixed transaction
+        // (part shared, part someone's own) still classifies correctly.
         if (part.owner === "p2") paid2 += part.amount;
-        else paid1 += part.amount;
+        else if (part.owner === "p1") paid1 += part.amount;
+        else {
+          paid1 += part.amount * sharedFraction;
+          paid2 += part.amount * (1 - sharedFraction);
+        }
       }
       const { code, share1, share2 } = classifySplit(paid1, paid2, settings);
       out.push({

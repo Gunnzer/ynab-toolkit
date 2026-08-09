@@ -154,6 +154,12 @@ export class YnabClient {
       body: { transactions },
     });
   }
+
+  async deleteTransaction(budgetId, transactionId) {
+    return (
+      await this.request("DELETE", `/budgets/${budgetId}/transactions/${transactionId}`)
+    ).transaction;
+  }
 }
 
 // Flatten grouped categories into [{group, category}]. Deleted entries are
