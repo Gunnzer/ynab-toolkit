@@ -68,11 +68,10 @@ export const DEFAULTS = {
   },
   sharedExpenses: {
     person1Ratio: 0.35,
-    startDate: "",
-    endDate: "",
     skipAlreadySplit: true,
     rules: [],
     backups: {},
+    mappingOpen: false,
   },
   autoAssign: {
     holdingCategoryId: "",

@@ -117,8 +117,6 @@ test("defaults are a clean slate", () => {
   assert.equal(DEFAULTS.rememberToken, false);
   assert.equal(DEFAULTS.sharedExpenses.rules.length, 0);
   assert.deepEqual(DEFAULTS.sharedExpenses.backups, {});
-  assert.equal(DEFAULTS.sharedExpenses.startDate, "");
-  assert.equal(DEFAULTS.sharedExpenses.endDate, "");
   assert.equal(DEFAULTS.autoAssign.holdingCategoryId, "");
   assert.equal(DEFAULTS.autoAssign.holdingCategoryName, "");
   assert.equal(DEFAULTS.autoAssign.groupIds.length, 0);

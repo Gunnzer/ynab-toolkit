@@ -5,7 +5,7 @@ import * as shared from "../tools/shared_expenses.js";
 import {
   button, card, categoryPicker, checkbox, clear, confirmDialog, customDialog,
   el, emptyRow, field, hint, logPane, pageHeading, sectionTitle, table,
-  textInput, todayIso,
+  textInput,
 } from "../ui.js";
 
 const LOG_EMPTY =
@@ -41,8 +41,6 @@ export function sharedExpensesPage(app) {
   const p1Pct = textInput(String((settings.person1Ratio ?? 0.35) * 100), {
     onInput: save,
   });
-  const startDate = textInput(settings.startDate || defaultStart(), { type: "date", onInput: save });
-  const endDate = textInput(settings.endDate || todayIso(), { type: "date", onInput: save });
   const skipSplit = checkbox("Skip transactions that are already split",
     settings.skipAlreadySplit !== false, save);
 
@@ -51,12 +49,6 @@ export function sharedExpensesPage(app) {
   p2Pct.disabled = true;
 
   const ratioLabel = hint("");
-
-  function defaultStart() {
-    const date = new Date();
-    date.setMonth(date.getMonth() - 3);
-    return date.toISOString().slice(0, 10);
-  }
 
   function ratio() {
     const value = Number(p1Pct.value) / 100;
@@ -84,8 +76,6 @@ export function sharedExpensesPage(app) {
   function save() {
     const value = Number(p1Pct.value) / 100;
     if (Number.isFinite(value)) settings.person1Ratio = value;
-    settings.startDate = startDate.value;
-    settings.endDate = endDate.value;
     settings.skipAlreadySplit = skipSplit.querySelector("input").checked;
     settings.rules = rules;
     store.save();
@@ -101,8 +91,6 @@ export function sharedExpensesPage(app) {
       el("div", { class: "stack" },
         field("Person 2", p2Name), field("Person 2 share (%)", p2Pct)),
       el("div", {}, el("span", { class: "field-label", text: "Split" }), ratioLabel)),
-    el("div", { class: "card-grid" },
-      field("From date", startDate), field("To date", endDate)),
     skipSplit));
 
   // ---------- mapping ----------
@@ -125,9 +113,28 @@ export function sharedExpensesPage(app) {
     { key: "actions", label: "" },
   ]);
 
-  root.append(
+  // Configured once and then rarely touched, so it lives behind a
+  // disclosure like Bill Splitting's "Tool setup" - the mapping card plus
+  // its rules table takes up a lot of room for something you only open to
+  // add or fix a rule.
+  const mappingSummary = hint("");
+  const mappingBody = el("div", { class: "tool-setup-body" });
+  const mappingBlock = el("details", { class: "tool-setup" },
+    el("summary", {},
+      el("span", { class: "caret", "aria-hidden": "true", text: "▾" }),
+      el("span", { class: "tool-setup-title", text: "Shared category mapping" }),
+      mappingSummary),
+    mappingBody);
+  mappingBlock.open = Boolean(settings.mappingOpen);
+  mappingBlock.addEventListener("toggle", () => {
+    settings.mappingOpen = mappingBlock.open;
+    store.save();
+  });
+  root.append(mappingBlock);
+
+  mappingBody.append(
     el("div", { class: "section-head" },
-      sectionTitle("Shared category mapping"), el("span", { class: "spacer" }),
+      el("span", { class: "spacer" }),
       button("Clear all", { small: true, onClick: clearRules })),
     card(
       el("div", { class: "card-grid" },
@@ -150,6 +157,9 @@ export function sharedExpensesPage(app) {
   }
 
   function renderRules() {
+    mappingSummary.textContent = rules.length
+      ? `${rules.length} mapping${rules.length === 1 ? "" : "s"} configured`
+      : "No mappings yet";
     if (!rules.length) {
       emptyRow(rulesTable, "No mappings yet. Add one above.");
       return;
@@ -279,7 +289,53 @@ export function sharedExpensesPage(app) {
       sectionTitle("Preview"), el("span", { class: "spacer" }),
       button("Select all", { small: true, onClick: () => checkAll(true) }),
       button("Select none", { small: true, onClick: () => checkAll(false) })),
-    resultsTable, resultsHint, log);
+    resultsTable, resultsHint);
+
+  // ---------- last applied ----------
+  //
+  // Apply used to just clear the preview, so there was nothing left on
+  // screen to check what actually happened. This is a read-only record of
+  // the most recent run - Undo (above) is still what reverses it.
+
+  const appliedTable = table([
+    { key: "date", label: "Date" },
+    { key: "category", label: "Category" },
+    { key: "amount", label: "Amount", className: "num" },
+    { key: "p1", label: "Person 1", className: "num" },
+    { key: "p2", label: "Person 2", className: "num" },
+  ]);
+  const appliedSection = el("div", {},
+    sectionTitle("Last applied"),
+    hint(""),
+    appliedTable);
+  appliedSection.hidden = true;
+  root.append(appliedSection);
+
+  root.append(log);
+
+  function showApplied(items) {
+    appliedSection.hidden = !items.length;
+    if (!items.length) return;
+
+    appliedTable.columns[3].label = p1Name.value || "Person 1";
+    appliedTable.columns[4].label = p2Name.value || "Person 2";
+    const headers = appliedTable.querySelectorAll("th");
+    headers[3].textContent = appliedTable.columns[3].label;
+    headers[4].textContent = appliedTable.columns[4].label;
+
+    clear(appliedTable.tbody);
+    for (const item of items) {
+      appliedTable.tbody.append(el("tr", {},
+        el("td", { text: item.transaction.date }),
+        el("td", { text: `${item.rule.name}  ${item.transaction.payee_name || ""}`.trim() }),
+        el("td", { class: "num", text: fmt(item.transaction.amount) }),
+        el("td", { class: "num", text: fmt(item.person1Amount) }),
+        el("td", { class: "num", text: fmt(item.person2Amount) })));
+    }
+    appliedSection.querySelector(".hint").textContent =
+      `${items.length} transaction(s) converted just now. Use Undo above ` +
+      "if any of this needs reversing.";
+  }
 
   function checkAll(checked) {
     for (const box of resultsTable.tbody.querySelectorAll("input[type=checkbox]")) {
@@ -342,9 +398,6 @@ export function sharedExpensesPage(app) {
     if (!complete.length) {
       throw new Error("Add at least one shared category mapping before running.");
     }
-    if (startDate.value && endDate.value && startDate.value > endDate.value) {
-      throw new Error("The From date is after the To date.");
-    }
     return { complete, value: ratio() };
   }
 
@@ -378,16 +431,15 @@ export function sharedExpensesPage(app) {
     save();
 
     log.clearLog();
-    log.write(`Scanning ${startDate.value} to ${endDate.value} ...`, "head");
+    log.write("Scanning your full transaction history ...", "head");
 
     const result = await app.run(async () => {
-      const fetched = await state.transactions(startDate.value);
+      const fetched = await state.loadAllTransactions();
       if (fetched.cached) {
         log.write(`Using transactions already loaded ${state.dataAge()}. ` +
           "Applying re-reads from YNAB regardless.", "muted");
       }
-      return shared.scan(fetched.list, checked.complete, startDate.value,
-        endDate.value, checked.value,
+      return shared.scan(fetched.list, checked.complete, "", "", checked.value,
         { skipAlreadySplit: skipSplit.querySelector("input").checked });
     }, { log, buttons: [previewButton] });
 
@@ -424,9 +476,9 @@ export function sharedExpensesPage(app) {
       // The preview may be minutes old. Re-scan and drop anything that
       // changed in YNAB since, rather than overwriting it. Deliberately
       // forced past the cache: the whole point is to see the current truth.
-      const { list: fresh } = await state.transactions(startDate.value, { force: true });
+      const { list: fresh } = await state.loadAllTransactions({ force: true });
       const { stillValid, drifted } = shared.driftCheck(
-        chosen, fresh, startDate.value, endDate.value,
+        chosen, fresh, "", "",
         { skipAlreadySplit: skipSplit.querySelector("input").checked });
 
       for (const { item, reason } of drifted) {
@@ -435,7 +487,7 @@ export function sharedExpensesPage(app) {
       }
       if (!stillValid.length) {
         log.write("Nothing left to convert.", "warn");
-        return { changed: 0 };
+        return { changed: 0, failed: 0, applied: [] };
       }
 
       return shared.applySplits(client, state.budgetId, stillValid, stored, {
@@ -446,12 +498,30 @@ export function sharedExpensesPage(app) {
     saveBackups(stored);
     if (!result) return;
 
-    state.invalidate();
+    // Patch the cache with exactly what was just written, instead of
+    // wiping it and hoping an instant re-fetch already reflects it.
+    state.patchTransactions((result.applied || []).map((item) => ({
+      id: item.transaction.id,
+      patch: {
+        category_id: null,
+        subtransactions: [
+          { category_id: item.rule.person1Id, amount: item.person1Amount },
+          { category_id: item.rule.person2Id, amount: item.person2Amount },
+        ],
+      },
+    })));
+    state.monthCache.clear();
+    state.notify();
+    // Without this, a reload straight after Apply pulls back whatever was
+    // last persisted to sessionStorage - not this change - since a page
+    // reload restores from there instead of asking YNAB again.
+    state.persistSession();
     log.write(`Done. Converted ${result.changed} transaction(s).` +
       (result.failed ? ` ${result.failed} failed.` : ""),
       result.failed ? "warn" : "ok");
     if (result.changed) state.recordRun("sharedExpenses");
     showPreview([]);
+    showApplied(result.applied || []);
   }
 
   async function undo() {
@@ -501,6 +571,13 @@ export function sharedExpensesPage(app) {
 
     if (!result) return;
     saveBackups(result.remaining);
+
+    // Undo deletes the split and creates a fresh transaction in its place,
+    // so the cached copy can't just be patched - the id itself changed.
+    if (result.restoredRecords?.length) {
+      state.invalidate();
+      state.persistSession();
+    }
     log.write(`Undo complete. Restored ${result.restored} transaction(s).` +
       (result.failed ? ` ${result.failed} failed.` : ""),
       result.failed ? "warn" : "ok");

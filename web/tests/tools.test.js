@@ -222,12 +222,13 @@ describe("shared expenses", () => {
     assert.equal(subs[0].category_id, "p1cat");
   });
 
-  test("restore clears the split", () => {
-    const payload = shared.restorePayload(
+  test("restore recreates a single-category transaction with the original details", () => {
+    const payload = shared.restoreCreatePayload(
       shared.backupRecord(transactions()[0]));
-    assert.deepEqual(payload.subtransactions, []);
     assert.equal(payload.category_id, "shared1");
     assert.equal(payload.amount, -100000);
+    assert.ok(!("subtransactions" in payload));
+    assert.ok(!("id" in payload));
   });
 
   test("drift check drops transactions changed since the preview", () => {
@@ -256,20 +257,34 @@ describe("shared expenses", () => {
       transactions(), [rule], "2025-01-01", "2030-12-31", 0.35).planned;
     const backups = [];
 
-    const { changed, failed } = await shared.applySplits(
+    const { changed, failed, applied } = await shared.applySplits(
       client, "b", planned, backups);
 
     assert.deepEqual([changed, failed], [1, 0]);
     assert.equal(backups.length, 1);
     assert.equal(backups[0].categoryId, "shared1");
+    // The exact items written, not just a count - what a "last applied"
+    // review would show.
+    assert.equal(applied.length, 1);
+    assert.equal(applied[0].transaction.id, planned[0].transaction.id);
 
-    const undo = await shared.undoFromBackup(client, "b", backups);
+    const undoClient = {
+      async deleteTransaction() { return {}; },
+      async createTransactions(_budget, txns) {
+        return { transaction_ids: txns.map((_t, i) => `new-${i}`) };
+      },
+    };
+    const undo = await shared.undoFromBackup(undoClient, "b", backups);
     assert.equal(undo.restored, 1);
     assert.deepEqual(undo.remaining, []);
+    assert.equal(undo.restoredRecords[0].newId, "new-0");
   });
 
   test("undo can restore a subset and keeps the rest", async () => {
-    const client = { async updateTransaction() { return {}; } };
+    const client = {
+      async deleteTransaction() { return {}; },
+      async createTransactions() { return { transaction_ids: ["newid"] }; },
+    };
     const backups = [
       { id: "t1", date: "2025-03-01", amount: -1000, categoryId: "c1" },
       { id: "t2", date: "2025-03-02", amount: -2000, categoryId: "c1" },

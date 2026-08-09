@@ -94,21 +94,28 @@ export function splitPayload(transaction, person1Amount, person2Amount, p1Cat, p
   };
 }
 
-/** Clearing subtransactions with an empty list turns a split back into a
- *  normal transaction. That is what makes undo work. */
-export function restorePayload(record) {
+/**
+ * A fresh, single-category transaction with the original details.
+ *
+ * Confirmed against a real budget: YNAB's API does not remove
+ * subtransactions from an already-split transaction, or change its
+ * category while it stays split, via update - the write silently drops
+ * those fields and keeps the split as it was. The only way back to a
+ * single category is to delete the split and create a new transaction in
+ * its place.
+ */
+export function restoreCreatePayload(record) {
   return {
-    id: record.id,
     account_id: record.accountId,
     date: record.date,
-    payee_id: record.payeeId ?? null,
+    amount: record.amount,
+    payee_id: record.payeeId || null,
+    payee_name: record.payeeId ? null : (record.payeeName || null),
     memo: record.memo || "",
     cleared: record.cleared,
     approved: record.approved,
     flag_color: record.flagColor ?? null,
     category_id: record.categoryId,
-    amount: record.amount,
-    subtransactions: [],
   };
 }
 
@@ -180,6 +187,10 @@ export async function applySplits(client, budgetId, planned, backups, {
 } = {}) {
   let changed = 0;
   let failed = 0;
+  // Exactly the items that actually got written, for the caller to show a
+  // "here's what just happened" review afterwards - counts alone do not
+  // say which ones.
+  const applied = [];
 
   for (const item of planned) {
     if (shouldStop()) {
@@ -197,13 +208,14 @@ export async function applySplits(client, budgetId, planned, backups, {
           rule.person1Id, rule.person2Id)
       );
       changed += 1;
+      applied.push(item);
       log(`  split ${transaction.date}  ${rule.name}`, "ok");
     } catch (error) {
       failed += 1;
       log(`  FAILED ${transaction.date} ${rule.name}: ${error.message}`, "error");
     }
   }
-  return { changed, failed };
+  return { changed, failed, applied };
 }
 
 /**
@@ -219,6 +231,10 @@ export async function undoFromBackup(client, budgetId, backups, {
 
   let restored = 0;
   let failed = 0;
+  // The records actually put back, each with the id of the transaction
+  // that now holds them (delete-and-recreate means a new id), for the
+  // caller to update its own cached copies with.
+  const restoredRecords = [];
 
   for (const record of targets) {
     if (shouldStop()) {
@@ -227,8 +243,12 @@ export async function undoFromBackup(client, budgetId, backups, {
       continue;
     }
     try {
-      await client.updateTransaction(budgetId, record.id, restorePayload(record));
+      await client.deleteTransaction(budgetId, record.id);
+      const created = await client.createTransactions(
+        budgetId, [restoreCreatePayload(record)]);
+      const newId = created?.transaction_ids?.[0] || null;
       restored += 1;
+      restoredRecords.push({ ...record, newId });
       log(`  restored ${record.date}`, "ok");
     } catch (error) {
       failed += 1;
@@ -236,5 +256,5 @@ export async function undoFromBackup(client, budgetId, backups, {
       log(`  FAILED ${record.id}: ${error.message}`, "error");
     }
   }
-  return { restored, failed, remaining };
+  return { restored, failed, remaining, restoredRecords };
 }

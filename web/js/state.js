@@ -196,6 +196,26 @@ export class AppState {
     this.notify();
   }
 
+  /**
+   * Update specific cached transactions in place after a write, instead of
+   * discarding the cache and trusting an immediate re-fetch to already
+   * reflect it. A read straight after a write is exactly the case where
+   * YNAB itself can still be catching up, and a tool that just wrote
+   * something should show what it actually wrote, not risk reading its own
+   * change back as if it never happened.
+   */
+  patchTransactions(updates) {
+    if (!this.txCache || this.txCache.budgetId !== this.budgetId) return;
+    if (!updates.length) return;
+    const patchById = new Map(updates.map((u) => [u.id, u.patch]));
+    this.txCache = {
+      ...this.txCache,
+      list: this.txCache.list.map((item) =>
+        patchById.has(item.id) ? { ...item, ...patchById.get(item.id) } : item),
+    };
+    this.notify();
+  }
+
   /** How old the transaction cache is, in words, or null when empty. */
   dataAge() {
     if (!this.txCache || this.txCache.budgetId !== this.budgetId) return null;
