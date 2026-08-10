@@ -66,6 +66,7 @@ const ICONS = {
   collapse:
     '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/>' +
     '<path d="M9.5 4.5v15"/><path d="m7.2 10.4-1.8 1.6 1.8 1.6"/>',
+  funnel: '<path d="M4 5h16l-6.2 7.5V19l-3.6-2v-4.5z"/>',
 };
 
 /** An inline SVG icon. Inherits colour, so it works on any background. */
@@ -431,6 +432,18 @@ export function categoryPicker(state, { onChange } = {}) {
     // Preselect whatever is currently chosen.
     cursor = Math.max(0, items.findIndex((i) => i.id === selected?.id));
     render();
+
+    // Anchored to the field's left edge by default. A field sitting in the
+    // right portion of the page (e.g. the last column of a row of pickers)
+    // would otherwise push the popup off the right side of the viewport,
+    // taking the search box with it - flip to the field's right edge
+    // instead whenever that would happen. Checked only now, after render(),
+    // since the popup's width depends on its list content.
+    if (popup.getBoundingClientRect().right > window.innerWidth) {
+      popup.style.left = "auto";
+      popup.style.right = "0";
+    }
+
     search.focus();
     document.addEventListener("pointerdown", onOutside, true);
   }

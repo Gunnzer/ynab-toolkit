@@ -516,22 +516,122 @@ export function splitSheetPage(app) {
   ]);
 
   // Filters the preview only - rows itself (what Save/Copy write and the
-  // monthly summary above adds up) is never touched by it.
-  const filterColumn = select([
-    { value: "Description", label: "Description" },
-    { value: "Card", label: "Card" },
-    { value: "Owner", label: "Owner" },
-    { value: "Memo", label: "Memo" },
-  ], "Description", () => drawPreview());
-  const filterValue = textInput("", {
-    placeholder: "Filter...", onInput: () => drawPreview(),
-  });
+  // monthly summary above adds up) is never touched by it. Each filterable
+  // column gets its own funnel menu in its header, styled after Excel's and
+  // LibreOffice's AutoFilter (search box, a checklist of the column's
+  // distinct values, OK/Cancel) rather than a single free-text box, and
+  // every active filter narrows the rows together, not just one column
+  // at a time. `null` in columnFilters means "no filter"; otherwise it's
+  // the Set of values that column is currently limited to.
+  const columnFilters = { Card: null, Description: null, Owner: null, Memo: null };
+  for (const key of Object.keys(columnFilters)) addColumnFilter(key);
 
-  root.append(
-    sectionTitle("Preview"),
-    el("div", { class: "card-row" },
-      field("Filter by", filterColumn), filterValue),
-    preview, log);
+  function addColumnFilter(key) {
+    const index = preview.columns.findIndex((c) => c.key === key);
+    const th = preview.querySelectorAll("th")[index];
+    th.classList.add("filterable-th");
+
+    const funnelButton = el("button", {
+      type: "button", class: "th-filter-btn", "aria-haspopup": "true",
+      "aria-label": `Filter ${key}`, title: `Filter ${key}`,
+    }, icon("funnel", { size: 13 }));
+    th.append(funnelButton);
+
+    let popup = null;
+
+    function close() {
+      if (!popup) return;
+      popup.remove();
+      popup = null;
+      document.removeEventListener("pointerdown", onOutside, true);
+    }
+    function onOutside(event) {
+      if (!th.contains(event.target)) close();
+    }
+
+    function open() {
+      if (popup) return close();
+
+      const allValues = [...new Set((rows || []).map((row) => String(row[key] ?? "")))]
+        .sort((a, b) => a.localeCompare(b));
+      // The working selection is a scratch copy - Cancel (or clicking away)
+      // must not touch the filter actually applied to the table.
+      const working = new Set(columnFilters[key] || allValues);
+      let visibleValues = allValues;
+
+      const search = el("input", {
+        type: "text", class: "picker-search",
+        placeholder: `Search ${key.toLowerCase()}...`, "aria-label": `Search ${key} values`,
+      });
+      const selectAllBox = el("input", { type: "checkbox" });
+      const selectAllRow = el("li", { class: "filter-select-all" },
+        el("label", {}, selectAllBox, el("span", { text: "(Select all)" })));
+      const list = el("ul", { class: "picker-list filter-value-list", role: "listbox" });
+      const okButton = button("OK", { small: true, accent: true, onClick: apply });
+      const cancelButton = button("Cancel", { small: true, onClick: close });
+
+      popup = el("div", { class: "picker-popup filter-popup" },
+        search, selectAllRow, list,
+        el("div", { class: "filter-popup-actions" }, okButton, cancelButton));
+      th.append(popup);
+
+      function syncSelectAll() {
+        selectAllBox.checked = visibleValues.length > 0 &&
+          visibleValues.every((value) => working.has(value));
+      }
+
+      function renderList() {
+        const query = search.value.trim().toLowerCase();
+        visibleValues = allValues.filter(
+          (value) => !query || value.toLowerCase().includes(query));
+        clear(list);
+        for (const value of visibleValues) {
+          const box = el("input", { type: "checkbox" });
+          box.checked = working.has(value);
+          box.addEventListener("change", () => {
+            if (box.checked) working.add(value); else working.delete(value);
+            syncSelectAll();
+          });
+          list.append(el("li", {},
+            el("label", {}, box, el("span", { text: value || "(blank)" }))));
+        }
+        syncSelectAll();
+      }
+
+      selectAllBox.addEventListener("change", () => {
+        for (const value of visibleValues) {
+          if (selectAllBox.checked) working.add(value); else working.delete(value);
+        }
+        renderList();
+      });
+      search.addEventListener("input", renderList);
+      search.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") close();
+      });
+
+      function apply() {
+        columnFilters[key] = working.size === allValues.length ? null : new Set(working);
+        funnelButton.classList.toggle("is-active", Boolean(columnFilters[key]));
+        drawPreview();
+        close();
+      }
+
+      renderList();
+      if (popup.getBoundingClientRect().right > window.innerWidth) {
+        popup.style.left = "auto";
+        popup.style.right = "0";
+      }
+      search.focus();
+      document.addEventListener("pointerdown", onOutside, true);
+    }
+
+    funnelButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      open();
+    });
+  }
+
+  root.append(sectionTitle("Preview"), preview, log);
 
   // ---------- settings plumbing ----------
 
@@ -788,14 +888,15 @@ export function splitSheetPage(app) {
       return;
     }
 
-    const column = filterColumn.value;
-    const query = filterValue.value.trim().toLowerCase();
-    const filtered = query
-      ? rows.filter((row) => String(row[column] ?? "").toLowerCase().includes(query))
+    const active = Object.entries(columnFilters).filter(([, set]) => set);
+    const filtered = active.length
+      ? rows.filter((row) => active.every(
+          ([key, set]) => set.has(String(row[key] ?? ""))))
       : rows;
 
     if (!filtered.length) {
-      emptyRow(preview, `Nothing in ${column} matches "${filterValue.value.trim()}".`);
+      const summary = active.map(([key]) => key).join(", ");
+      emptyRow(preview, `Nothing matches the filter on ${summary}.`);
       return;
     }
 

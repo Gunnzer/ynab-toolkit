@@ -4,8 +4,7 @@ import { fmt } from "../money.js";
 import * as shared from "../tools/shared_expenses.js";
 import {
   button, card, categoryPicker, checkbox, clear, confirmDialog, customDialog,
-  el, emptyRow, field, hint, logPane, pageHeading, sectionTitle, table,
-  textInput,
+  el, emptyRow, hint, logPane, pageHeading, sectionTitle, table,
 } from "../ui.js";
 
 const LOG_EMPTY =
@@ -32,17 +31,14 @@ export function sharedExpensesPage(app) {
 
   // ---------- settings ----------
 
-  // The two people, and their share of shared expenses, are defined once,
-  // in Setup (share lives right under each person's account tag there).
-  // Shown here read only so the split is legible without leaving the page.
-  const p1Name = textInput(state.personName(1), {});
-  const p2Name = textInput(state.personName(2), {});
-  p1Name.disabled = true;
-  p2Name.disabled = true;
+  // Names and the share of shared expenses are defined once, in Setup
+  // (share lives right under each person's account tag there).
   const skipSplit = checkbox("Skip transactions that are already split",
     settings.skipAlreadySplit !== false, save);
 
-  const ratioLabel = hint("");
+  const ratioError = hint("");
+  ratioError.hidden = true;
+  const splitLine = el("div", { class: "split-line" });
 
   function ratio() {
     const value = Number(settings.person1Ratio);
@@ -56,14 +52,19 @@ export function sharedExpensesPage(app) {
   function paintRatio() {
     const percent = Number(settings.person1Ratio) * 100;
     if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
-      ratioLabel.textContent = "Set the split on the Setup page.";
-      ratioLabel.className = "hint is-error";
+      splitLine.hidden = true;
+      ratioError.textContent = "Set the split on the Setup page.";
+      ratioError.className = "hint is-error";
+      ratioError.hidden = false;
       return;
     }
-    ratioLabel.textContent =
-      `Person 1: ${p1Name.value || "Person 1"} ${percent}%   /   ` +
-      `Person 2: ${p2Name.value || "Person 2"} ${100 - percent}%`;
-    ratioLabel.className = "hint";
+    ratioError.hidden = true;
+    splitLine.hidden = false;
+    clear(splitLine);
+    splitLine.append(
+      el("b", { text: state.personName(1) }), ` ${percent}%`,
+      el("span", { class: "split-line-sep", text: "·" }),
+      el("b", { text: state.personName(2) }), ` ${100 - percent}%`);
   }
 
   function save() {
@@ -72,14 +73,6 @@ export function sharedExpensesPage(app) {
     store.save();
     paintLabels();
   }
-
-  root.append(card(
-    el("div", { class: "card-grid" },
-      el("div", { class: "stack" }, field("Person 1", p1Name)),
-      el("div", { class: "stack" }, field("Person 2", p2Name)),
-      el("div", {}, el("span", { class: "field-label", text: "Split" }), ratioLabel)),
-    hint("Names and the split are set on the Setup page."),
-    skipSplit));
 
   // ---------- mapping ----------
 
@@ -107,6 +100,8 @@ export function sharedExpensesPage(app) {
   // its rules table takes up a lot of room for something you only open to
   // add or fix a rule.
   const mappingSummary = hint("");
+  const mappingBanner = el("div", { class: "callout",
+    text: "Add a mapping below to start finding shared transactions." });
   const mappingBody = el("div", { class: "tool-setup-body" });
   const mappingBlock = el("details", { class: "tool-setup" },
     el("summary", {},
@@ -114,17 +109,28 @@ export function sharedExpensesPage(app) {
       el("span", { class: "tool-setup-title", text: "Shared category mapping" }),
       mappingSummary),
     mappingBody);
-  mappingBlock.open = Boolean(settings.mappingOpen);
+  // Opens itself the first time there is nothing configured yet, so a new
+  // user lands somewhere obvious instead of a closed accordion. Once there
+  // is at least one mapping, it remembers whatever the user last left it as.
+  mappingBlock.open = rules.length === 0 || Boolean(settings.mappingOpen);
   mappingBlock.addEventListener("toggle", () => {
     settings.mappingOpen = mappingBlock.open;
     store.save();
   });
   root.append(mappingBlock);
 
+  // Acts on the rules table, not the builder above it, so it sits right
+  // next to what it clears instead of floating above unrelated fields. A
+  // count on the left gives the row a reason to exist, instead of it being
+  // a lone button floating in otherwise empty space.
+  const rulesCountLabel = el("span", { class: "meta" });
+  const clearAllRow = el("div", { class: "section-head" },
+    rulesCountLabel,
+    el("span", { class: "spacer" }),
+    button("Clear all", { small: true, onClick: clearRules }));
+
   mappingBody.append(
-    el("div", { class: "section-head" },
-      el("span", { class: "spacer" }),
-      button("Clear all", { small: true, onClick: clearRules })),
+    mappingBanner,
     card(
       el("div", { class: "card-grid" },
         el("div", {}, el("span", { class: "field-label", text: "Shared category" }), pickShared),
@@ -132,12 +138,11 @@ export function sharedExpensesPage(app) {
         el("div", {}, labelP2, pickP2)),
       el("div", { class: "card-row" }, commitButton, cancelButton, builderStatus)),
     rulesTable,
-    hint("Pick the three categories and press Add. Use Edit on a row to " +
-      "change it."));
+    clearAllRow);
 
   function paintLabels() {
-    labelP1.textContent = `${p1Name.value || "Person 1"} gets`;
-    labelP2.textContent = `${p2Name.value || "Person 2"} gets`;
+    labelP1.textContent = `${state.personName(1)} gets`;
+    labelP2.textContent = `${state.personName(2)} gets`;
   }
 
   function setBuilderStatus(text, kind = "") {
@@ -146,9 +151,13 @@ export function sharedExpensesPage(app) {
   }
 
   function renderRules() {
-    mappingSummary.textContent = rules.length
+    const summary = rules.length
       ? `${rules.length} mapping${rules.length === 1 ? "" : "s"} configured`
       : "No mappings yet";
+    mappingSummary.textContent = summary;
+    rulesCountLabel.textContent = summary;
+    mappingBanner.hidden = rules.length > 0;
+    clearAllRow.hidden = rules.length === 0;
     if (!rules.length) {
       emptyRow(rulesTable, "No mappings yet. Add one above.");
       return;
@@ -195,8 +204,8 @@ export function sharedExpensesPage(app) {
 
     const missing = [
       ["Shared category", sharedCategory],
-      [p1Name.value || "Person 1", first],
-      [p2Name.value || "Person 2", second],
+      [state.personName(1), first],
+      [state.personName(2), second],
     ].find(([, value]) => !value);
     if (missing) return setBuilderStatus(`${missing[0]}: choose a category.`, "error");
 
@@ -252,12 +261,14 @@ export function sharedExpensesPage(app) {
 
   const previewButton = button("Preview (no changes)", { onClick: preview });
   const applyButton = button("Apply splits", { accent: true, onClick: applySelected });
-  const undoButton = button("Undo", { danger: true, onClick: undo });
-  const backupLabel = hint("");
   applyButton.disabled = true;
 
-  root.append(el("div", { class: "card-row" },
-    previewButton, applyButton, undoButton, backupLabel));
+  root.append(card(
+    splitLine, ratioError,
+    el("div", { class: "card-row action-bar" },
+      skipSplit,
+      el("span", { class: "spacer" }),
+      previewButton, applyButton)));
 
   // ---------- preview results ----------
 
@@ -280,11 +291,16 @@ export function sharedExpensesPage(app) {
       button("Select none", { small: true, onClick: () => checkAll(false) })),
     resultsTable, resultsHint);
 
-  // ---------- last applied ----------
+  // ---------- undo history ----------
   //
-  // Apply used to just clear the preview, so there was nothing left on
-  // screen to check what actually happened. This is a read-only record of
-  // the most recent run - Undo (above) is still what reverses it.
+  // Undo used to sit right next to Apply, as a same-size danger button next
+  // to the button that just wrote to YNAB - one misclick away. It now lives
+  // here instead, next to the record of what it would actually undo, and
+  // stays visible across a reload since the backups themselves do too.
+
+  const undoLink = button("Undo", { small: true, onClick: undo });
+  undoLink.classList.add("btn-link");
+  const backupLabel = hint("");
 
   const appliedTable = table([
     { key: "date", label: "Date" },
@@ -293,21 +309,24 @@ export function sharedExpensesPage(app) {
     { key: "p1", label: "Person 1", className: "num" },
     { key: "p2", label: "Person 2", className: "num" },
   ]);
-  const appliedSection = el("div", {},
-    sectionTitle("Last applied"),
-    hint(""),
+  appliedTable.hidden = true;
+
+  const historySection = el("div", {},
+    el("div", { class: "applied-header" },
+      sectionTitle("Undo history"), undoLink),
+    backupLabel,
     appliedTable);
-  appliedSection.hidden = true;
-  root.append(appliedSection);
+  historySection.hidden = true;
+  root.append(historySection);
 
   root.append(log);
 
   function showApplied(items) {
-    appliedSection.hidden = !items.length;
+    appliedTable.hidden = !items.length;
     if (!items.length) return;
 
-    appliedTable.columns[3].label = p1Name.value || "Person 1";
-    appliedTable.columns[4].label = p2Name.value || "Person 2";
+    appliedTable.columns[3].label = state.personName(1);
+    appliedTable.columns[4].label = state.personName(2);
     const headers = appliedTable.querySelectorAll("th");
     headers[3].textContent = appliedTable.columns[3].label;
     headers[4].textContent = appliedTable.columns[4].label;
@@ -321,9 +340,6 @@ export function sharedExpensesPage(app) {
         el("td", { class: "num", text: fmt(item.person1Amount) }),
         el("td", { class: "num", text: fmt(item.person2Amount) })));
     }
-    appliedSection.querySelector(".hint").textContent =
-      `${items.length} transaction(s) converted just now. Use Undo above ` +
-      "if any of this needs reversing.";
   }
 
   function checkAll(checked) {
@@ -347,8 +363,8 @@ export function sharedExpensesPage(app) {
 
   function showPreview(items) {
     planned = items;
-    resultsTable.columns[4].label = p1Name.value || "Person 1";
-    resultsTable.columns[5].label = p2Name.value || "Person 2";
+    resultsTable.columns[4].label = state.personName(1);
+    resultsTable.columns[5].label = state.personName(2);
     const headers = resultsTable.querySelectorAll("th");
     headers[4].textContent = resultsTable.columns[4].label;
     headers[5].textContent = resultsTable.columns[5].label;
@@ -405,9 +421,8 @@ export function sharedExpensesPage(app) {
 
   function paintBackupLabel() {
     const count = backups().length;
-    backupLabel.textContent = count
-      ? `${count} transaction(s) can be undone.` : "No undo history yet.";
-    undoButton.disabled = count === 0;
+    historySection.hidden = count === 0;
+    backupLabel.textContent = count ? `${count} transaction(s) can be undone.` : "";
   }
 
   async function preview() {
@@ -482,7 +497,7 @@ export function sharedExpensesPage(app) {
       return shared.applySplits(client, state.budgetId, stillValid, stored, {
         log: (message, level) => log.write(message, level), shouldStop,
       });
-    }, { log, buttons: [previewButton, applyButton, undoButton] });
+    }, { log, buttons: [previewButton, applyButton, undoLink] });
 
     saveBackups(stored);
     if (!result) return;
@@ -556,7 +571,7 @@ export function sharedExpensesPage(app) {
         ids: chosen.map((record) => record.id),
         log: (message, level) => log.write(message, level), shouldStop,
       });
-    }, { log, buttons: [previewButton, applyButton, undoButton] });
+    }, { log, buttons: [previewButton, applyButton, undoLink] });
 
     if (!result) return;
     saveBackups(result.remaining);
