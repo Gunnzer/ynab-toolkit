@@ -55,6 +55,7 @@ export const DEFAULTS = {
   tools: {
     enabled: {
       budgetOverview: true,
+      classicBudgetOverview: true,
       reports: true,
       sharedExpenses: true,
       splitSheet: true,
@@ -217,7 +218,17 @@ export class Store {
   load() {
     try {
       const raw = localStorage.getItem(SETTINGS_KEY);
-      if (raw) this.data = deepMerge(DEFAULTS, JSON.parse(raw));
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        // Classic Budget used to share budgetOverview's flag. Someone who'd
+        // already turned that off meant to hide both pages - without this,
+        // splitting the flag would silently bring Classic Budget back.
+        const hadSplit = parsed?.tools?.enabled?.classicBudgetOverview !== undefined;
+        this.data = deepMerge(DEFAULTS, parsed);
+        if (!hadSplit && parsed?.tools?.enabled?.budgetOverview === false) {
+          this.data.tools.enabled.classicBudgetOverview = false;
+        }
+      }
     } catch {
       // Corrupt storage must never stop the app from opening.
       this.data = structuredClone(DEFAULTS);

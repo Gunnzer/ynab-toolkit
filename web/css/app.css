@@ -146,7 +146,10 @@ h1, h2, h3 { margin: 0; font-weight: 600; line-height: 1.3; }
 }
 .sidebar-toggle:hover { background: var(--sidebar-raised); color: #fff; }
 .sidebar-toggle:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
-.sidebar-toggle svg { width: 17px; height: 17px; }
+.sidebar-toggle svg { width: 17px; height: 17px; transition: transform .12s ease; }
+/* Points the way collapsing goes; flipped, it points the way expanding
+   goes back. */
+.sidebar.is-collapsed .sidebar-toggle svg { transform: scaleX(-1); }
 
 /*
  * Collapsed: an icon-only rail. Nav items, the brand name and section
@@ -162,6 +165,16 @@ h1, h2, h3 { margin: 0; font-weight: 600; line-height: 1.3; }
 .sidebar.is-collapsed .nav-caret { display: none; }
 .sidebar.is-collapsed .nav-item { justify-content: center; padding: 9px; }
 .sidebar.is-collapsed .nav-flyout { left: 100%; top: 0; }
+/* The footer drops from a row (Setup beside the toggle) to a tight
+   stack - toggle right under Setup's icon, not left dangling on its own
+   row's width. */
+.sidebar.is-collapsed .sidebar-footer {
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 0 14px;
+}
+.sidebar.is-collapsed .sidebar-footer .nav { width: 100%; }
 
 .sidebar-section {
   margin: 20px 0 6px;
@@ -177,9 +190,13 @@ h1, h2, h3 { margin: 0; font-weight: 600; line-height: 1.3; }
 
 .sidebar-footer {
   margin-top: auto;
-  padding: 10px 0 14px;
+  padding: 10px 10px 14px;
   border-top: 1px solid var(--sidebar-raised);
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
+.sidebar-footer .nav { flex: 1; padding: 0; }
 
 .nav-item {
   display: flex;
@@ -979,6 +996,15 @@ tr.total-row td {
 }
 tr.total-row:hover td { background: var(--sunken); }
 td.check, th.check { width: 42px; text-align: center; padding-right: 0; }
+/*
+ * A trailing Edit/Remove column whose width should never depend on how
+ * long the other columns' text happens to be - table-layout: fixed makes
+ * every column's width fixed once set, rather than recalculated from
+ * content on every render.
+ */
+.rules-table table { table-layout: fixed; }
+.rules-table .actions { width: 150px; text-align: right; white-space: nowrap; }
+.rules-table .actions .inline { justify-content: flex-end; }
 td.check input { accent-color: var(--accent); min-height: 0; }
 td.mono, input.mono { font-family: var(--mono); font-size: 12.5px; }
 td.mono { max-width: 300px; overflow-wrap: anywhere; color: var(--muted); }

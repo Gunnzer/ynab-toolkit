@@ -32,65 +32,53 @@ export function sharedExpensesPage(app) {
 
   // ---------- settings ----------
 
-  // The two people are defined once, in Setup. Shown here so the split is
-  // readable without leaving the page, but not editable from two places.
+  // The two people, and their share of shared expenses, are defined once,
+  // in Setup (share lives right under each person's account tag there).
+  // Shown here read only so the split is legible without leaving the page.
   const p1Name = textInput(state.personName(1), {});
   const p2Name = textInput(state.personName(2), {});
   p1Name.disabled = true;
   p2Name.disabled = true;
-  const p1Pct = textInput(String((settings.person1Ratio ?? 0.35) * 100), {
-    onInput: save,
-  });
   const skipSplit = checkbox("Skip transactions that are already split",
     settings.skipAlreadySplit !== false, save);
-
-  // Person 2 always gets the remainder, so it is shown but never typed into.
-  const p2Pct = textInput("", { });
-  p2Pct.disabled = true;
 
   const ratioLabel = hint("");
 
   function ratio() {
-    const value = Number(p1Pct.value) / 100;
+    const value = Number(settings.person1Ratio);
     if (!Number.isFinite(value) || value < 0 || value > 1) {
-      throw new Error("The share percentage must be a number between 0 and 100.");
+      throw new Error(
+        "Set each person's share of shared expenses on the Setup page first.");
     }
     return value;
   }
 
   function paintRatio() {
-    const value = Number(p1Pct.value);
-    if (!Number.isFinite(value) || value < 0 || value > 100) {
-      p2Pct.value = "";
-      ratioLabel.textContent = "Enter a number between 0 and 100.";
+    const percent = Number(settings.person1Ratio) * 100;
+    if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
+      ratioLabel.textContent = "Set the split on the Setup page.";
       ratioLabel.className = "hint is-error";
       return;
     }
-    p2Pct.value = String(100 - value);
     ratioLabel.textContent =
-      `${p1Name.value || "Person 1"} ${value}%   /   ` +
-      `${p2Name.value || "Person 2"} ${100 - value}%`;
+      `Person 1: ${p1Name.value || "Person 1"} ${percent}%   /   ` +
+      `Person 2: ${p2Name.value || "Person 2"} ${100 - percent}%`;
     ratioLabel.className = "hint";
   }
 
   function save() {
-    const value = Number(p1Pct.value) / 100;
-    if (Number.isFinite(value)) settings.person1Ratio = value;
     settings.skipAlreadySplit = skipSplit.querySelector("input").checked;
     settings.rules = rules;
     store.save();
     paintLabels();
-    // The split line names both people, so it restates whenever a name does.
-    paintRatio();
   }
 
   root.append(card(
     el("div", { class: "card-grid" },
-      el("div", { class: "stack" },
-        field("Person 1", p1Name), field("Person 1 share (%)", p1Pct)),
-      el("div", { class: "stack" },
-        field("Person 2", p2Name), field("Person 2 share (%)", p2Pct)),
+      el("div", { class: "stack" }, field("Person 1", p1Name)),
+      el("div", { class: "stack" }, field("Person 2", p2Name)),
       el("div", {}, el("span", { class: "field-label", text: "Split" }), ratioLabel)),
+    hint("Names and the split are set on the Setup page."),
     skipSplit));
 
   // ---------- mapping ----------
@@ -110,8 +98,9 @@ export function sharedExpensesPage(app) {
     { key: "shared", label: "Shared category" },
     { key: "p1", label: "Person 1" },
     { key: "p2", label: "Person 2" },
-    { key: "actions", label: "" },
+    { key: "actions", label: "", className: "actions" },
   ]);
+  rulesTable.classList.add("rules-table");
 
   // Configured once and then rarely touched, so it lives behind a
   // disclosure like Bill Splitting's "Tool setup" - the mapping card plus
@@ -170,7 +159,7 @@ export function sharedExpensesPage(app) {
         el("td", { text: rule.name || state.categoryName(rule.sharedId) }),
         el("td", { text: rule.person1Name || state.categoryName(rule.person1Id) }),
         el("td", { text: rule.person2Name || state.categoryName(rule.person2Id) }),
-        el("td", {},
+        el("td", { class: "actions" },
           el("div", { class: "inline" },
             button("Edit", { small: true, onClick: () => editRule(index) }),
             button("Remove", { small: true, danger: true, onClick: () => removeRule(index) })))));

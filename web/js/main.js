@@ -32,7 +32,7 @@ export const PAGES = [
   },
   {
     id: "classic-budget", title: "Classic Budget", icon: "chart",
-    key: "budgetOverview", build: classicBudgetPage,
+    key: "classicBudgetOverview", build: classicBudgetPage,
     blurb: "Your categories with a plan of your own next to them: set what " +
       "you meant to spend, and see whether a category ran over it.",
     group: "budget", groupLabel: "Budget", groupIcon: "chart",

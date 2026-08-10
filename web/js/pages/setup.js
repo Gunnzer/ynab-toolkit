@@ -98,13 +98,42 @@ export function setupPage(app) {
   // Defined once here because Shared Expenses and Bill Splitting both mean the
   // same two people. Those pages show these values but cannot edit them.
 
+  // Share of shared expenses: one number (person1Ratio), person 2 always
+  // gets the remainder, so it lives under Shared Expenses' own settings
+  // even though it is edited here, next to the account tag.
+  const sharedSettings = store.section("sharedExpenses");
+  let person1ShareInput = null;
+  let person2ShareDisplay = null;
+  const shareError = hint("");
+  shareError.hidden = true;
+
+  function paintPerson2Share() {
+    const raw = person1ShareInput.value.trim();
+    // Empty is not the same as 0: Number("") is 0, so this has to be
+    // checked first or a blank field would silently read as "person 1
+    // gets nothing" instead of "not set".
+    if (raw === "") {
+      shareError.hidden = true;
+      person2ShareDisplay.value = "";
+      return;
+    }
+    const value = Number(raw);
+    const valid = Number.isFinite(value) && value >= 0 && value <= 100;
+    shareError.hidden = valid;
+    if (!valid) {
+      shareError.textContent = "Enter a number between 0 and 100.";
+      shareError.className = "hint is-error";
+    }
+    person2ShareDisplay.value = valid ? String(100 - value) : "";
+  }
+
   function personFields(which) {
     const saved = state.person(which);
     const write = (key) => (value) => {
       store.set(`people.person${which}.${key}`, value.trim());
       app.buildNav();
     };
-    return el("div", { class: "stack" },
+    const fields = [
       field(`Person ${which} name`,
         textInput(saved.name, {
           placeholder: `Person ${which}`, onInput: write("name"),
@@ -116,7 +145,33 @@ export function setupPage(app) {
       field("Account tag",
         textInput(saved.accountTag, {
           placeholder: "none", onInput: write("accountTag"),
-        })));
+        })),
+    ];
+
+    if (which === 1) {
+      person1ShareInput = textInput(
+        String((sharedSettings.person1Ratio ?? 0.35) * 100), {
+          type: "number",
+          onInput: () => {
+            const raw = person1ShareInput.value.trim();
+            const value = Number(raw);
+            if (raw !== "" && Number.isFinite(value) && value >= 0 && value <= 100) {
+              sharedSettings.person1Ratio = value / 100;
+              store.save();
+            }
+            paintPerson2Share();
+          },
+        });
+      person1ShareInput.min = "0";
+      person1ShareInput.max = "100";
+      fields.push(field("Share of shared expenses (%)", person1ShareInput), shareError);
+    } else {
+      person2ShareDisplay = textInput("", {});
+      person2ShareDisplay.disabled = true;
+      fields.push(field("Share of shared expenses (%)", person2ShareDisplay));
+    }
+
+    return el("div", { class: "stack" }, ...fields);
   }
 
   root.append(card(
@@ -126,10 +181,12 @@ export function setupPage(app) {
       "the prefix below belongs to that person, and everything else is " +
       "shared. The account tag is the letter in brackets in front of an " +
       "account name, and is only consulted when a transaction has no " +
-      "category group at all."),
+      "category group at all. Share of shared expenses is Shared " +
+      "Expenses' own split - person 2 always gets the remainder."),
     el("div", { class: "card-grid" }, personFields(1), personFields(2)),
     hint("Renaming someone here changes how Bill Splitting classifies " +
       "transactions, not just the column headings.")));
+  paintPerson2Share();
 
   // ---------- tools ----------
 
