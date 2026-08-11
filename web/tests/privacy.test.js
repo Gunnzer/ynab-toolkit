@@ -141,10 +141,10 @@ test("nobody is named in the shipped defaults", () => {
     "a tool is still holding its own copy of a person's name");
 });
 
-test("the shipped split sheet ratios name nobody and assume nothing", () => {
-  const presets = DEFAULTS.splitSheet.ratioPresets;
-  assert.equal(presets.length, 1, "ship one neutral ratio, not somebody's");
-  assert.equal(presets[0].person1Percent, 50);
+test("the shipped split sheet defaults name nobody and assume nothing", () => {
+  // The shared split itself lives on Setup (sharedExpenses.person1Ratio),
+  // not here - split sheet only ships a neutral code, no assumed ratio.
+  assert.equal(DEFAULTS.splitSheet.codes.shared, "S");
   assert.equal(DEFAULTS.splitSheet.skipPayeeSubstrings.length, 0);
 });
 

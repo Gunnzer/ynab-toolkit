@@ -442,7 +442,6 @@ describe("fake budget: bill splitting", () => {
     person2GroupPrefix: "Sam", person2Name: "Sam",
     person1AccountTag: "A", person2AccountTag: "S",
     codes: { person1: "P1", person2: "P2", shared: "S", custom: "C" },
-    tolerance: 0.02,
   };
 
   function groupNameFor(categoryId) {

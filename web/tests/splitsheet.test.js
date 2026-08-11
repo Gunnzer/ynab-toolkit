@@ -11,14 +11,8 @@ const SETTINGS = {
   person2Name: "Sam",
   person1AccountTag: "A",
   person2AccountTag: "S",
-  codes: { person1: "P1", person2: "P2", custom: "C" },
-  defaultSharedCode: "SH",
-  ratioPresets: [
-    { code: "SH", person1Percent: 65 },
-    { code: "HALF", person1Percent: 50 },
-    { code: "P1HEAVY", person1Percent: 75 },
-  ],
-  tolerance: 0.02,
+  codes: { person1: "P1", person2: "P2", shared: "SH", custom: "C" },
+  person1Ratio: 0.65,
   skipPayeeSubstrings: ["interest"],
 };
 
@@ -60,17 +54,29 @@ describe("owner detection", () => {
 });
 
 describe("split classification", () => {
-  test("a ratio within tolerance snaps to its preset", () => {
+  test("an exact shared split matches", () => {
     const result = sheet.classifySplit(65, 35, SETTINGS);
     assert.equal(result.code, "SH");
     assert.equal(result.share1, 65);
     assert.equal(result.share2, 35);
   });
 
-  test("a near miss still snaps, and the shares are the exact ratio", () => {
-    const result = sheet.classifySplit(64, 36, SETTINGS);
+  test("a cent-rounding artifact still matches the shared split", () => {
+    // $12.99 split 65/35 rounds to $8.44 / $4.55 - not a bit-exact 65%
+    // (8.44 / 12.99 = 64.97%), but it is exactly what the shared split
+    // produces once rounded to the cent, so it should still read as SH.
+    const result = sheet.classifySplit(8.44, 4.55, SETTINGS);
     assert.equal(result.code, "SH");
-    assert.equal(result.share1, 65);
+    assert.equal(result.share1, 8.44);
+    assert.equal(result.share2, 4.55);
+  });
+
+  test("a genuine difference does not snap, even if it is close", () => {
+    // A full $1 off a $100 total is a real difference, not rounding noise.
+    const result = sheet.classifySplit(64, 36, SETTINGS);
+    assert.equal(result.code, "C");
+    assert.equal(result.share1, 64);
+    assert.equal(result.share2, 36);
   });
 
   test("one person paying everything is their expense", () => {
@@ -78,7 +84,7 @@ describe("split classification", () => {
     assert.equal(sheet.classifySplit(0, 100, SETTINGS).code, "P2");
   });
 
-  test("an unrecognised ratio keeps the exact amounts", () => {
+  test("a ratio matching neither person nor the shared split keeps the exact amounts", () => {
     const result = sheet.classifySplit(40, 60, SETTINGS);
     assert.equal(result.code, "C");
     assert.equal(result.share1, 40);
@@ -225,13 +231,12 @@ describe("reading a YNAB export", () => {
     assert.deepEqual([rows[0].Share1, rows[0].Share2], [0, 40]);
   });
 
-  test("the account tag is kept in Card unless asked otherwise", () => {
+  test("the account tag is kept in Card", () => {
     const rows = [["(A) Visa", "03/05/2026", "Shop", "Household", "", "10.00", ""]];
     const build = (settings) => sheet.buildRows(
       sheet.fromExport({ headers, rows: rows.map(row) }, settings).items, settings);
 
     assert.equal(build(SETTINGS)[0].Card, "(A) Visa");
-    assert.equal(build({ ...SETTINGS, stripAccountTag: true })[0].Card, "Visa");
   });
 });
 
@@ -275,6 +280,39 @@ describe("reading from the API", () => {
     assert.equal(rows[0].Description, "Grocery Store");
   });
 
+  test("a split whose only legs are credited back is bare income, not a negative row", () => {
+    // Both legs are positive (money in), e.g. a refund YNAB recorded as a
+    // split. This used to slip past isBareInflow entirely (it only checks
+    // the non-split path) and become a negative-amount preview row.
+    const result = sheet.fromApi([{
+      date: "2026-03-05", payee_name: "Refund Co", account_name: "Joint",
+      amount: 100000, category_id: null, memo: "",
+      subtransactions: [
+        { category_id: "c2", amount: 60000, memo: "" },
+        { category_id: "c3", amount: 40000, memo: "" },
+      ],
+    }], groupOf, SETTINGS);
+
+    assert.equal(result.skippedIncome, 1);
+    assert.equal(result.items.length, 0);
+  });
+
+  test("a mixed split keeps its real expense leg and drops the credited one", () => {
+    const result = sheet.fromApi([{
+      date: "2026-03-05", payee_name: "Store", account_name: "Joint",
+      amount: -300000, category_id: null, memo: "",
+      subtransactions: [
+        { category_id: "c2", amount: -500000, memo: "purchase" },
+        { category_id: "c3", amount: 200000, memo: "credit" },
+      ],
+    }], groupOf, SETTINGS);
+
+    assert.equal(result.items[0].parts.length, 1, "the credited leg is dropped");
+    const rows = sheet.buildRows(result.items, SETTINGS);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].Amount, 500, "only the real expense leg counts");
+  });
+
   test("a split's shared leg is divided by the shared ratio, not credited whole to person 1", () => {
     // c1 ("Household") has no group prefix and the account is untagged
     // (joint), so it is genuinely shared - fromApi() used to fold that
@@ -305,13 +343,14 @@ describe("reading from the API", () => {
 });
 
 describe("shared ratio", () => {
-  test("uses the preset matching defaultSharedCode", () => {
+  test("uses person1Ratio directly", () => {
     assert.equal(sheet.sharedRatio(SETTINGS), 0.65);
   });
 
-  test("falls back to 50/50 when no preset matches", () => {
-    assert.equal(sheet.sharedRatio({ defaultSharedCode: "NOPE", ratioPresets: [] }), 0.5);
+  test("falls back to 50/50 when unset or out of range", () => {
     assert.equal(sheet.sharedRatio({}), 0.5);
+    assert.equal(sheet.sharedRatio({ person1Ratio: 1.5 }), 0.5);
+    assert.equal(sheet.sharedRatio({ person1Ratio: "nope" }), 0.5);
   });
 });
 

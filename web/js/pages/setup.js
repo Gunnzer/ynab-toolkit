@@ -138,11 +138,11 @@ export function setupPage(app) {
         textInput(saved.name, {
           placeholder: `Person ${which}`, onInput: write("name"),
         })),
-      field("Category group starts with",
+      field(`Person ${which} category group`,
         textInput(saved.groupPrefix, {
           placeholder: "same as the name", onInput: write("groupPrefix"),
         })),
-      field("Account tag",
+      field(`Person ${which} tag`,
         textInput(saved.accountTag, {
           placeholder: "none", onInput: write("accountTag"),
         })),

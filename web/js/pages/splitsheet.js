@@ -4,9 +4,9 @@ import { fmt } from "../money.js";
 import { parseDelimited } from "../tools/bank_convert.js";
 import * as sheet from "../tools/split_sheet.js";
 import {
-  button, card, checkbox, clear, customDialog, download, el, emptyRow, field,
-  hint, icon, logPane, monthOptions, pageHeading, pickFile, radioGroup,
-  sectionTitle, select, table, textInput,
+  button, card, checkbox, clear, confirmDialog, customDialog, download, el,
+  emptyRow, field, hint, icon, logPane, monthOptions, pageHeading, pickFile,
+  radioGroup, sectionTitle, select, table, textInput,
 } from "../ui.js";
 
 const LOG_EMPTY =
@@ -57,85 +57,14 @@ export function splitSheetPage(app) {
   });
   root.append(setupBlock);
 
-  // ---------- people ----------
-
-  // Who the two people are is defined once, in Setup, because Shared
-  // Expenses means the same two. Shown here read-only so the rules driving
-  // the conversion are visible where the conversion happens.
-  function personSummary(which) {
-    const person = state.person(which);
-    const show = (value, fallback) => {
-      const input = textInput(value || "", { placeholder: fallback });
-      input.disabled = true;
-      return input;
-    };
-    return el("div", { class: "stack" },
-      field(`Person ${which}`, show(person.name, `Person ${which}`)),
-      field("Category group starts with",
-        show(person.groupPrefix, person.name || `Person ${which}`)),
-      field("Account tag", show(person.accountTag, "not used")));
-  }
-
-  const peopleCard = card(
-    sectionTitle("The two people"),
-    hint("Set in Setup. A category group starting with the prefix marks the " +
-      "expense as " +
-      "that person's. Everything else is shared. The account tag is the " +
-      "letter in brackets at the front of an account name, and is only " +
-      "consulted when a transaction has no category group at all."),
-    el("div", { class: "card-grid" }, personSummary(1), personSummary(2)),
-    checkbox("Strip the account tag from the Card column",
-      settings.stripAccountTag,
-      (checked) => { settings.stripAccountTag = checked; store.save(); }));
-
-  if (!state.peopleNamed) {
-    peopleCard.append(el("p", { class: "hint is-warn", text:
-      "Both people need a name before this tool can tell whose expense is " +
-      "whose. Set them up first." }));
-  }
-  setupBody.append(peopleCard);
-
-  // ---------- codes and ratios ----------
-
-  const codeP1 = textInput(settings.codes?.person1 ?? "P1", { onInput: save });
-  const codeP2 = textInput(settings.codes?.person2 ?? "P2", { onInput: save });
-  const codeCustom = textInput(settings.codes?.custom ?? "C", { onInput: save });
-  const sharedCode = textInput(settings.defaultSharedCode ?? "S", { onInput: save });
-  const tolerance = textInput(String((settings.tolerance ?? 0.02) * 100), {
-    type: "number", onInput: save,
-  });
-
-  const presetTable = table([
-    { key: "code", label: "Code" },
-    { key: "label", label: "Name" },
-    { key: "share", label: "Person 1 gets", className: "num" },
-    { key: "actions", label: "" },
-  ]);
-
-  setupBody.append(card(
-    sectionTitle("Owner codes"),
-    hint("The letters written into the Owner column. Person 1 and Person 2 " +
-      "mean one person carried the whole cost; custom means the split " +
-      "matched none of your ratios, so the exact amounts are written " +
-      "through instead."),
-    el("div", { class: "card-grid" },
-      field("Person 1 only", codeP1),
-      field("Person 2 only", codeP2),
-      field("Shared, no split rows", sharedCode),
-      field("Custom", codeCustom),
-      field("Match tolerance (%)", tolerance))));
-
-  setupBody.append(
-    el("div", { class: "section-head" },
-      sectionTitle("Ratio presets"),
-      el("span", { class: "spacer" }),
-      button("Add ratio", { small: true, onClick: () => editPreset(null) })),
-    hint("A split within tolerance of one of these is written with that " +
-      "code and snapped to the exact ratio. The 'Shared, no split rows' " +
-      "code above should be one of these."),
-    presetTable);
-
   // ---------- filters ----------
+  //
+  // The Owner column itself is not configurable here any more: it is always
+  // one of exactly four fixed codes (see the legend below the split line),
+  // since who paid is already known from the account tags set on Setup. A
+  // manually split transaction counts as the shared split when it is
+  // exactly that split rounded to the cent (see classifySplit) - no
+  // tolerance percentage to set here.
 
   const skipList = textInput((settings.skipPayeeSubstrings || []).join(", "), {
     placeholder: "for example: interest, monthly fee", onInput: save,
@@ -507,12 +436,13 @@ export function splitSheetPage(app) {
   const preview = table([
     { key: "Card", label: "Card" },
     { key: "Date", label: "Date" },
-    { key: "Description", label: "Description" },
+    { key: "Description", label: "Payee" },
     { key: "Amount", label: "Amount", className: "num" },
     { key: "Owner", label: "Owner" },
     { key: "Share1", label: "Person 1", className: "num" },
     { key: "Share2", label: "Person 2", className: "num" },
     { key: "Memo", label: "Memo" },
+    { key: "exclude", label: "", className: "check" },
   ]);
 
   // Filters the preview only - rows itself (what Save/Copy write and the
@@ -530,10 +460,11 @@ export function splitSheetPage(app) {
     const index = preview.columns.findIndex((c) => c.key === key);
     const th = preview.querySelectorAll("th")[index];
     th.classList.add("filterable-th");
+    const label = preview.columns[index].label || key;
 
     const funnelButton = el("button", {
       type: "button", class: "th-filter-btn", "aria-haspopup": "true",
-      "aria-label": `Filter ${key}`, title: `Filter ${key}`,
+      "aria-label": `Filter ${label}`, title: `Filter ${label}`,
     }, icon("funnel", { size: 13 }));
     th.append(funnelButton);
 
@@ -561,7 +492,7 @@ export function splitSheetPage(app) {
 
       const search = el("input", {
         type: "text", class: "picker-search",
-        placeholder: `Search ${key.toLowerCase()}...`, "aria-label": `Search ${key} values`,
+        placeholder: `Search ${label.toLowerCase()}...`, "aria-label": `Search ${label} values`,
       });
       const selectAllBox = el("input", { type: "checkbox" });
       const selectAllRow = el("li", { class: "filter-select-all" },
@@ -631,7 +562,8 @@ export function splitSheetPage(app) {
     });
   }
 
-  root.append(sectionTitle("Preview"), preview, log);
+  const legend = el("p", { class: "hint mono" });
+  root.append(sectionTitle("Preview"), legend, preview, log);
 
   // ---------- settings plumbing ----------
 
@@ -641,20 +573,12 @@ export function splitSheetPage(app) {
   }
 
   function save() {
-    settings.codes = {
-      ...settings.codes,
-      person1: codeP1.value.trim(),
-      person2: codeP2.value.trim(),
-      custom: codeCustom.value.trim(),
-    };
-    settings.defaultSharedCode = sharedCode.value.trim();
-    const percent = Number(tolerance.value);
-    if (Number.isFinite(percent)) settings.tolerance = Math.max(0, percent) / 100;
     settings.skipPayeeSubstrings = skipList.value
       .split(",").map((part) => part.trim()).filter(Boolean);
     settings.splitMemoPattern = splitPattern.value.trim();
     store.save();
     paintPreviewHeadings();
+    paintLegend();
   }
 
   function paintPreviewHeadings() {
@@ -663,92 +587,14 @@ export function splitSheetPage(app) {
     heads[6].textContent = state.personName(2);
   }
 
-  function presets() {
-    return settings.ratioPresets || (settings.ratioPresets = []);
-  }
-
-  function renderPresets() {
-    clear(presetTable.tbody);
-    const list = presets();
-    if (!list.length) {
-      emptyRow(presetTable,
-        "No ratios. Every shared expense will be written as custom.");
-      return;
-    }
-    list.forEach((preset, index) => {
-      presetTable.tbody.append(el("tr", {},
-        el("td", { class: "mono", text: preset.code }),
-        el("td", { text: preset.label || "" }),
-        el("td", { class: "num",
-          text: `${preset.person1Percent}% / ${100 - preset.person1Percent}%` }),
-        el("td", {}, el("div", { class: "inline" },
-          button("Edit", { small: true, onClick: () => editPreset(index) }),
-          button("Remove", { small: true, danger: true, onClick: () => {
-            presets().splice(index, 1);
-            store.save();
-            renderPresets();
-          } })))));
-    });
-  }
-
-  async function editPreset(index) {
-    const existing = index === null ? null : presets()[index];
-    const result = await customDialog(
-      existing ? "Edit ratio" : "Add ratio",
-      (body) => {
-        const code = textInput(existing?.code || "", { placeholder: "SH" });
-        const label = textInput(existing?.label || "", { placeholder: "Half and half" });
-        const percent = textInput(
-          existing ? String(existing.person1Percent) : "50", { type: "number" });
-        const split = hint("");
-        const error = el("p", { class: "hint is-error" });
-
-        const paint = () => {
-          const value = Number(percent.value);
-          split.textContent = Number.isFinite(value)
-            ? `${state.personName(1)} ${value}%   /   ` +
-              `${state.personName(2)} ${100 - value}%`
-            : "";
-        };
-        percent.addEventListener("input", paint);
-        paint();
-
-        body.append(
-          field("Code", code), field("Name", label),
-          field("Person 1 gets (%)", percent), split, error);
-
-        return {
-          validate: () => {
-            const value = Number(percent.value);
-            if (!code.value.trim()) {
-              error.textContent = "A code is required.";
-              return false;
-            }
-            if (!Number.isFinite(value) || value < 0 || value > 100) {
-              error.textContent = "The percentage must be between 0 and 100.";
-              return false;
-            }
-            const clash = presets().findIndex(
-              (preset) => preset.code === code.value.trim());
-            if (clash >= 0 && clash !== index) {
-              error.textContent = `The code '${code.value.trim()}' is already used.`;
-              return false;
-            }
-            return true;
-          },
-          value: () => ({
-            code: code.value.trim(),
-            label: label.value.trim(),
-            person1Percent: Number(percent.value),
-          }),
-        };
-      }, { confirmText: existing ? "Save" : "Add" });
-
-    if (!result) return;
-    if (index === null) presets().push(result);
-    else presets()[index] = result;
-    store.save();
-    renderPresets();
+  function paintLegend() {
+    const codes = settings.codes || {};
+    const percent = Math.round(sheet.sharedRatio(active()) * 100);
+    legend.textContent =
+      `${codes.person1 || "P1"} = ${state.personName(1)}'s expense   ·   ` +
+      `${codes.person2 || "P2"} = ${state.personName(2)}'s expense   ·   ` +
+      `${codes.shared || "S"} = Shared (${percent}% / ${100 - percent}%)   ·   ` +
+      `${codes.custom || "C"} = Custom (exact amounts)`;
   }
 
   // ---------- file input ----------
@@ -807,6 +653,32 @@ export function splitSheetPage(app) {
   }
 
   // ---------- conversion ----------
+
+  /**
+   * The X on a preview row: adds that payee to "Skip payees containing" and
+   * re-runs the conversion, rather than just hiding the row - a filter that
+   * only lasted until the next Convert would not actually be a filter. That
+   * also means it is not just this one row - every transaction from this
+   * payee, past and future, so it is confirmed first rather than sprung on
+   * someone who only meant to dismiss the row in front of them.
+   */
+  async function excludePayee(payee) {
+    const text = String(payee || "").trim();
+    if (!text) return;
+    const current = settings.skipPayeeSubstrings || [];
+    if (current.some((entry) => entry.toLowerCase() === text.toLowerCase())) return;
+
+    const confirmed = await confirmDialog("Filter out this payee",
+      `This will filter out every transaction from '${text}', not just this ` +
+      "one row - now and on every future conversion, until removed from " +
+      "Filters below.", { confirmText: "Filter out" });
+    if (!confirmed) return;
+
+    settings.skipPayeeSubstrings = [...current, text];
+    store.save();
+    skipList.value = settings.skipPayeeSubstrings.join(", ");
+    convert();
+  }
 
   async function convert() {
     save();
@@ -895,7 +767,8 @@ export function splitSheetPage(app) {
       : rows;
 
     if (!filtered.length) {
-      const summary = active.map(([key]) => key).join(", ");
+      const summary = active.map(([key]) =>
+        preview.columns.find((c) => c.key === key)?.label || key).join(", ");
       emptyRow(preview, `Nothing matches the filter on ${summary}.`);
       return;
     }
@@ -910,7 +783,14 @@ export function splitSheetPage(app) {
         el("td", { class: "mono", text: row.Owner }),
         el("td", { class: "num", text: row.Share1.toFixed(2) }),
         el("td", { class: "num", text: row.Share2.toFixed(2) }),
-        el("td", { class: "hint", text: row.Memo })));
+        el("td", { class: "hint", text: row.Memo }),
+        el("td", { class: "check" },
+          el("button", {
+            type: "button", class: "row-exclude-btn",
+            "aria-label": `Filter out '${row.Description}'`,
+            title: `Filter out '${row.Description}'`,
+            onClick: () => excludePayee(row.Description),
+          }, icon("x", { size: 13 })))));
     }
     if (filtered.length > PREVIEW_ROWS) {
       const hidden = filtered.length - PREVIEW_ROWS;
@@ -1026,9 +906,9 @@ export function splitSheetPage(app) {
 
   // ---------- first paint ----------
 
-  renderPresets();
   paintSource();
   paintPreviewHeadings();
+  paintLegend();
   emptyRow(preview, "Set the two people up, then press Convert.");
   showSummary();
   saveButton.disabled = true;

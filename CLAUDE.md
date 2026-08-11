@@ -39,7 +39,7 @@ Everything below is about `web/`.
 | `home.js` | — | Landing page, links into each tool |
 | `setup.js` | — | Token, budget picker, the two people + their split share, tool on/off switches, backup/restore/reset |
 | `shared.js` | `shared_expenses.js` | Converts transactions in shared categories into native YNAB splits; undo via delete+recreate |
-| `splitsheet.js` ("Bill Splitting") | `split_sheet.js` | Exports shared expenses to a tracker spreadsheet (CSV/clipboard), with ratio presets and owner-code classification |
+| `splitsheet.js` ("Bill Splitting") | `split_sheet.js` | Exports shared expenses to a tracker spreadsheet (CSV/clipboard); each transaction is classified as P1, P2, Shared (the split from Setup), or Custom |
 | `budget.js` ("YNAB Budget") | — | Read-only look at one month, YNAB's own numbers |
 | `classicbudget.js` | — | Same idea, but against your own planned amount per category instead of YNAB's Assigned |
 | `reports.js` | `reports.js` | Monthly spending by category/payee, filterable, savable filters |
@@ -61,7 +61,12 @@ test file in `web/tests/`.
   disables the passed buttons, logs errors, always re-enables in `finally`).
 - **`state.js`** (`AppState`) — the connected client, the loaded budget
   (groups/accounts/transactions), and helpers like `personName(which)`,
-  `categoryName(id)`, `withPeople(settings)`. Fetched YNAB data is cached in
+  `categoryName(id)`, `withPeople(settings)`. `withPeople()` is the one place
+  that folds cross-tool shared config (the two people's names/prefixes/tags,
+  *and* their shared-cost split ratio from `sharedExpenses.person1Ratio`)
+  into a tool's own settings object — any tool needing "who they are" or
+  "how they split" should go through this rather than reading another
+  tool's settings section directly. Fetched YNAB data is cached in
   **`sessionStorage`** (`persistSession()`/`restoreSession()`/`invalidate()`)
   so a plain reload is free but nothing survives closing the tab.
   `patchTransactions(updates)` mutates specific cached transactions in place
@@ -118,6 +123,16 @@ test file in `web/tests/`.
   this whole block (copy `addColumnFilter` and its CSS) for any other table
   that needs the same filter UI — don't reinvent a plain single-text
   filter box again, that was the thing this replaced.
+- **Gotcha:** `th` uses `box-shadow: inset 0 -1px 0 0 var(--border-strong)`
+  for its bottom line, not `border-bottom`. A sticky (`position: sticky`)
+  `<th>` inside a `border-collapse: collapse` table paints its collapsed
+  border out of sync with neighbouring cells once some headers are laid out
+  differently from others (e.g. the filterable ones being flex containers
+  for their funnel icon) — the header row's bottom line visibly is not
+  straight even though every cell's computed geometry is identical. An inset
+  box-shadow sits inside the cell instead of collapsing with neighbours, so
+  it does not have this problem. Keep using box-shadow, not border, for any
+  future sticky header styling.
 
 ## Testing
 

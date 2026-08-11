@@ -948,7 +948,13 @@ th {
   text-transform: uppercase;
   text-align: left;
   padding: 12px 14px;
-  border-bottom: 1px solid var(--border-strong);
+  /* Not border-bottom: a sticky <th> inside a border-collapse table paints
+     its collapsed border out of sync with neighbouring cells (worse once
+     some headers are flex containers, like the filterable ones, and others
+     are not), showing up as a header row whose bottom line is not straight.
+     An inset box-shadow sits inside the cell instead of participating in
+     border-collapse, so every header's line lands on the same pixel. */
+  box-shadow: inset 0 -1px 0 0 var(--border-strong);
   white-space: nowrap;
 }
 td {
@@ -975,6 +981,22 @@ td {
 }
 .th-filter-btn:hover { background: var(--sunken); color: var(--muted); }
 .th-filter-btn.is-active { color: var(--accent); }
+
+/* A quick per-row "filter this payee out" action, sitting in its own
+   trailing .check column like a row's other icon-only actions. */
+.row-exclude-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  border: none;
+  background: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--faint);
+  cursor: pointer;
+}
+.row-exclude-btn:hover { background: var(--error-soft); color: var(--error); }
 
 /* Excel/LibreOffice-style AutoFilter: search box, then a checklist of the
    column's distinct values, then OK/Cancel. Reuses the category picker's

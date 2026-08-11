@@ -330,9 +330,10 @@ export class AppState {
   }
 
   /**
-   * Tool settings with the shared people folded in, which is the shape the
-   * tool modules expect. Keeps "who they are" in one place without every
-   * tool module needing to know where that place is.
+   * Tool settings with the shared people (and their split) folded in, which
+   * is the shape the tool modules expect. Keeps "who they are and how they
+   * split shared costs" in one place, set once on Setup, without every tool
+   * module needing to know where that place is or carrying its own copy.
    */
   withPeople(settings) {
     const [first, second] = [this.person(1), this.person(2)];
@@ -344,6 +345,7 @@ export class AppState {
       person2GroupPrefix: second.groupPrefix,
       person1AccountTag: first.accountTag,
       person2AccountTag: second.accountTag,
+      person1Ratio: this.store.section("sharedExpenses").person1Ratio,
     };
   }
 

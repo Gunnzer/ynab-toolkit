@@ -42,9 +42,7 @@ function toolStatus(app, key) {
 
   if (key === "splitSheet") {
     if (!app.state.peopleNamed) return ["The two people are not named yet", "warn"];
-    const presets = (store.get("splitSheet.ratioPresets", []) || []).length;
-    return [`${app.state.personName(1)} and ${app.state.personName(2)}, ` +
-      `${presets} ratio${presets === 1 ? "" : "s"}`, "ok"];
+    return [`${app.state.personName(1)} and ${app.state.personName(2)}`, "ok"];
   }
 
   if (key === "autoAssign") {

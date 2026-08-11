@@ -107,56 +107,51 @@ export function ownerOf(groupName, accountName, settings) {
 }
 
 /**
- * Person 1's share of a shared cost, as a fraction, from the ratio preset
- * named by the "Shared, no split rows" code (defaultSharedCode). Falls
- * back to 50/50 if that code has no matching preset, same as an empty
- * budget's own shipped default.
+ * Person 1's share of a shared cost, as a fraction - the one split set once
+ * on the Setup page and used everywhere a shared cost gets divided, not a
+ * Bill Splitting-specific ratio. Falls back to 50/50 if it has not been set.
  */
 export function sharedRatio(settings) {
-  const code = settings.defaultSharedCode || (settings.codes || {}).shared || "S";
-  const preset = (settings.ratioPresets || []).find((entry) => entry.code === code);
-  const target = preset ? Number(preset.person1Percent) / 100 : NaN;
-  return Number.isFinite(target) ? target : 0.5;
+  const value = Number(settings.person1Ratio);
+  return Number.isFinite(value) && value >= 0 && value <= 1 ? value : 0.5;
 }
 
 /**
  * Turn "person 1 paid X, person 2 paid Y" into a code and two shares.
  *
- * A share that lands within tolerance of one of your presets is snapped to
- * it, so a 64.8/35.2 split reads as the 65/35 preset rather than as a
- * one-off. Anything else keeps the exact amounts and is marked custom.
+ * Exactly four outcomes: one person paid all of it, it is exactly what the
+ * shared split produces once rounded to the cent, or it is custom and keeps
+ * the exact amounts. Comparing rounded amounts instead of a tolerance
+ * percentage means a plain cent-rounding artifact (very common - a $12.99
+ * shared cost is $8.44 / $4.55, not a bit-exact 65/35) still counts as the
+ * shared split, while a genuine difference of any size does not, with no
+ * "how close is close enough" percentage to get wrong.
  */
 export function classifySplit(paid1, paid2, settings) {
   const total = paid1 + paid2;
   const codes = settings.codes || {};
   if (total <= 0) {
-    return { code: codes.shared || "S", share1: 0, share2: 0, matched: null };
+    return { code: codes.shared || "S", share1: 0, share2: 0 };
   }
 
-  const fraction = paid1 / total;
-  const tolerance = Number(settings.tolerance ?? 0.02);
+  const rPaid1 = round2(paid1);
+  const rPaid2 = round2(paid2);
 
-  if (Math.abs(fraction - 1) <= tolerance) {
-    return { code: codes.person1 || "P1", share1: total, share2: 0, matched: null };
+  if (rPaid2 === 0) {
+    return { code: codes.person1 || "P1", share1: total, share2: 0 };
   }
-  if (Math.abs(fraction) <= tolerance) {
-    return { code: codes.person2 || "P2", share1: 0, share2: total, matched: null };
-  }
-
-  for (const preset of settings.ratioPresets || []) {
-    const target = Number(preset.person1Percent) / 100;
-    if (!Number.isFinite(target)) continue;
-    if (Math.abs(fraction - target) <= tolerance) {
-      return {
-        code: preset.code,
-        share1: total * target,
-        share2: total * (1 - target),
-        matched: preset,
-      };
-    }
+  if (rPaid1 === 0) {
+    return { code: codes.person2 || "P2", share1: 0, share2: total };
   }
 
-  return { code: codes.custom || "C", share1: paid1, share2: paid2, matched: null };
+  const shared = sharedRatio(settings);
+  const expected1 = round2(total * shared);
+  const expected2 = round2(total * (1 - shared));
+  if (rPaid1 === expected1 && rPaid2 === expected2) {
+    return { code: codes.shared || "S", share1: expected1, share2: expected2 };
+  }
+
+  return { code: codes.custom || "C", share1: paid1, share2: paid2 };
 }
 
 /** What each person owes on a row whose owner is already known. */
@@ -164,12 +159,9 @@ export function sharesFor(code, amount, settings) {
   const codes = settings.codes || {};
   if (code === (codes.person1 || "P1")) return [amount, 0];
   if (code === (codes.person2 || "P2")) return [0, amount];
-
-  for (const preset of settings.ratioPresets || []) {
-    if (preset.code === code) {
-      const target = Number(preset.person1Percent) / 100;
-      if (Number.isFinite(target)) return [amount * target, amount * (1 - target)];
-    }
+  if (code === (codes.shared || "S")) {
+    const shared = sharedRatio(settings);
+    return [amount * shared, amount * (1 - shared)];
   }
   // Custom rows carry their own amounts; nothing to derive.
   return [0, 0];
@@ -335,14 +327,22 @@ export function fromApi(transactions, groupNameFor, settings) {
 
     const subs = (transaction.subtransactions || []).filter((sub) => !sub.deleted);
     if (subs.length) {
-      const parts = subs.map((sub) => {
-        // Milliunits, and outflows are negative in the API. buildRows()
-        // splits a "shared" part by the usual ratio rather than crediting
-        // it whole to person 1.
+      // Outflows are negative in the API, inflows positive. A leg with a
+      // positive amount is money credited back on this split (a refund
+      // folded into an otherwise-normal purchase, say) - income, not an
+      // expense either of you fronted, so it is dropped the same as a bare
+      // inflow is on the non-split path below, rather than turning into a
+      // negative "paid" amount that drags the whole row negative.
+      const expenseLegs = subs.filter((sub) => (sub.amount || 0) < 0);
+      if (!expenseLegs.length) { skippedIncome += 1; continue; }
+
+      const parts = expenseLegs.map((sub) => {
+        // Milliunits. buildRows() splits a "shared" part by the usual ratio
+        // rather than crediting it whole to person 1.
         const side = ownerOf(groupNameFor(sub.category_id), base.accountName, settings);
         return { owner: side, amount: -(sub.amount || 0) / 1000 };
       });
-      const memos = subs
+      const memos = expenseLegs
         .map((sub) => String(sub.memo || "").trim())
         .filter((memo, index, all) => memo && all.indexOf(memo) === index);
       items.push({ ...base, memo: memos.join(" | ") || base.memo, parts });
@@ -366,8 +366,7 @@ export function buildRows(items, settings) {
   const codes = settings.codes || {};
   const out = [];
 
-  const card = (accountName) => settings.stripAccountTag
-    ? stripAccountTag(accountName) : String(accountName || "").trim();
+  const card = (accountName) => String(accountName || "").trim();
 
   const sharedFraction = sharedRatio(settings);
 
@@ -405,7 +404,7 @@ export function buildRows(items, settings) {
     const owner = ownerOf(item.groupName, item.accountName, settings);
     const code = owner === "p1" ? (codes.person1 || "P1")
       : owner === "p2" ? (codes.person2 || "P2")
-        : (settings.defaultSharedCode || codes.shared || "S");
+        : (codes.shared || "S");
 
     // Outflow and inflow stay on separate lines, so a refund is visible on
     // its own row rather than quietly reducing a purchase.

@@ -85,7 +85,6 @@ export const DEFAULTS = {
   },
   splitSheet: {
     // Who the two people are lives under `people`, not here.
-    stripAccountTag: false,
     // Day of the month a statement cycle opens. 1 is calendar months; 6
     // means the 6th to the 5th of the following month.
     cycleStartDay: 1,
@@ -98,11 +97,10 @@ export const DEFAULTS = {
     // Which account each card belongs to, by account name: "p1", "p2" or
     // "joint". Only needed for accounts whose name does not already say.
     accountOwners: {},
+    // The Owner column: one person paid it all, it split the shared way
+    // (set once on Setup), or custom - anything else, exact amounts kept.
+    // Fixed, not user-editable - see the legend on the page itself.
     codes: { person1: "P1", person2: "P2", shared: "S", custom: "C" },
-    defaultSharedCode: "S",
-    // One even split to start with. Add your own ratios and codes.
-    ratioPresets: [{ code: "S", person1Percent: 50, label: "Even split" }],
-    tolerance: 0.02,
     skipPayeeSubstrings: [],
     splitMemoPattern: "",
     includeExcelSerial: true,
