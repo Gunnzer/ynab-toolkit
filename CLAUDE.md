@@ -92,7 +92,13 @@ test file in `web/tests/`.
   `shared_expenses.js`'s `undoFromBackup`.
 - **`ui.js`** — `el(tag, attrs, ...children)` is the DOM builder every page
   uses (`onClick`/`onInput`/etc. map to `addEventListener`; `class`/`text`
-  are shorthands). `table(columns)` builds a `<table>` wrapped in
+  are shorthands). `pageHeading(title, intro)` no longer prints `intro`
+  visibly on the page (every page open with a paragraph of explanation was
+  noise once you already knew the tool) — it stashes it in a module
+  variable instead, read back by `getPageIntro()`. `main.js`'s `showHelp()`
+  calls that to prepend the *current* page's title and description to the
+  Help dialog, so the explanation still exists, just behind Help instead of
+  always on screen. `table(columns)` builds a `<table>` wrapped in
   `.table-wrap`, returns the wrapper with `.tbody` and `.columns` attached;
   to customize a header cell after creation (e.g. adding a filter icon),
   index into `wrap.querySelectorAll("th")` by

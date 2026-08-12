@@ -371,15 +371,6 @@ h1, h2, h3 { margin: 0; font-weight: 600; line-height: 1.3; }
    rather than the standard sibling gap. Adjacent margins collapse, so the
    space has to go on the element after it. */
 .page-body > .page-head + * { margin-top: 30px; }
-/* Runs the full content width rather than to a reading measure: these are a
-   sentence or two, so a short line just leaves a ragged edge against the
-   cards below. */
-.page-intro {
-  margin: 0;
-  color: var(--muted);
-  font-size: 15.5px;
-  line-height: 1.6;
-}
 
 .page-title { font-size: 25px; letter-spacing: -.01em; }
 .section-title { font-size: 15px; font-weight: 600; letter-spacing: .005em; }

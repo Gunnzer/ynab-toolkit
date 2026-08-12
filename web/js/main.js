@@ -2,7 +2,7 @@
 
 import { AppState } from "./state.js";
 import { requestPersistence } from "./store.js";
-import { alertDialog, clear, el, icon, setPill } from "./ui.js";
+import { alertDialog, clear, el, getPageIntro, icon, setPill } from "./ui.js";
 
 import { homePage } from "./pages/home.js";
 import { setupPage } from "./pages/setup.js";
@@ -399,7 +399,13 @@ class App {
   }
 
   showHelp() {
+    const intro = getPageIntro();
+    // The page-specific description used to sit visibly at the top of every
+    // page; it now only shows up here, for whichever page is open.
+    const pageSection = intro ? `${this.title.textContent}\n${intro}\n\n` : "";
+
     alertDialog("YNAB Toolkit",
+      pageSection +
       "Everything runs in your browser. There is no server: your token and " +
       "settings never leave this device, and the only requests made are to " +
       "api.ynab.com with your own token.\n\n" +

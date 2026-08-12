@@ -89,18 +89,28 @@ export function icon(name, { size = 20 } = {}) {
 
 // ---------- building blocks ----------
 
+let currentPageIntro = "";
+
 /**
  * The lead paragraph for a page.
  *
  * The title itself lives in the app bar, which stays put while the page
  * scrolls, so printing it again here would only say the same thing twice. It
  * is still emitted for screen readers, which expect the main region to
- * announce its own heading.
+ * announce its own heading. The description used to print visibly here too,
+ * but every page open to that much explanation up front was mostly noise
+ * once you already knew the tool - it now lives behind Help instead
+ * (`getPageIntro()`, read by `showHelp()` in main.js) rather than on screen.
  */
 export function pageHeading(title, intro) {
+  currentPageIntro = intro || "";
   return el("div", { class: "page-head" },
-    el("h2", { class: "sr-only", text: title }),
-    intro ? el("p", { class: "page-intro", text: intro }) : null);
+    el("h2", { class: "sr-only", text: title }));
+}
+
+/** The current page's description, for the Help dialog to show. */
+export function getPageIntro() {
+  return currentPageIntro;
 }
 
 export function card(...children) {
