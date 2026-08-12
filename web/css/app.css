@@ -835,6 +835,36 @@ select {
   box-shadow: 0 0 0 3px var(--accent-ring);
 }
 
+/* An app-styled tooltip that appears the instant you hover, instead of the
+   browser's own `title` tooltip (slow to appear, unstyled). Anchored to its
+   own right edge so it grows leftward rather than off the right side of a
+   narrow popup, and z-indexed above the popup itself (40) so it renders on
+   top of everything rather than getting tucked behind or clipped. */
+.tooltip { position: relative; display: inline-flex; }
+.tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: max-content;
+  max-width: 220px;
+  background: var(--text);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .08s ease;
+  z-index: 60;
+}
+.tooltip:hover::after, .tooltip:focus-within::after { opacity: 1; visibility: visible; }
+
 /* Numbered working, so each figure sits with the step that produced it. */
 .step { display: flex; gap: 12px; align-items: flex-start; }
 .step + .step { margin-top: 4px; }
@@ -1035,6 +1065,35 @@ td {
   border-top: 1px solid var(--border);
   background: var(--sunken);
 }
+
+/* The lone payee filter left on Bill Splitting's own page (everything else
+   configured once moved to Setup) - a small button and popup rather than a
+   whole disclosure section for one field. */
+/* overflow: visible overrides .picker-popup's own overflow: hidden - this
+   popup has no rounded-corner-clipped children (unlike the search/list
+   popups elsewhere) that need it, and the tooltip below needs to be able
+   to escape the popup's bounds instead of being clipped by them. */
+.picker-popup.filters-popup { width: 300px; padding: 14px; overflow: visible; }
+.skip-payee-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.skip-payee-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 2px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.skip-payee-list li:last-child { border-bottom: none; }
+.skip-payee-list li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.skip-payee-empty { color: var(--faint); justify-content: flex-start !important; }
+
 tbody tr:last-child td { border-bottom: 0; }
 tbody tr:hover { background: var(--sunken); }
 

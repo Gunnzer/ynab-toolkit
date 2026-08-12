@@ -37,9 +37,11 @@ Everything below is about `web/`.
 | Page (`js/pages/`) | Tool logic (`js/tools/`) | What it does |
 | --- | --- | --- |
 | `home.js` | — | Landing page, links into each tool |
-| `setup.js` | — | Token, budget picker, the two people + their split share, tool on/off switches, backup/restore/reset |
+| `setup.js` | — | Token, budget picker, the two people + their split share, tool on/off switches, backup/restore/reset. Also owns Bill Splitting's rarely-touched file-reading settings (date order, split memo pattern, Excel serial) - see below |
 | `shared.js` | `shared_expenses.js` | Converts transactions in shared categories into native YNAB splits; undo via delete+recreate |
-| `splitsheet.js` ("Bill Splitting") | `split_sheet.js` | Exports shared expenses to a tracker spreadsheet (CSV/clipboard); each transaction is classified as P1, P2, Shared (the split from Setup), or Custom |
+| `splitsheet.js` ("Bill Splitting") | `split_sheet.js` | Exports shared expenses to a tracker spreadsheet (CSV/clipboard); each transaction is classified as P1, P2, Shared (the split from Setup), or Custom. Its own page keeps only the payee filter (behind a small "Filters" popup button) and the source/convert/preview flow - everything configured once and rarely touched lives on Setup instead, so there's no "Tool setup" disclosure here |
+
+`split_sheet.js`'s `personCode(which, settings)` is what actually decides the P1/P2 Owner-column letter: it prefers that person's account tag (`person{N}AccountTag`, set on Setup) over the literal "P1"/"P2" fallback, since the tag is already the one-letter identifier the user set up for exactly this purpose. Only "S" (shared) and "C" (custom) are ever fixed, unconditional codes. The Filters popup's info icon uses the new `.tooltip`/`data-tooltip` pattern in `app.css` (instant-appear, app-styled, instead of the browser's native `title` tooltip) - reuse that pattern rather than `title` for any future inline help text, but remember to also set `overflow: visible` on whatever popup contains it, since the default `.picker-popup` clips overflow and a tooltip needs to escape that.
 | `budget.js` ("YNAB Budget") | — | Read-only look at one month, YNAB's own numbers |
 | `classicbudget.js` | — | Same idea, but against your own planned amount per category instead of YNAB's Assigned |
 | `reports.js` | `reports.js` | Monthly spending by category/payee, filterable, savable filters |

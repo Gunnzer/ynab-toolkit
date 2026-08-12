@@ -4,9 +4,10 @@
 // about getting connected and staying that way.
 
 import { estimateStorage } from "../store.js";
+import { DEFAULT_SPLIT_MEMO_PATTERN } from "../tools/split_sheet.js";
 import {
   button, card, checkbox, clear, confirmDialog, download, el, field, hint,
-  logPane, pageHeading, pickFile, sectionTitle, textInput,
+  logPane, pageHeading, pickFile, sectionTitle, select, textInput,
 } from "../ui.js";
 
 const LOG_EMPTY =
@@ -187,6 +188,47 @@ export function setupPage(app) {
     hint("Renaming someone here changes how Bill Splitting classifies " +
       "transactions, not just the column headings.")));
   paintPerson2Share();
+
+  // ---------- bill splitting: reading files ----------
+  //
+  // Configured once and rarely touched, unlike the payee filter (which
+  // stays on Bill Splitting's own page, since that one gets reached for
+  // often enough to want quick access rather than a trip here).
+
+  const splitSheetSettings = store.section("splitSheet");
+
+  const dateOrder = select([
+    { value: "dayFirst", label: "3rd May (day first)" },
+    { value: "monthFirst", label: "March 5th (month first)" },
+  ], splitSheetSettings.dateOrder || "dayFirst",
+  (value) => { splitSheetSettings.dateOrder = value; store.save(); });
+
+  const splitPattern = textInput(splitSheetSettings.splitMemoPattern, {
+    placeholder: DEFAULT_SPLIT_MEMO_PATTERN,
+    onInput: () => {
+      splitSheetSettings.splitMemoPattern = splitPattern.value.trim();
+      store.save();
+    },
+  });
+  splitPattern.classList.add("mono");
+
+  const serialBox = checkbox("Write Date Adjusted as an Excel serial number",
+    splitSheetSettings.includeExcelSerial !== false,
+    (checked) => { splitSheetSettings.includeExcelSerial = checked; store.save(); });
+
+  root.append(card(
+    sectionTitle("Bill Splitting: reading files"),
+    hint("Only used when reading a YNAB export file on Bill Splitting, not " +
+      "when pulling transactions straight from the API."),
+    el("div", { class: "stack" },
+      field("Read 03/05/2026 in a file as", dateOrder),
+      hint("Only affects file imports. Transactions pulled from the API " +
+        "carry unambiguous dates."),
+      field("Split memo pattern (file imports only)", splitPattern),
+      hint("Leave blank for the default, which matches memos beginning " +
+        "'Split (1/2)'. Transactions pulled from the API use their real " +
+        "YNAB split parts instead, so this does not apply to them."),
+      serialBox)));
 
   // ---------- tools ----------
 

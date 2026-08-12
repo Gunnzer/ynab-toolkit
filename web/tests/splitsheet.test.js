@@ -79,9 +79,17 @@ describe("split classification", () => {
     assert.equal(result.share2, 36);
   });
 
-  test("one person paying everything is their expense", () => {
-    assert.equal(sheet.classifySplit(100, 0, SETTINGS).code, "P1");
-    assert.equal(sheet.classifySplit(0, 100, SETTINGS).code, "P2");
+  test("one person paying everything is their expense, coded by their account tag", () => {
+    // SETTINGS' account tags ("A"/"S") double as the Owner code - only
+    // someone with no tag set falls back to the literal "P1"/"P2".
+    assert.equal(sheet.classifySplit(100, 0, SETTINGS).code, "A");
+    assert.equal(sheet.classifySplit(0, 100, SETTINGS).code, "S");
+  });
+
+  test("falls back to P1/P2 when a person has no account tag", () => {
+    const settings = { ...SETTINGS, person1AccountTag: "", person2AccountTag: "" };
+    assert.equal(sheet.classifySplit(100, 0, settings).code, "P1");
+    assert.equal(sheet.classifySplit(0, 100, settings).code, "P2");
   });
 
   test("a ratio matching neither person nor the shared split keeps the exact amounts", () => {
@@ -227,7 +235,8 @@ describe("reading a YNAB export", () => {
       rows: [row(["Joint", "03/05/2026", "Hobby Shop", "Sam Wants", "", "40.00", ""])],
     }, SETTINGS);
     const rows = sheet.buildRows(result.items, SETTINGS);
-    assert.equal(rows[0].Owner, "P2");
+    // SETTINGS' person2AccountTag ("S") is the Owner code, not a literal "P2".
+    assert.equal(rows[0].Owner, "S");
     assert.deepEqual([rows[0].Share1, rows[0].Share2], [0, 40]);
   });
 

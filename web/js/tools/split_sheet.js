@@ -117,6 +117,20 @@ export function sharedRatio(settings) {
 }
 
 /**
+ * The Owner code for a person's own expense. Their account tag doubles as
+ * this - it is already the one-letter identifier they set up for exactly
+ * this purpose - so P1/P2 only show up as a literal fallback for someone
+ * who has not set a tag. Shared and Custom stay the fixed "S"/"C" codes;
+ * only P1/P2 are ever person-specific.
+ */
+export function personCode(which, settings) {
+  const tag = String(settings[`person${which}AccountTag`] || "").trim();
+  if (tag) return tag;
+  const codes = settings.codes || {};
+  return codes[`person${which}`] || `P${which}`;
+}
+
+/**
  * Turn "person 1 paid X, person 2 paid Y" into a code and two shares.
  *
  * Exactly four outcomes: one person paid all of it, it is exactly what the
@@ -138,10 +152,10 @@ export function classifySplit(paid1, paid2, settings) {
   const rPaid2 = round2(paid2);
 
   if (rPaid2 === 0) {
-    return { code: codes.person1 || "P1", share1: total, share2: 0 };
+    return { code: personCode(1, settings), share1: total, share2: 0 };
   }
   if (rPaid1 === 0) {
-    return { code: codes.person2 || "P2", share1: 0, share2: total };
+    return { code: personCode(2, settings), share1: 0, share2: total };
   }
 
   const shared = sharedRatio(settings);
@@ -157,8 +171,8 @@ export function classifySplit(paid1, paid2, settings) {
 /** What each person owes on a row whose owner is already known. */
 export function sharesFor(code, amount, settings) {
   const codes = settings.codes || {};
-  if (code === (codes.person1 || "P1")) return [amount, 0];
-  if (code === (codes.person2 || "P2")) return [0, amount];
+  if (code === personCode(1, settings)) return [amount, 0];
+  if (code === personCode(2, settings)) return [0, amount];
   if (code === (codes.shared || "S")) {
     const shared = sharedRatio(settings);
     return [amount * shared, amount * (1 - shared)];
@@ -402,8 +416,8 @@ export function buildRows(items, settings) {
     }
 
     const owner = ownerOf(item.groupName, item.accountName, settings);
-    const code = owner === "p1" ? (codes.person1 || "P1")
-      : owner === "p2" ? (codes.person2 || "P2")
+    const code = owner === "p1" ? personCode(1, settings)
+      : owner === "p2" ? personCode(2, settings)
         : (codes.shared || "S");
 
     // Outflow and inflow stay on separate lines, so a refund is visible on

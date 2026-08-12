@@ -4,7 +4,7 @@ import { fmt } from "../money.js";
 import { parseDelimited } from "../tools/bank_convert.js";
 import * as sheet from "../tools/split_sheet.js";
 import {
-  button, card, checkbox, clear, confirmDialog, customDialog, download, el,
+  button, card, clear, confirmDialog, customDialog, download, el,
   emptyRow, field, hint, icon, logPane, monthOptions, pageHeading, pickFile,
   radioGroup, sectionTitle, select, table, textInput,
 } from "../ui.js";
@@ -35,28 +35,6 @@ export function splitSheetPage(app) {
     "share of it is, then writes one row per expense for your shared " +
     "expense tracker."));
 
-  // ---------- tool setup ----------
-  //
-  // Everything that is configured once and then left alone lives behind one
-  // disclosure, so the page you see day to day is the source, the summary
-  // and the result. A native <details> keeps it keyboard and screen reader
-  // friendly for free.
-
-  const setupBody = el("div", { class: "tool-setup-body" });
-  const setupBlock = el("details", { class: "tool-setup" },
-    el("summary", {},
-      el("span", { class: "caret", "aria-hidden": "true", text: "▾" }),
-      el("span", { class: "tool-setup-title", text: "Tool setup" }),
-      el("span", { class: "hint", text:
-        "People, owner codes, ratios and filters" })),
-    setupBody);
-  setupBlock.open = Boolean(settings.setupOpen);
-  setupBlock.addEventListener("toggle", () => {
-    settings.setupOpen = setupBlock.open;
-    store.save();
-  });
-  root.append(setupBlock);
-
   // ---------- filters ----------
   //
   // The Owner column itself is not configurable here any more: it is always
@@ -64,38 +42,108 @@ export function splitSheetPage(app) {
   // since who paid is already known from the account tags set on Setup. A
   // manually split transaction counts as the shared split when it is
   // exactly that split rounded to the cent (see classifySplit) - no
-  // tolerance percentage to set here.
+  // tolerance percentage to set here. Date parsing, the split memo pattern
+  // and the Excel serial option are all configured once and rarely touched,
+  // so they live on the Setup page now instead of a disclosure here; only
+  // the payee filter, which stays behind a small popup button, is common
+  // enough to need to reach quickly.
 
-  const skipList = textInput((settings.skipPayeeSubstrings || []).join(", "), {
-    placeholder: "for example: interest, monthly fee", onInput: save,
-  });
-  const splitPattern = textInput(settings.splitMemoPattern, {
-    placeholder: sheet.DEFAULT_SPLIT_MEMO_PATTERN, onInput: save,
-  });
-  splitPattern.classList.add("mono");
-  const dateOrder = select([
-    { value: "dayFirst", label: "3rd May (day first)" },
-    { value: "monthFirst", label: "March 5th (month first)" },
-  ], settings.dateOrder || "dayFirst",
-  (value) => { settings.dateOrder = value; store.save(); });
-  const serialBox = checkbox("Write Date Adjusted as an Excel serial number",
-    settings.includeExcelSerial !== false,
-    (checked) => { settings.includeExcelSerial = checked; store.save(); });
+  const filtersButton = button("Filters", { small: true, onClick: toggleFiltersPopup });
+  const filtersAnchor = el("div", { class: "picker" }, filtersButton);
+  let filtersPopup = null;
+  let skipAddInput = null;
+  let skipListEl = null;
 
-  setupBody.append(card(
-    sectionTitle("Filters"),
-    el("div", { class: "stack" },
-      field("Skip payees containing", skipList),
-      hint("Comma separated, case insensitive, matched anywhere in the " +
-        "payee. Transfers between your own accounts are always skipped."),
-      field("Read 03/05/2026 in a file as", dateOrder),
-      hint("Only affects file imports. Transactions pulled from the API " +
-        "carry unambiguous dates."),
-      field("Split memo pattern (file imports only)", splitPattern),
-      hint("Leave blank for the default, which matches memos beginning " +
-        "'Split (1/2)'. Transactions pulled from the API use their real " +
-        "YNAB split parts instead, so this does not apply to them."),
-      serialBox)));
+  function closeFiltersPopup() {
+    if (!filtersPopup) return;
+    filtersPopup.remove();
+    filtersPopup = null;
+    skipAddInput = null;
+    skipListEl = null;
+    document.removeEventListener("pointerdown", onOutsideFilters, true);
+  }
+  function onOutsideFilters(event) {
+    if (!filtersAnchor.contains(event.target)) closeFiltersPopup();
+  }
+
+  function renderSkipList() {
+    if (!skipListEl) return;
+    clear(skipListEl);
+    const entries = settings.skipPayeeSubstrings || [];
+    if (!entries.length) {
+      skipListEl.append(el("li", { class: "skip-payee-empty", text: "Nothing filtered yet." }));
+      return;
+    }
+    entries.forEach((entry, index) => {
+      skipListEl.append(el("li", {},
+        el("span", { text: entry }),
+        el("button", {
+          type: "button", class: "row-exclude-btn",
+          "aria-label": `Remove '${entry}' from filters`,
+          title: `Remove '${entry}' from filters`,
+          onClick: () => removeSkipEntry(index),
+        }, icon("x", { size: 13 }))));
+    });
+  }
+
+  function addSkipEntry() {
+    const text = skipAddInput.value.trim();
+    if (!text) return;
+    const current = settings.skipPayeeSubstrings || [];
+    if (current.some((entry) => entry.toLowerCase() === text.toLowerCase())) {
+      skipAddInput.value = "";
+      return;
+    }
+    settings.skipPayeeSubstrings = [...current, text];
+    store.save();
+    skipAddInput.value = "";
+    renderSkipList();
+    if (rows) convert();
+  }
+
+  function removeSkipEntry(index) {
+    const current = [...(settings.skipPayeeSubstrings || [])];
+    current.splice(index, 1);
+    settings.skipPayeeSubstrings = current;
+    store.save();
+    renderSkipList();
+    if (rows) convert();
+  }
+
+  function toggleFiltersPopup() {
+    if (filtersPopup) return closeFiltersPopup();
+
+    skipAddInput = el("input", {
+      type: "text", placeholder: "e.g. interest, monthly fee",
+      onKeydown: (event) => { if (event.key === "Enter") { event.preventDefault(); addSkipEntry(); } },
+    });
+    skipListEl = el("ul", { class: "skip-payee-list" });
+
+    filtersPopup = el("div", { class: "picker-popup filters-popup" },
+      el("div", { class: "settle-cell" },
+        el("span", { class: "field-label", style: "margin:0", text: "Skip payees containing" }),
+        el("span", {
+          class: "tooltip",
+          "data-tooltip": "Case insensitive, matched anywhere in the payee. " +
+            "Transfers between your own accounts are always skipped.",
+        },
+          el("button", {
+            type: "button", class: "info-button",
+            "aria-label": "Case insensitive, matched anywhere in the payee. " +
+              "Transfers between your own accounts are always skipped.",
+          }, icon("info", { size: 14 })))),
+      el("div", { class: "card-row" },
+        skipAddInput, button("Add", { small: true, onClick: addSkipEntry })),
+      skipListEl);
+    filtersAnchor.append(filtersPopup);
+    if (filtersPopup.getBoundingClientRect().right > window.innerWidth) {
+      filtersPopup.style.left = "auto";
+      filtersPopup.style.right = "0";
+    }
+    renderSkipList();
+    skipAddInput.focus();
+    document.addEventListener("pointerdown", onOutsideFilters, true);
+  }
 
   // ---------- source ----------
 
@@ -172,7 +220,7 @@ export function splitSheetPage(app) {
   const summary = hint("");
 
   root.append(el("div", { class: "card-row" },
-    convertButton, saveButton, copyButton, summary));
+    convertButton, saveButton, copyButton, filtersAnchor, summary));
 
   // ---------- monthly summary ----------
 
@@ -573,9 +621,6 @@ export function splitSheetPage(app) {
   }
 
   function save() {
-    settings.skipPayeeSubstrings = skipList.value
-      .split(",").map((part) => part.trim()).filter(Boolean);
-    settings.splitMemoPattern = splitPattern.value.trim();
     store.save();
     paintPreviewHeadings();
     paintLegend();
@@ -588,13 +633,14 @@ export function splitSheetPage(app) {
   }
 
   function paintLegend() {
+    const activeSettings = active();
     const codes = settings.codes || {};
-    const percent = Math.round(sheet.sharedRatio(active()) * 100);
+    const percent = Math.round(sheet.sharedRatio(activeSettings) * 100);
     legend.textContent =
-      `${codes.person1 || "P1"} = ${state.personName(1)}'s expense   ·   ` +
-      `${codes.person2 || "P2"} = ${state.personName(2)}'s expense   ·   ` +
+      `${sheet.personCode(1, activeSettings)} = ${state.personName(1)}   ·   ` +
+      `${sheet.personCode(2, activeSettings)} = ${state.personName(2)}   ·   ` +
       `${codes.shared || "S"} = Shared (${percent}% / ${100 - percent}%)   ·   ` +
-      `${codes.custom || "C"} = Custom (exact amounts)`;
+      `${codes.custom || "C"} = Custom`;
   }
 
   // ---------- file input ----------
@@ -676,7 +722,7 @@ export function splitSheetPage(app) {
 
     settings.skipPayeeSubstrings = [...current, text];
     store.save();
-    skipList.value = settings.skipPayeeSubstrings.join(", ");
+    renderSkipList();
     convert();
   }
 
