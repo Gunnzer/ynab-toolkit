@@ -439,7 +439,7 @@ export function buildRows(items, settings) {
     }
   }
 
-  out.sort((a, b) => (a.Date?.getTime() ?? Infinity) - (b.Date?.getTime() ?? Infinity));
+  out.sort((a, b) => (b.Date?.getTime() ?? -Infinity) - (a.Date?.getTime() ?? -Infinity));
   return out;
 }
 

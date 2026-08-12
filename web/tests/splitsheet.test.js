@@ -553,11 +553,11 @@ describe("output", () => {
     assert.match(line, /,46086$/);
   });
 
-  test("rows come out in date order", () => {
+  test("rows come out newest first", () => {
     const rows = sheet.buildRows([
       { accountName: "V", date: new Date(2026, 2, 9), payee: "B", groupName: "Household", memo: "", outflow: 1, inflow: 0, parts: null },
       { accountName: "V", date: new Date(2026, 2, 1), payee: "A", groupName: "Household", memo: "", outflow: 1, inflow: 0, parts: null },
     ], SETTINGS);
-    assert.deepEqual(rows.map((row) => row.Description), ["A", "B"]);
+    assert.deepEqual(rows.map((row) => row.Description), ["B", "A"]);
   });
 });
