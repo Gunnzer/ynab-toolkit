@@ -197,6 +197,24 @@ describe("shared expenses", () => {
     assert.equal(result.skippedAlreadySplit, 1);
   });
 
+  test("an already-split transaction is still found via its subtransactions", () => {
+    // YNAB gives a split transaction's parent record category_id: null - the
+    // category lives on each leg instead - so a real already-split
+    // transaction never matches a rule by its own category_id at all. This
+    // reproduces that, unlike t4 above (which sets category_id anyway).
+    const items = [
+      { id: "t5", date: "2025-03-04", amount: -30000, category_id: null,
+        account_id: "a1", cleared: "cleared", approved: true,
+        subtransactions: [
+          { category_id: "shared1", amount: -20000 },
+          { category_id: "other", amount: -10000 },
+        ] },
+    ];
+    const result = shared.scan(items, [rule], "2025-01-01", "2030-12-31", 0.35);
+    assert.equal(result.planned.length, 0);
+    assert.equal(result.skippedAlreadySplit, 1);
+  });
+
   test("transfers are skipped", () => {
     const items = transactions();
     items[0].transfer_account_id = "acct";
@@ -451,19 +469,14 @@ describe("fake budget: bill splitting", () => {
     return "";
   }
 
-  test("every transfer leg and bare inflow is skipped, nothing else is", () => {
-    const { items, skippedTransfers, skippedIncome } =
+  test("only a transfer leg is skipped - a bare inflow is kept as a normal row", () => {
+    const { items, skippedTransfers } =
       sheet.fromApi(TRANSACTIONS, groupNameFor, settings);
-    const isBareInflow = (t) =>
-      !(t.subtransactions || []).length && (t.amount || 0) > 0;
     const expectedTransfers = TRANSACTIONS.filter(
       (t) => !t.deleted && t.transfer_account_id).length;
-    const expectedIncome = TRANSACTIONS.filter(
-      (t) => !t.deleted && !t.transfer_account_id && isBareInflow(t)).length;
     const expectedItems = TRANSACTIONS.filter(
-      (t) => !t.deleted && !t.transfer_account_id && !isBareInflow(t)).length;
+      (t) => !t.deleted && !t.transfer_account_id).length;
     assert.equal(skippedTransfers, expectedTransfers);
-    assert.equal(skippedIncome, expectedIncome);
     assert.equal(items.length, expectedItems);
   });
 

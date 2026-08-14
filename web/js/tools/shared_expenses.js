@@ -50,7 +50,17 @@ export function scan(transactions, rules, startDate, endDate, ratio, {
     if (startDate && transaction.date < startDate) continue;
     if (!withinEndDate(transaction.date, endDate)) continue;
 
-    const rule = bySharedId.get(transaction.category_id);
+    // A split transaction carries no category_id of its own - YNAB puts it
+    // on each subtransaction instead - so a plain lookup on the parent
+    // never matches one, even when a leg sits in a shared category. Falling
+    // back to the legs is what lets an already-split transaction be found
+    // at all, so it can be reported and skipped rather than silently
+    // invisible.
+    const rule = bySharedId.get(transaction.category_id) ||
+      (transaction.subtransactions || [])
+        .filter((sub) => !sub.deleted)
+        .map((sub) => bySharedId.get(sub.category_id))
+        .find(Boolean);
     if (!rule) continue;
 
     result.scanned += 1;

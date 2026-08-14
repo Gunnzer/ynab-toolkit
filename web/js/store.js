@@ -157,8 +157,6 @@ export const DEFAULTS = {
     // switching banks does not mean remapping every column again.
     presets: {},
     presetName: "",
-    // Which account "Push to YNAB" writes into, remembered across visits.
-    accountId: "",
     // The single most recent push per budget, by budget id, so "Undo last
     // push" knows exactly which transactions to delete. Only ever holds
     // one entry per budget - pushing again replaces it, it is not a

@@ -14,6 +14,16 @@ import { parseAmount, parseDate } from "./bank_convert.js";
 export const DEFAULT_SPLIT_MEMO_PATTERN =
   "^\\s*split\\s*\\(\\s*(\\d+)\\s*/\\s*(\\d+)\\s*\\)\\s*";
 
+/**
+ * How far a split can drift from the configured ratio and still count as
+ * "the shared split" rather than Custom - half a percentage point either
+ * way (65% stays a match from 64.50% through 65.50%). A manual entry or an
+ * odd rounding rarely lands exactly on the ratio to the cent, and a hard
+ * exact-match requirement flagged those as Custom even when they were
+ * clearly meant as the shared split.
+ */
+export const SPLIT_TOLERANCE = 0.005;
+
 /** Column names YNAB uses in its own export. */
 export const DEFAULT_COLUMNS = {
   accountColumn: "Account",
@@ -26,15 +36,6 @@ export const DEFAULT_COLUMNS = {
 };
 
 export class SplitSheetError extends Error {}
-
-/**
- * A bare inflow - money in, nothing out - is income (a paycheque,
- * interest), not an expense either person fronted, so it is left out of
- * the split entirely rather than becoming a negative-amount row.
- */
-export function isBareInflow(outflow, inflow) {
-  return inflow > 0 && !outflow;
-}
 
 // ---------- classification ----------
 
@@ -133,18 +134,23 @@ export function personCode(which, settings) {
 /**
  * Turn "person 1 paid X, person 2 paid Y" into a code and two shares.
  *
- * Exactly four outcomes: one person paid all of it, it is exactly what the
- * shared split produces once rounded to the cent, or it is custom and keeps
- * the exact amounts. Comparing rounded amounts instead of a tolerance
- * percentage means a plain cent-rounding artifact (very common - a $12.99
- * shared cost is $8.44 / $4.55, not a bit-exact 65/35) still counts as the
- * shared split, while a genuine difference of any size does not, with no
- * "how close is close enough" percentage to get wrong.
+ * Exactly four outcomes: one person paid all of it, it is within
+ * SPLIT_TOLERANCE of the shared ratio, or it is custom and keeps the exact
+ * amounts. The tolerance check works on person 1's actual percentage of the
+ * total (paid1 / total), not on rounded dollar amounts - that is what lets
+ * both a plain cent-rounding artifact (a $12.99 shared cost is $8.44/$4.55,
+ * 64.97% not a bit-exact 65%) and a manually-entered split that just missed
+ * the ratio by a bit both still count as the shared split, while a genuine
+ * difference beyond the tolerance does not.
  */
 export function classifySplit(paid1, paid2, settings) {
   const total = paid1 + paid2;
   const codes = settings.codes || {};
-  if (total <= 0) {
+  // Only an exact zero needs special-casing (nothing to classify). A
+  // negative total is a real, meaningful case now - a split that is mostly
+  // or entirely a refund - and classifies the same way a positive one does,
+  // just with negative shares.
+  if (total === 0) {
     return { code: codes.shared || "S", share1: 0, share2: 0 };
   }
 
@@ -159,10 +165,13 @@ export function classifySplit(paid1, paid2, settings) {
   }
 
   const shared = sharedRatio(settings);
-  const expected1 = round2(total * shared);
-  const expected2 = round2(total * (1 - shared));
-  if (rPaid1 === expected1 && rPaid2 === expected2) {
-    return { code: codes.shared || "S", share1: expected1, share2: expected2 };
+  const actualRatio1 = paid1 / total;
+  // The tiny epsilon absorbs plain floating-point error (e.g. 64.5/100
+  // computing as 0.6449999999999999...5 rather than exactly 0.645) so an
+  // inclusive edge like "exactly 0.50% off" is not rejected by an
+  // arithmetic artifact one ten-millionth of a percentage point wide.
+  if (Math.abs(actualRatio1 - shared) <= SPLIT_TOLERANCE + 1e-9) {
+    return { code: codes.shared || "S", share1: rPaid1, share2: rPaid2 };
   }
 
   return { code: codes.custom || "C", share1: paid1, share2: paid2 };
@@ -237,7 +246,6 @@ export function fromExport({ headers, rows }, settings) {
   let skippedTransfers = 0;
   let skippedPayees = 0;
   let skippedAccounts = 0;
-  let skippedIncome = 0;
 
   for (const row of rows) {
     const payee = String(row[columns.payeeColumn] ?? "").trim();
@@ -264,7 +272,10 @@ export function fromExport({ headers, rows }, settings) {
     const base = { accountName, date, payee, groupName, memo };
 
     if (!isSplit) {
-      if (isBareInflow(outflow, inflow)) { skippedIncome += 1; continue; }
+      // An inflow (income or a refund) is kept, not guessed at - it shows
+      // up as a negative row like any other, and the preview's own
+      // checkbox per row (unchecked by default for these) is what decides
+      // whether it actually counts. See splitsheet.js's `row.included`.
       items.push({ ...base, outflow, inflow, parts: null });
       continue;
     }
@@ -297,7 +308,7 @@ export function fromExport({ headers, rows }, settings) {
     });
   }
 
-  return { items, skippedTransfers, skippedPayees, skippedAccounts, skippedIncome };
+  return { items, skippedTransfers, skippedPayees, skippedAccounts };
 }
 
 /**
@@ -312,7 +323,6 @@ export function fromApi(transactions, groupNameFor, settings) {
   let skippedTransfers = 0;
   let skippedPayees = 0;
   let skippedAccounts = 0;
-  let skippedIncome = 0;
 
   for (const transaction of transactions) {
     if (transaction.deleted) continue;
@@ -341,22 +351,18 @@ export function fromApi(transactions, groupNameFor, settings) {
 
     const subs = (transaction.subtransactions || []).filter((sub) => !sub.deleted);
     if (subs.length) {
-      // Outflows are negative in the API, inflows positive. A leg with a
-      // positive amount is money credited back on this split (a refund
-      // folded into an otherwise-normal purchase, say) - income, not an
-      // expense either of you fronted, so it is dropped the same as a bare
-      // inflow is on the non-split path below, rather than turning into a
-      // negative "paid" amount that drags the whole row negative.
-      const expenseLegs = subs.filter((sub) => (sub.amount || 0) < 0);
-      if (!expenseLegs.length) { skippedIncome += 1; continue; }
-
-      const parts = expenseLegs.map((sub) => {
+      // Outflows are negative in the API, inflows positive. Every leg of a
+      // split carries its own category by definition, so a leg credited
+      // back (a refund folded into an otherwise-normal purchase) is kept,
+      // not dropped as income - it reduces that leg's owner's paid amount
+      // the same way a positive leg increases it.
+      const parts = subs.map((sub) => {
         // Milliunits. buildRows() splits a "shared" part by the usual ratio
         // rather than crediting it whole to person 1.
         const side = ownerOf(groupNameFor(sub.category_id), base.accountName, settings);
         return { owner: side, amount: -(sub.amount || 0) / 1000 };
       });
-      const memos = expenseLegs
+      const memos = subs
         .map((sub) => String(sub.memo || "").trim())
         .filter((memo, index, all) => memo && all.indexOf(memo) === index);
       items.push({ ...base, memo: memos.join(" | ") || base.memo, parts });
@@ -366,11 +372,12 @@ export function fromApi(transactions, groupNameFor, settings) {
     const amount = (transaction.amount || 0) / 1000;
     const outflow = amount < 0 ? -amount : 0;
     const inflow = amount > 0 ? amount : 0;
-    if (isBareInflow(outflow, inflow)) { skippedIncome += 1; continue; }
+    // An inflow (income or a refund) is kept, not guessed at - see the
+    // matching comment in fromExport().
     items.push({ ...base, outflow, inflow, parts: null });
   }
 
-  return { items, skippedTransfers, skippedPayees, skippedAccounts, skippedIncome };
+  return { items, skippedTransfers, skippedPayees, skippedAccounts };
 }
 
 // ---------- conversion ----------

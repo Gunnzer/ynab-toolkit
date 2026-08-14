@@ -13,8 +13,6 @@ const LOG_EMPTY =
   "Nothing converted yet. This tool only reads: it produces a file for your " +
   "tracker and never changes anything in YNAB.";
 
-const PREVIEW_ROWS = 60;
-
 export function splitSheetPage(app) {
   const state = app.state;
   const store = state.store;
@@ -25,9 +23,6 @@ export function splitSheetPage(app) {
 
   let rows = null;
   let sourceName = "";
-  // The preview is capped so a year of transactions does not build tens of
-  // thousands of table rows before you have decided the settings are right.
-  let showAll = false;
 
   root.append(pageHeading(
     "Bill Splitting",
@@ -434,7 +429,7 @@ export function splitSheetPage(app) {
       return;
     }
 
-    const cycles = sheet.monthlySummary(rows, active());
+    const cycles = sheet.monthlySummary(rows.filter((row) => row.included), active());
     if (cycles.outside?.length) {
       summaryHost.append(el("p", { class: "hint is-warn", text:
         `${cycles.outside.length} row(s) fall between cycles and are not ` +
@@ -479,6 +474,31 @@ export function splitSheetPage(app) {
               .join("     ") })));
       }
     }
+
+    // Only worth a total once there is more than one row to add up - a
+    // single cycle would just repeat the row above it.
+    if (cycles.length > 1) {
+      const share1 = cycles.reduce((sum, cycle) => sum + cycle.share1, 0);
+      const share2 = cycles.reduce((sum, cycle) => sum + cycle.share2, 0);
+      const total = cycles.reduce((sum, cycle) => sum + cycle.total, 0);
+      // Net across every cycle, as if nothing had been settled up along the
+      // way - the same owedToP1-minus-owedToP2 idea monthlySummary() uses
+      // per cycle, just added across all of them.
+      const net = cycles.reduce((sum, cycle) => sum + cycle.net, 0);
+      const settleFrom = net > 0 ? 2 : net < 0 ? 1 : 0;
+      const settleAmount = Math.abs(Math.round(net * 100) / 100);
+      const settle = settleFrom === 0 ? "Even"
+        : `${state.personName(settleFrom)} pays ` +
+          `${state.personName(settleFrom === 1 ? 2 : 1)} ` +
+          `${fmt(settleAmount * 1000)}`;
+
+      summaryTable.tbody.append(el("tr", { class: "total-row" },
+        el("td", { text: `${cycles.length} cycles` }),
+        el("td", { class: "num", text: fmt(share1 * 1000) }),
+        el("td", { class: "num", text: fmt(share2 * 1000) }),
+        el("td", { class: "num", text: fmt(total * 1000) }),
+        el("td", { text: settle })));
+    }
   }
 
   const preview = table([
@@ -492,6 +512,17 @@ export function splitSheetPage(app) {
     { key: "Memo", label: "Memo" },
     { key: "exclude", label: "", className: "check" },
   ]);
+  preview.classList.add("preview-table");
+
+  // Income and refunds are reviewed in a separate dialog (openInflowsDialog,
+  // below), not inline in this table - a mixed checkbox-per-row design here
+  // was confusing. Every inflow defaults out of Save/Copy/Monthly summary
+  // until ticked in the dialog, since most inflows are income and a real
+  // refund is rare (see convert()). A ticked inflow also joins this table,
+  // as a normal row, since at that point it is being treated as a real
+  // expense/credit - see drawPreview()'s filter.
+  const inflowsButton = button("Inflows", { small: true, onClick: openInflowsDialog });
+  inflowsButton.hidden = true;
 
   // Filters the preview only - rows itself (what Save/Copy write and the
   // monthly summary above adds up) is never touched by it. Each filterable
@@ -514,7 +545,12 @@ export function splitSheetPage(app) {
       type: "button", class: "th-filter-btn", "aria-haspopup": "true",
       "aria-label": `Filter ${label}`, title: `Filter ${label}`,
     }, icon("funnel", { size: 13 }));
-    th.append(funnelButton);
+    // The flex row that holds the label and funnel button is a child of the
+    // <th>, not the <th> itself - see the CSS comment on .filterable-th for
+    // why (display:flex on a sticky <th> breaks its stickiness here).
+    th.textContent = "";
+    th.append(el("div", { class: "th-filter-row" },
+      el("span", { text: label }), funnelButton));
 
     let popup = null;
 
@@ -523,15 +559,19 @@ export function splitSheetPage(app) {
       popup.remove();
       popup = null;
       document.removeEventListener("pointerdown", onOutside, true);
+      window.removeEventListener("scroll", close, true);
     }
     function onOutside(event) {
-      if (!th.contains(event.target)) close();
+      if (!th.contains(event.target) && !popup.contains(event.target)) close();
     }
 
     function open() {
       if (popup) return close();
 
-      const allValues = [...new Set((rows || []).map((row) => String(row[key] ?? "")))]
+      // Only the rows shown in this table - an untouched inflow is not
+      // part of what this filter narrows, but a ticked-in one is.
+      const allValues = [...new Set(
+        previewRows().map((row) => String(row[key] ?? "")))]
         .sort((a, b) => a.localeCompare(b));
       // The working selection is a scratch copy - Cancel (or clicking away)
       // must not touch the filter actually applied to the table.
@@ -552,7 +592,18 @@ export function splitSheetPage(app) {
       popup = el("div", { class: "picker-popup filter-popup" },
         search, selectAllRow, list,
         el("div", { class: "filter-popup-actions" }, okButton, cancelButton));
-      th.append(popup);
+      // Appended to <body>, not the <th> - the Preview table is its own
+      // bounded, scrolling panel (.preview-table), and a popup left inside
+      // it gets clipped to that panel instead of floating on top of it (you
+      // end up scrolling a tiny table to see a filter popup that has
+      // nowhere else to go). Positioned as `fixed` from the funnel button's
+      // own screen position instead of relying on a positioned ancestor.
+      document.body.append(popup);
+      const rect = funnelButton.getBoundingClientRect();
+      popup.style.position = "fixed";
+      popup.style.top = `${rect.bottom + 6}px`;
+      popup.style.left = `${rect.left}px`;
+      popup.style.minWidth = `${Math.max(rect.width, 220)}px`;
 
       function syncSelectAll() {
         selectAllBox.checked = visibleValues.length > 0 &&
@@ -596,12 +647,19 @@ export function splitSheetPage(app) {
       }
 
       renderList();
-      if (popup.getBoundingClientRect().right > window.innerWidth) {
-        popup.style.left = "auto";
-        popup.style.right = "0";
+      // Fixed positioning means "right: 0" would mean the viewport's edge,
+      // not the button's - nudge left explicitly instead, clamped so it
+      // never runs off the left edge either on a narrow window.
+      const overflow = popup.getBoundingClientRect().right - (window.innerWidth - 8);
+      if (overflow > 0) {
+        popup.style.left = `${Math.max(8, rect.left - overflow)}px`;
       }
       search.focus();
       document.addEventListener("pointerdown", onOutside, true);
+      // A popup anchored with `fixed` does not track the page's own scroll,
+      // only the button's initial position - closing on scroll avoids it
+      // drifting away from the funnel it opened from.
+      window.addEventListener("scroll", close, true);
     }
 
     funnelButton.addEventListener("click", (event) => {
@@ -611,7 +669,10 @@ export function splitSheetPage(app) {
   }
 
   const legend = el("p", { class: "hint mono" });
-  root.append(sectionTitle("Preview"), legend, preview, log);
+  root.append(
+    el("div", { class: "section-head" },
+      sectionTitle("Preview"), el("span", { class: "spacer" }), inflowsButton),
+    legend, preview, log);
 
   // ---------- settings plumbing ----------
 
@@ -628,8 +689,8 @@ export function splitSheetPage(app) {
 
   function paintPreviewHeadings() {
     const heads = preview.querySelectorAll("th");
-    heads[5].textContent = state.personName(1);
-    heads[6].textContent = state.personName(2);
+    heads[preview.columns.findIndex((c) => c.key === "Share1")].textContent = state.personName(1);
+    heads[preview.columns.findIndex((c) => c.key === "Share2")].textContent = state.personName(2);
   }
 
   function paintLegend() {
@@ -640,7 +701,8 @@ export function splitSheetPage(app) {
       `${sheet.personCode(1, activeSettings)} = ${state.personName(1)}   ·   ` +
       `${sheet.personCode(2, activeSettings)} = ${state.personName(2)}   ·   ` +
       `${codes.shared || "S"} = Shared (${percent}% / ${100 - percent}%)   ·   ` +
-      `${codes.custom || "C"} = Custom`;
+      `${codes.custom || "C"} = Custom   ·   ` +
+      "! = split percentages add up to over 100%";
   }
 
   // ---------- file input ----------
@@ -778,15 +840,13 @@ export function splitSheetPage(app) {
       log.write(`Skipped ${source.skippedAccounts} transaction(s) from ` +
         "excluded accounts.", "muted");
     }
-    if (source.skippedIncome) {
-      log.write(`Skipped ${source.skippedIncome} inflow(s) with nothing spent ` +
-        "(paycheques, interest, refunds) - not an expense either of you " +
-        "shared.", "muted");
-    }
 
     rows = sheet.buildRows(source.items, active());
-    // A fresh result starts capped again, whatever the last one was showing.
-    showAll = false;
+    // An inflow (a paycheque, a refund) is never guessed at - it is kept as
+    // a normal negative row, unchecked by default so it takes a deliberate
+    // tick to actually count it, rather than silently including income or
+    // silently dropping a refund. A normal expense row still defaults on.
+    for (const row of rows) row.included = row.Amount >= 0;
     showRows();
   }
 
@@ -798,19 +858,141 @@ export function splitSheetPage(app) {
     return (categoryId) => map.get(categoryId) || "";
   }
 
-  /** Draw the table only. Toggling how much is shown must not re-log. */
+  /** The Owner pill's colour depends on whose code it is, worked out once
+   * per draw rather than per row. Named apart from active() (shadowed below
+   * by the filter list) so callers already inside that scope still work. */
+  function ownerCodes() {
+    const activeSettings = state.withPeople(settings);
+    return {
+      p1: sheet.personCode(1, activeSettings),
+      p2: sheet.personCode(2, activeSettings),
+      shared: settings.codes?.shared || "S",
+      custom: settings.codes?.custom || "C",
+      ratio: sheet.sharedRatio(activeSettings),
+    };
+  }
+
+  /** How far a Shared row's actual split can drift from the configured
+   * ratio before it's worth a visual nudge - much finer than
+   * SPLIT_TOLERANCE (which decides Shared vs Custom in the first place):
+   * this only tints an already-Shared row, it never reclassifies one. */
+  const VARIANCE_TINT_THRESHOLD = 0.0005;
+
+  function pillClassFor(row, codes) {
+    const code = row.Owner;
+    if (code === codes.p1) return "pill-blue";
+    if (code === codes.p2) return "pill-purple";
+    if (code === codes.custom) return "pill-warn";
+    if (code === codes.shared && row.Amount) {
+      const actualRatio1 = row.Share1 / row.Amount;
+      if (Math.abs(actualRatio1 - codes.ratio) > VARIANCE_TINT_THRESHOLD) return "pill-caution";
+    }
+    return "";
+  }
+
+  /** Each person's actual share of a row, as a percentage of its Amount -
+   * not the shared-ratio preset, the real number this specific row worked
+   * out to (rounding, a Custom split, etc. can all make it differ slightly).
+   * A row whose Amount is exactly $0 (both sides fully cancel out) has
+   * nothing meaningful to divide by, so it gets an explicit message instead
+   * of a misleading 0%/0%. Also reports whether the two percentages, each
+   * independently rounded to 2 decimals for display, add up to over 100% -
+   * two numbers that each round fine on their own can still overshoot once
+   * added together (e.g. 65.02% + 35.02%), which is worth flagging on the
+   * pill rather than leaving it looking like a silent inconsistency. */
+  function splitPercentInfo(row) {
+    if (!row.Amount) {
+      return { text: "No split % - amount is $0.", exceeds100: false };
+    }
+    const percentOf = (value) =>
+      Math.round((value / row.Amount) * 10000) / 100;
+    const p1 = percentOf(row.Share1);
+    const p2 = percentOf(row.Share2);
+    return {
+      text: `${state.personName(1)}: ${p1.toFixed(2)}%   ·   ` +
+        `${state.personName(2)}: ${p2.toFixed(2)}%`,
+      // The epsilon absorbs plain float addition error so a genuinely-exact
+      // 100% (e.g. 60.00 + 40.00 landing on 100.00000000000001) is not
+      // flagged as an overshoot it is not.
+      exceeds100: p1 + p2 > 100 + 1e-9,
+    };
+  }
+
+  /** Rows that belong in the main Preview table: every ordinary expense,
+   * plus any inflow ticked in from the Inflows dialog - at that point it is
+   * being treated as a real expense/credit, not just tallied quietly. */
+  function previewRows() {
+    return (rows || []).filter((row) => row.Amount >= 0 || row.included === true);
+  }
+
+  /** One <tr>'s worth of cells, shared between the Preview table and the
+   * Inflows dialog - they differ only in whether a row carries its own
+   * include checkbox (inflows do, ordinary expenses are always included). */
+  function rowCells(row, codes, { withCheckbox }) {
+    const cells = [];
+    if (withCheckbox) {
+      const includeBox = el("input", {
+        type: "checkbox", "aria-label": `Include '${row.Description}' in the output`,
+      });
+      includeBox.checked = row.included === true;
+      includeBox.addEventListener("change", () => {
+        row.included = includeBox.checked;
+        // Live, with the dialog still open: ticking (or unticking) moves
+        // the row into (or out of) the Preview table and the totals right
+        // away, rather than waiting for the dialog to close.
+        drawPreview();
+        showSummary();
+      });
+      cells.push(el("td", { class: "check" }, includeBox));
+    }
+    cells.push(
+      el("td", { text: row.Card }),
+      el("td", { text: sheet.formatDate(row.Date) }),
+      el("td", { text: row.Description }),
+      el("td", { class: "num", text: row.Amount.toFixed(2) }),
+      el("td", {}, (() => {
+        const info = splitPercentInfo(row);
+        return el("span", { class: "tooltip", "data-tooltip": info.text },
+          el("span", { class: `pill ${pillClassFor(row, codes)}`.trim(), text: row.Owner }),
+          info.exceeds100
+            ? el("span", { class: "pill-flag", title: "Split percentages add up to over 100%" }, "!")
+            : null);
+      })()),
+      el("td", { class: "num", text: row.Share1.toFixed(2) }),
+      el("td", { class: "num", text: row.Share2.toFixed(2) }),
+      el("td", { class: "hint", text: row.Memo }),
+      el("td", { class: "check" },
+        el("button", {
+          type: "button", class: "row-exclude-btn",
+          "aria-label": `Filter out '${row.Description}'`,
+          title: `Filter out '${row.Description}'`,
+          onClick: () => excludePayee(row.Description),
+        }, icon("x", { size: 13 }))));
+    return cells;
+  }
+
+  /** Draw the Preview table only. Toggling how much is shown must not
+   * re-log. Untouched inflows never appear here - only ordinary expenses
+   * and any inflow ticked in via the Inflows dialog (see previewRows()). */
   function drawPreview() {
     clear(preview.tbody);
+    const shown = previewRows();
     if (!rows || !rows.length) {
       emptyRow(preview, "Nothing to convert in that range.");
       return;
     }
+    if (!shown.length) {
+      emptyRow(preview, "Nothing but inflows in that range - see Inflows above.");
+      return;
+    }
+
+    const codes = ownerCodes();
 
     const active = Object.entries(columnFilters).filter(([, set]) => set);
     const filtered = active.length
-      ? rows.filter((row) => active.every(
+      ? shown.filter((row) => active.every(
           ([key, set]) => set.has(String(row[key] ?? ""))))
-      : rows;
+      : shown;
 
     if (!filtered.length) {
       const summary = active.map(([key]) =>
@@ -819,46 +1001,76 @@ export function splitSheetPage(app) {
       return;
     }
 
-    const limit = showAll ? filtered.length : PREVIEW_ROWS;
-    for (const row of filtered.slice(0, limit)) {
-      preview.tbody.append(el("tr", {},
-        el("td", { text: row.Card }),
-        el("td", { text: sheet.formatDate(row.Date) }),
-        el("td", { text: row.Description }),
-        el("td", { class: "num", text: row.Amount.toFixed(2) }),
-        el("td", { class: "mono", text: row.Owner }),
-        el("td", { class: "num", text: row.Share1.toFixed(2) }),
-        el("td", { class: "num", text: row.Share2.toFixed(2) }),
-        el("td", { class: "hint", text: row.Memo }),
-        el("td", { class: "check" },
-          el("button", {
-            type: "button", class: "row-exclude-btn",
-            "aria-label": `Filter out '${row.Description}'`,
-            title: `Filter out '${row.Description}'`,
-            onClick: () => excludePayee(row.Description),
-          }, icon("x", { size: 13 })))));
+    for (const row of filtered) {
+      preview.tbody.append(el("tr", {}, ...rowCells(row, codes, { withCheckbox: false })));
     }
-    if (filtered.length > PREVIEW_ROWS) {
-      const hidden = filtered.length - PREVIEW_ROWS;
-      preview.tbody.append(el("tr", { class: "empty-row" },
-        el("td", { colspan: String(preview.columns.length) },
-          el("div", { class: "card-row", style: "justify-content:center" },
-            el("span", { text: showAll
-              ? `Showing all ${filtered.length} rows.`
-              : `Showing the first ${PREVIEW_ROWS}. ${hidden} more are saved ` +
-                "but not drawn." }),
-            button(showAll ? `Show first ${PREVIEW_ROWS}` : `Show all ${filtered.length}`, {
-              small: true,
-              onClick: () => {
-                showAll = !showAll;
-                drawPreview();
-              },
-            })))));
-    }
+
+    // Totals for exactly what's on screen - whatever the column filters
+    // above left visible, not the full unfiltered set.
+    const totalAmount = filtered.reduce((sum, row) => sum + row.Amount, 0);
+    const totalShare1 = filtered.reduce((sum, row) => sum + row.Share1, 0);
+    const totalShare2 = filtered.reduce((sum, row) => sum + row.Share2, 0);
+    preview.tbody.append(el("tr", { class: "total-row" },
+      el("td", { colspan: "3",
+        text: `Total (${filtered.length} row${filtered.length === 1 ? "" : "s"})` }),
+      el("td", { class: "num", text: totalAmount.toFixed(2) }),
+      el("td", {}),
+      el("td", { class: "num", text: totalShare1.toFixed(2) }),
+      el("td", { class: "num", text: totalShare2.toFixed(2) }),
+      el("td", {}),
+      el("td", {})));
+  }
+
+  /** The Inflows review dialog: income, refunds, anything with a negative
+   * Amount. Reviewed on its own, away from ordinary expenses, since most of
+   * these are income and only a rare one needs to be ticked in. Ticking a
+   * row here updates the Preview table and totals live (see rowCells())
+   * without closing the dialog, so several can be reviewed in one pass. */
+  function openInflowsDialog() {
+    customDialog("Inflows", (body) => {
+      body.append(hint(
+        "Income, refunds, and other credits. Tick any that should actually " +
+        "count - a real refund, say - to add it to Preview and the totals " +
+        "above; leave income unticked."));
+
+      const dialogTable = table([
+        { key: "included", label: "", className: "check" },
+        { key: "Card", label: "Card" },
+        { key: "Date", label: "Date" },
+        { key: "Description", label: "Payee" },
+        { key: "Amount", label: "Amount", className: "num" },
+        { key: "Owner", label: "Owner" },
+        { key: "Share1", label: state.personName(1), className: "num" },
+        { key: "Share2", label: state.personName(2), className: "num" },
+        { key: "Memo", label: "Memo" },
+        { key: "exclude", label: "", className: "check" },
+      ]);
+      body.append(dialogTable);
+
+      const inflowRows = (rows || []).filter((row) => row.Amount < 0);
+      if (!inflowRows.length) {
+        emptyRow(dialogTable, "No refunds, income, or other inflows in this range.");
+      } else {
+        const codes = ownerCodes();
+        for (const row of inflowRows) {
+          dialogTable.tbody.append(
+            el("tr", {}, ...rowCells(row, codes, { withCheckbox: true })));
+        }
+      }
+
+      return { value: () => true };
+    }, { confirmText: "Done", cancelText: "", hideCancel: true, wide: true });
+  }
+
+  function paintInflowsButton() {
+    const count = (rows || []).filter((row) => row.Amount < 0).length;
+    inflowsButton.textContent = `Inflows (${count})`;
+    inflowsButton.hidden = count === 0;
   }
 
   function showRows() {
     drawPreview();
+    paintInflowsButton();
     if (!rows || !rows.length) {
       summary.textContent = "";
       saveButton.disabled = true;
@@ -878,6 +1090,13 @@ export function splitSheetPage(app) {
     }
 
     log.write(`${rows.length} row(s) ready. Owner codes used: ${breakdown}.`, "ok");
+
+    const inflowCount = rows.filter((row) => row.Amount < 0).length;
+    if (inflowCount) {
+      log.write(`${inflowCount} inflow row(s) found - see the Inflows ` +
+        "button above Preview to review them. Excluded from Save, Copy " +
+        "and the monthly summary until ticked in.", "muted");
+    }
 
     // A pile of custom rows usually means a ratio is missing from the
     // presets, or that the presets are written from the other person's
@@ -913,20 +1132,23 @@ export function splitSheetPage(app) {
 
   function saveCsv() {
     if (!rows?.length) return;
+    const included = rows.filter((row) => row.included);
     const base = sourceName.replace(/\.[^.]+$/, "") || "split-sheet";
-    download(`${base}-split.csv`, sheet.toCsv(rows, active()), "text/csv");
-    log.write(`Saved ${base}-split.csv.`, "ok");
+    download(`${base}-split.csv`, sheet.toCsv(included, active()), "text/csv");
+    log.write(`Saved ${base}-split.csv (${included.length} of ${rows.length} ` +
+      "row(s); unticked rows are left out).", "ok");
   }
 
   async function copyRows() {
     if (!rows?.length) return;
+    const included = rows.filter((row) => row.included);
     // Tab separated, which is what spreadsheets expect from a paste.
-    const text = sheet.toCsv(rows, active())
+    const text = sheet.toCsv(included, active())
       .split("\r\n").map((line) => splitCsvLine(line).join("\t")).join("\n");
     try {
       await navigator.clipboard.writeText(text);
-      log.write(`Copied ${rows.length} row(s). Paste straight into your ` +
-        "tracker.", "ok");
+      log.write(`Copied ${included.length} of ${rows.length} row(s). Paste ` +
+        "straight into your tracker.", "ok");
     } catch {
       log.write("The clipboard was refused. Use Save CSV instead.", "warn");
     }

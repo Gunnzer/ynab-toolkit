@@ -260,12 +260,13 @@ const dialog = () => document.getElementById("dialog");
  * promise pending forever.
  */
 function openDialog(title, build, {
-  confirmText = "OK", cancelText = "Cancel", hideCancel = false,
+  confirmText = "OK", cancelText = "Cancel", hideCancel = false, wide = false,
 } = {}) {
   const node = dialog();
   const form = node.querySelector("form");
   const cancel = document.getElementById("dialog-cancel");
 
+  node.classList.toggle("is-wide", wide);
   document.getElementById("dialog-title").textContent = title;
   const body = clear(document.getElementById("dialog-body"));
   const result = build ? build(body) : null;

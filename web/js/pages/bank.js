@@ -406,8 +406,10 @@ export function bankImportPage(app) {
   // Pushing writes straight to YNAB over the API, same idea as Shared
   // Expenses: convert first (that is the preview), pick an account, push.
   // Saving the CSV above is untouched and still works exactly as before.
-  const accountSelect = select([{ value: "", label: "(choose an account)" }], "",
-    (id) => { settings.accountId = id; store.save(); });
+  // Pushing writes real transactions, so this never remembers or
+  // pre-selects a prior account - it always starts back at "(choose an
+  // account)" and has to be picked deliberately every time.
+  const accountSelect = select([{ value: "", label: "(choose an account)" }], "", () => {});
   const pushButton = button("Push to YNAB...", { accent: true, onClick: pushToYnab });
   pushButton.disabled = true;
   const undoButton = button("Undo last push", { danger: true, onClick: undoLastPush });
@@ -439,11 +441,13 @@ export function bankImportPage(app) {
       value: "",
       label: accounts.length ? "(choose an account)" : "(load a budget on Setup first)",
     }].concat(accounts.map((a) => ({ value: a.id, label: a.name })));
+    const current = accountSelect.value;
     accountSelect.replaceChildren(
       ...options.map((o) => el("option", { value: o.value, text: o.label })));
     accountSelect.disabled = !accounts.length;
-    accountSelect.value = accounts.some((a) => a.id === settings.accountId)
-      ? settings.accountId : "";
+    // Keep whatever is already chosen this visit (e.g. re-rendering right
+    // before a push), but never resurrect a past visit's choice.
+    accountSelect.value = accounts.some((a) => a.id === current) ? current : "";
   }
 
   async function pushToYnab() {

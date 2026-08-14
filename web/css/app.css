@@ -41,6 +41,16 @@
   --warn-soft: #fbf0e2;
   --error: #bc4029;
   --error-soft: #fbe9e5;
+  /* Bill Splitting's Owner pill: one identity colour per person, a
+     distinct caution yellow for a Shared row whose actual split has
+     drifted from the configured ratio (kept apart from --warn's amber, so
+     "a bit off" and "genuinely Custom" don't read as the same colour). */
+  --blue: #1d5fa8;
+  --blue-soft: #e3edf8;
+  --purple: #7a3f9d;
+  --purple-soft: #f1e7f7;
+  --caution: #8a6d0f;
+  --caution-soft: #faf1d6;
 
   /* geometry */
   --radius: 6px;
@@ -941,6 +951,25 @@ select {
 .pill-warn { background: var(--warn-soft); color: var(--warn); }
 .pill-error { background: var(--error-soft); color: var(--error); }
 .pill-info { background: var(--accent-soft); color: var(--accent); }
+.pill-blue { background: var(--blue-soft); color: var(--blue); }
+.pill-purple { background: var(--purple-soft); color: var(--purple); }
+.pill-caution { background: var(--caution-soft); color: var(--caution); }
+/* Bill Splitting's Owner pill: flags a row whose two displayed split
+   percentages (each independently rounded to 2 decimals) add up to over
+   100% - its own small tag sitting next to the Owner pill, not folded
+   inside it, so the pill itself still reads as a clean, fixed-width code. */
+.pill-flag {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--error-soft);
+  color: var(--error);
+  font-size: 12.5px;
+  font-weight: 800;
+  line-height: 1.5;
+}
 
 /* ==========================================================================
    Tables
@@ -956,6 +985,18 @@ select {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
 }
+
+/* A wide table's own overflow-x: auto forces overflow-y to compute as
+   auto too (the CSS spec pairs them, even if overflow-y is set to visible
+   explicitly - only visible/clip on both axes avoids the pairing, and
+   `clip` isn't reliably supported as "no scroll container" everywhere).
+   That makes .table-wrap its own vertical scroll container, which is
+   exactly what a sticky header needs - it just was not tall enough to
+   ever need to scroll. Rather than fight that, Bill Splitting's Preview
+   table embraces it: a capped height turns it into a proper scrollable
+   panel with its own frozen header, instead of growing the whole page. */
+.preview-table { max-height: 65vh; overflow-y: auto; }
+
 table { border-collapse: collapse; width: 100%; font-size: 14px; }
 th {
   position: sticky;
@@ -985,8 +1026,18 @@ td {
 }
 
 /* Excel-style per-column filtering: a funnel in the header opens a small
-   popover instead of every column carrying its own always-visible input. */
-.filterable-th { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+   popover instead of every column carrying its own always-visible input.
+   The flex layout lives on an inner div, not the <th> itself - `position:
+   sticky` on a <th> stops sticking in this browser the moment its own
+   `display` is changed away from `table-cell` (confirmed live: the funnel
+   headers silently stopped pinning to the panel top and scrolled away with
+   the page, while the plain sticky headers next to them stayed put). Keep
+   any future <th>-level styling here display-neutral for the same reason. */
+.filterable-th { padding: 0; }
+.th-filter-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  padding: 12px 14px;
+}
 .th-filter-btn {
   width: 20px;
   height: 20px;
@@ -1064,12 +1115,12 @@ td {
    popup has no rounded-corner-clipped children (unlike the search/list
    popups elsewhere) that need it, and the tooltip below needs to be able
    to escape the popup's bounds instead of being clipped by them. */
-.picker-popup.filters-popup { width: 300px; padding: 14px; overflow: visible; }
+.picker-popup.filters-popup { width: 420px; padding: 18px; overflow: visible; }
 .skip-payee-list {
   list-style: none;
-  margin: 10px 0 0;
+  margin: 12px 0 0;
   padding: 0;
-  max-height: 180px;
+  max-height: 260px;
   overflow-y: auto;
 }
 .skip-payee-list li {
@@ -1077,9 +1128,9 @@ td {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 6px 2px;
+  padding: 8px 2px;
   border-bottom: 1px solid var(--border);
-  font-size: 13px;
+  font-size: 13.5px;
 }
 .skip-payee-list li:last-child { border-bottom: none; }
 .skip-payee-list li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1325,6 +1376,9 @@ td .btn-small { min-height: 28px; padding: 0 9px; font-size: 12.5px; }
   color: var(--text);
   box-shadow: var(--shadow-lg);
 }
+/* For a dialog managing a whole table (e.g. Bill Splitting's Inflows
+   review) rather than a form's worth of fields. */
+.dialog.is-wide { width: min(920px, 95vw); }
 .dialog::backdrop { background: rgba(16, 26, 36, .42); }
 .dialog form { display: flex; flex-direction: column; }
 .dialog h2 { padding: 22px 24px 0; font-size: 18px; }

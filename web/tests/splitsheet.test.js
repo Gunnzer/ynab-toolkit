@@ -72,11 +72,34 @@ describe("split classification", () => {
   });
 
   test("a genuine difference does not snap, even if it is close", () => {
-    // A full $1 off a $100 total is a real difference, not rounding noise.
+    // A full $1 off a $100 total is a real difference (1 full percentage
+    // point off 65%), well outside the 0.50% tolerance, not rounding noise.
     const result = sheet.classifySplit(64, 36, SETTINGS);
     assert.equal(result.code, "C");
     assert.equal(result.share1, 64);
     assert.equal(result.share2, 36);
+  });
+
+  test("within half a percentage point of the ratio still counts as shared", () => {
+    // 65% +/- 0.50%: 64.50% and 65.50% are the inclusive edges, so a manual
+    // entry landing anywhere in that band reads as the shared split.
+    const low = sheet.classifySplit(64.5, 35.5, SETTINGS);
+    assert.equal(low.code, "SH");
+    assert.equal(low.share1, 64.5);
+    assert.equal(low.share2, 35.5);
+
+    const high = sheet.classifySplit(65.5, 34.5, SETTINGS);
+    assert.equal(high.code, "SH");
+    assert.equal(high.share1, 65.5);
+    assert.equal(high.share2, 34.5);
+  });
+
+  test("just outside the tolerance band falls to custom", () => {
+    const low = sheet.classifySplit(64.49, 35.51, SETTINGS);
+    assert.equal(low.code, "C");
+
+    const high = sheet.classifySplit(65.51, 34.49, SETTINGS);
+    assert.equal(high.code, "C");
   });
 
   test("one person paying everything is their expense, coded by their account tag", () => {
@@ -103,6 +126,26 @@ describe("split classification", () => {
     const result = sheet.classifySplit(0, 0, SETTINGS);
     assert.equal(result.share1, 0);
     assert.equal(result.share2, 0);
+  });
+
+  test("a negative total (a refund) classifies the same way, with negative shares", () => {
+    // One person refunded in full.
+    const p1Refund = sheet.classifySplit(-40, 0, SETTINGS);
+    assert.equal(p1Refund.code, "A");
+    assert.equal(p1Refund.share1, -40);
+    assert.equal(p1Refund.share2, 0);
+
+    // Split exactly along the shared ratio, just negative.
+    const shared = sheet.classifySplit(-65, -35, SETTINGS);
+    assert.equal(shared.code, "SH");
+    assert.equal(shared.share1, -65);
+    assert.equal(shared.share2, -35);
+
+    // Neither a clean person-only nor shared match: custom, exact amounts.
+    const custom = sheet.classifySplit(-60, -40, SETTINGS);
+    assert.equal(custom.code, "C");
+    assert.equal(custom.share1, -60);
+    assert.equal(custom.share2, -40);
   });
 });
 
@@ -272,27 +315,35 @@ describe("reading from the API", () => {
     assert.equal(rows[0].Memo, "new desk");
   });
 
-  test("transfers and bare inflows are both skipped", () => {
+  test("transfers are skipped", () => {
     const result = sheet.fromApi([
       { date: "2026-03-05", payee_name: "Transfer : Savings", amount: -5000,
         transfer_account_id: "acc2", account_name: "" },
-      { date: "2026-03-06", payee_name: "Refund Co", amount: 25000,
-        category_id: "c1", account_name: "Joint" },
       { date: "2026-03-07", payee_name: "Grocery Store", amount: -4000,
         category_id: "c1", account_name: "Joint" },
     ], groupOf, SETTINGS);
 
     assert.equal(result.skippedTransfers, 1);
-    assert.equal(result.skippedIncome, 1);
     const rows = sheet.buildRows(result.items, SETTINGS);
     assert.equal(rows.length, 1);
     assert.equal(rows[0].Description, "Grocery Store");
   });
 
-  test("a split whose only legs are credited back is bare income, not a negative row", () => {
+  test("a refund shows up as a negative row", () => {
+    const result = sheet.fromApi([
+      { date: "2026-03-06", payee_name: "Refund Co", amount: 25000,
+        category_id: "c1", account_name: "Joint" },
+    ], groupOf, SETTINGS);
+
+    const rows = sheet.buildRows(result.items, SETTINGS);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].Amount, -25);
+  });
+
+  test("a split that is entirely a refund is a negative row", () => {
     // Both legs are positive (money in), e.g. a refund YNAB recorded as a
-    // split. This used to slip past isBareInflow entirely (it only checks
-    // the non-split path) and become a negative-amount preview row.
+    // split. Nothing here guesses at whether that is wanted - it is kept,
+    // and the preview page's own checkbox per row decides.
     const result = sheet.fromApi([{
       date: "2026-03-05", payee_name: "Refund Co", account_name: "Joint",
       amount: 100000, category_id: null, memo: "",
@@ -302,11 +353,12 @@ describe("reading from the API", () => {
       ],
     }], groupOf, SETTINGS);
 
-    assert.equal(result.skippedIncome, 1);
-    assert.equal(result.items.length, 0);
+    const rows = sheet.buildRows(result.items, SETTINGS);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].Amount, -100);
   });
 
-  test("a mixed split keeps its real expense leg and drops the credited one", () => {
+  test("a mixed split's refund leg reduces the total instead of being dropped", () => {
     const result = sheet.fromApi([{
       date: "2026-03-05", payee_name: "Store", account_name: "Joint",
       amount: -300000, category_id: null, memo: "",
@@ -316,10 +368,10 @@ describe("reading from the API", () => {
       ],
     }], groupOf, SETTINGS);
 
-    assert.equal(result.items[0].parts.length, 1, "the credited leg is dropped");
+    assert.equal(result.items[0].parts.length, 2, "both legs are kept");
     const rows = sheet.buildRows(result.items, SETTINGS);
     assert.equal(rows.length, 1);
-    assert.equal(rows[0].Amount, 500, "only the real expense leg counts");
+    assert.equal(rows[0].Amount, 300, "the credited leg reduces the total");
   });
 
   test("a split's shared leg is divided by the shared ratio, not credited whole to person 1", () => {
@@ -363,28 +415,27 @@ describe("shared ratio", () => {
   });
 });
 
-describe("income is never counted as an expense", () => {
+describe("inflows are kept, not guessed at", () => {
+  // Neither fromExport nor fromApi tries to tell income (a paycheque, an
+  // e-transfer) apart from a refund any more - both come through as a
+  // normal negative row. The preview page's own checkbox per row (default
+  // unchecked for a negative row) is what actually decides whether it is
+  // counted, so a rare refund can be ticked in without a category-guessing
+  // rule getting it wrong either way.
   const groupOf = (id) => ({ c1: "Household" }[id] || "");
 
-  test("isBareInflow: money in, nothing out", () => {
-    assert.equal(sheet.isBareInflow(0, 500), true);
-    assert.equal(sheet.isBareInflow(10, 500), false);
-    assert.equal(sheet.isBareInflow(0, 0), false);
-  });
-
-  test("fromApi skips a bare inflow regardless of category", () => {
+  test("fromApi keeps an uncategorized inflow as a normal negative row", () => {
     const result = sheet.fromApi([
       { date: "2026-03-05", payee_name: "Acme Payroll", amount: 500000,
         category_id: null, account_name: "(A) Chequing" },
-      { date: "2026-03-06", payee_name: "Refund Co", amount: 25000,
-        category_id: "c1", account_name: "Joint" },
     ], groupOf, SETTINGS);
 
-    assert.equal(result.skippedIncome, 2);
-    assert.equal(result.items.length, 0);
+    assert.equal(result.items.length, 1);
+    const rows = sheet.buildRows(result.items, SETTINGS);
+    assert.equal(rows[0].Amount, -500);
   });
 
-  test("fromExport skips a bare inflow the same way", () => {
+  test("fromExport keeps an inflow the same way", () => {
     const result = sheet.fromExport({
       headers: ["Account", "Date", "Payee", "Category Group", "Memo", "Outflow", "Inflow"],
       rows: [{
@@ -393,8 +444,9 @@ describe("income is never counted as an expense", () => {
       }],
     }, SETTINGS);
 
-    assert.equal(result.skippedIncome, 1);
-    assert.equal(result.items.length, 0);
+    assert.equal(result.items.length, 1);
+    const rows = sheet.buildRows(result.items, SETTINGS);
+    assert.equal(rows[0].Amount, -500);
   });
 });
 
