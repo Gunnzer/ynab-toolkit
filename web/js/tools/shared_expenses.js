@@ -42,6 +42,9 @@ export function scan(transactions, rules, startDate, endDate, ratio, {
     skippedAlreadySplit: 0,
     skippedTransfers: 0,
     scanned: 0,
+    // Every skipped transaction, not just its count, so a preview can show
+    // exactly which ones and why - not just "N were skipped."
+    skipped: [],
   };
   if (bySharedId.size === 0) return result;
 
@@ -51,28 +54,53 @@ export function scan(transactions, rules, startDate, endDate, ratio, {
     if (!withinEndDate(transaction.date, endDate)) continue;
 
     // A split transaction carries no category_id of its own - YNAB puts it
-    // on each subtransaction instead - so a plain lookup on the parent
-    // never matches one, even when a leg sits in a shared category. Falling
-    // back to the legs is what lets an already-split transaction be found
-    // at all, so it can be reported and skipped rather than silently
-    // invisible.
-    const rule = bySharedId.get(transaction.category_id) ||
-      (transaction.subtransactions || [])
-        .filter((sub) => !sub.deleted)
-        .map((sub) => bySharedId.get(sub.category_id))
-        .find(Boolean);
+    // on each subtransaction instead - so this branches entirely on the
+    // legs rather than trying a parent-level lookup that can never match.
+    if (alreadySplit(transaction)) {
+      const legMatches = (transaction.subtransactions || [])
+        .map((sub, index) => ({ sub, index }))
+        .filter(({ sub }) => !sub.deleted)
+        .map(({ sub, index }) => ({ index, rule: bySharedId.get(sub.category_id) }))
+        .filter(({ rule }) => rule);
+      // Nothing on this split concerns any of the current rules at all.
+      if (!legMatches.length) continue;
+
+      result.scanned += 1;
+
+      if (skipAlreadySplit) {
+        result.skippedAlreadySplit += 1;
+        result.skipped.push({ transaction, rule: legMatches[0].rule, reason: "already split" });
+        continue;
+      }
+
+      // Split just the leg(s) sitting in a shared category - e.g. a dinner
+      // paid in full by one person, already split between what a friend
+      // transferred back and the genuinely shared portion, where only that
+      // shared leg needs dividing between the two people. Any other leg is
+      // carried through untouched (see splitLegPayload). Each matching leg
+      // becomes its own planned item, keyed by legIndex so several legs on
+      // one transaction preview and can be unticked separately, even
+      // though applying them still has to be one write per transaction
+      // (see applySplits).
+      for (const { index, rule } of legMatches) {
+        const legAmount = transaction.subtransactions[index].amount;
+        const [person1Amount, person2Amount] = splitAmounts(legAmount, ratio);
+        result.planned.push({ transaction, rule, person1Amount, person2Amount, legIndex: index });
+      }
+      continue;
+    }
+
+    const rule = bySharedId.get(transaction.category_id);
     if (!rule) continue;
 
     result.scanned += 1;
 
     // Transfers cannot carry a normal category, so a split write would be
-    // rejected by YNAB.
+    // rejected by YNAB. (A split transaction is never itself a transfer,
+    // so this only applies to the plain, not-yet-split branch above.)
     if (transaction.transfer_account_id) {
       result.skippedTransfers += 1;
-      continue;
-    }
-    if (skipAlreadySplit && alreadySplit(transaction)) {
-      result.skippedAlreadySplit += 1;
+      result.skipped.push({ transaction, rule, reason: "transfer" });
       continue;
     }
 
@@ -81,6 +109,7 @@ export function scan(transactions, rules, startDate, endDate, ratio, {
   }
 
   result.planned.sort((a, b) => a.transaction.date.localeCompare(b.transaction.date));
+  result.skipped.sort((a, b) => a.transaction.date.localeCompare(b.transaction.date));
   return result;
 }
 
@@ -105,17 +134,62 @@ export function splitPayload(transaction, person1Amount, person2Amount, p1Cat, p
 }
 
 /**
- * A fresh, single-category transaction with the original details.
+ * The exact body sent to YNAB to further split one or more legs of an
+ * already-split transaction, leaving every other leg exactly as it was.
+ *
+ * YNAB's update endpoint will not let a split transaction's subtransactions
+ * be patched at all once it already has any (same limitation documented on
+ * restoreCreatePayload below), so this is a create body, not an update one
+ * - the caller deletes the original first and creates this in its place.
+ * `legItems` are the planned items (from scan(), each carrying a
+ * `legIndex`) that were actually selected for this transaction; any leg not
+ * among them is copied through unchanged.
+ */
+export function splitLegPayload(transaction, legItems) {
+  const replaced = new Map(legItems.map((item) => [item.legIndex, item]));
+  const subtransactions = [];
+  (transaction.subtransactions || []).forEach((sub, index) => {
+    if (sub.deleted) return;
+    const item = replaced.get(index);
+    if (!item) {
+      subtransactions.push(
+        { amount: sub.amount, category_id: sub.category_id, memo: sub.memo || "" });
+      return;
+    }
+    subtransactions.push(
+      { amount: item.person1Amount, memo: sub.memo || "", category_id: item.rule.person1Id },
+      { amount: item.person2Amount, memo: sub.memo || "", category_id: item.rule.person2Id });
+  });
+  return {
+    account_id: transaction.account_id,
+    date: transaction.date,
+    amount: transaction.amount,
+    payee_id: transaction.payee_id ?? null,
+    payee_name: transaction.payee_id ? null : (transaction.payee_name || null),
+    memo: transaction.memo || "",
+    cleared: transaction.cleared,
+    approved: transaction.approved,
+    flag_color: transaction.flag_color ?? null,
+    category_id: null,
+    subtransactions,
+  };
+}
+
+/**
+ * A fresh transaction with the original details - either a single category,
+ * or (when the backup carries `subtransactions`) the exact original split,
+ * legs and all.
  *
  * Confirmed against a real budget: YNAB's API does not remove
  * subtransactions from an already-split transaction, or change its
  * category while it stays split, via update - the write silently drops
  * those fields and keeps the split as it was. The only way back to a
- * single category is to delete the split and create a new transaction in
- * its place.
+ * single category (or, for a transaction that was already split before a
+ * leg of it got further divided, back to that original split) is to
+ * delete it and create a new transaction in its place.
  */
 export function restoreCreatePayload(record) {
-  return {
+  const base = {
     account_id: record.accountId,
     date: record.date,
     amount: record.amount,
@@ -125,8 +199,11 @@ export function restoreCreatePayload(record) {
     cleared: record.cleared,
     approved: record.approved,
     flag_color: record.flagColor ?? null,
-    category_id: record.categoryId,
   };
+  if (record.subtransactions?.length) {
+    return { ...base, category_id: null, subtransactions: record.subtransactions };
+  }
+  return { ...base, category_id: record.categoryId };
 }
 
 /** The pre-change state of a transaction, kept so it can be restored. */
@@ -143,6 +220,15 @@ export function backupRecord(transaction) {
     flagColor: transaction.flag_color ?? null,
     categoryId: transaction.category_id ?? null,
     amount: transaction.amount,
+    // Only set when the original was already a split (see
+    // splitLegPayload) - undo has to recreate the exact original legs,
+    // not a single category, or whatever else was on the transaction
+    // (a friend's repayment, say) would be lost.
+    subtransactions: alreadySplit(transaction)
+      ? transaction.subtransactions
+        .filter((sub) => !sub.deleted)
+        .map((sub) => ({ amount: sub.amount, category_id: sub.category_id, memo: sub.memo || "" }))
+      : undefined,
   };
 }
 
@@ -162,17 +248,29 @@ export function driftCheck(planned, freshTransactions, startDate, endDate, {
     freshTransactions, [...rules.values()], startDate, endDate, 0.5,
     { skipAlreadySplit }
   );
-  const current = new Map(fresh.planned.map((i) => [i.transaction.id, i]));
+  // Several planned items can share one transaction id (one per shared leg
+  // of an already-split transaction - see scan()), so the id alone is not
+  // a unique key here the way it is everywhere else.
+  const keyOf = (item) => item.legIndex !== undefined
+    ? `${item.transaction.id}:${item.legIndex}` : item.transaction.id;
+  const current = new Map(fresh.planned.map((i) => [keyOf(i), i]));
+  const legAmount = (transaction, legIndex) => transaction.subtransactions?.[legIndex]?.amount;
 
   const stillValid = [];
   const drifted = [];
   for (const item of planned) {
-    const match = current.get(item.transaction.id);
+    const match = current.get(keyOf(item));
+    const itemAmount = item.legIndex !== undefined
+      ? legAmount(item.transaction, item.legIndex) : item.transaction.amount;
     if (!match) {
       drifted.push({ item, reason: "no longer matches" });
-    } else if (match.transaction.amount !== item.transaction.amount) {
+    } else if (
+      (item.legIndex !== undefined
+        ? legAmount(match.transaction, item.legIndex) : match.transaction.amount) !== itemAmount
+    ) {
       drifted.push({ item, reason: "amount changed" });
-    } else if (match.transaction.category_id !== item.transaction.category_id) {
+    } else if (item.legIndex === undefined &&
+      match.transaction.category_id !== item.transaction.category_id) {
       drifted.push({ item, reason: "category changed" });
     } else {
       // Use the freshly fetched transaction so the write carries YNAB's
@@ -182,6 +280,7 @@ export function driftCheck(planned, freshTransactions, startDate, endDate, {
         rule: item.rule,
         person1Amount: item.person1Amount,
         person2Amount: item.person2Amount,
+        legIndex: item.legIndex,
       });
     }
   }
@@ -191,6 +290,11 @@ export function driftCheck(planned, freshTransactions, startDate, endDate, {
 /**
  * Convert each planned transaction, backing up the original first so an
  * interrupted run can still be undone.
+ *
+ * Several planned items can point at the same already-split transaction
+ * (one per shared leg - see scan()); each previews and can be unticked
+ * separately, but YNAB only accepts a split transaction's legs all at
+ * once, so they are grouped back into a single write per transaction here.
  */
 export async function applySplits(client, budgetId, planned, backups, {
   log = () => {}, shouldStop = () => false,
@@ -202,27 +306,60 @@ export async function applySplits(client, budgetId, planned, backups, {
   // say which ones.
   const applied = [];
 
+  const groups = new Map();
   for (const item of planned) {
+    const list = groups.get(item.transaction.id) || [];
+    list.push(item);
+    groups.set(item.transaction.id, list);
+  }
+
+  for (const items of groups.values()) {
     if (shouldStop()) {
       log("Stopped.", "warn");
       break;
     }
-    const { transaction, rule, person1Amount, person2Amount } = item;
+    const { transaction } = items[0];
+    const legItems = items.filter((item) => item.legIndex !== undefined);
+    const alreadyBackedUp = backups.some((record) => record.id === transaction.id);
+
     try {
-      if (!backups.some((record) => record.id === transaction.id)) {
-        backups.push(backupRecord(transaction));
+      if (legItems.length) {
+        // Already split, and YNAB will not let an update patch the
+        // subtransactions of a transaction that is already split - delete
+        // and recreate instead, same mechanism undoFromBackup uses. That
+        // gives the transaction a brand new id, so the backup is recorded
+        // with THAT id, not the deleted original - a later Undo deletes
+        // whatever currently holds the record, and "d1" would 404 once it
+        // no longer exists.
+        await client.deleteTransaction(budgetId, transaction.id);
+        const created = await client.createTransactions(
+          budgetId, [splitLegPayload(transaction, legItems)]);
+        const newId = created?.transaction_ids?.[0] || null;
+        if (!alreadyBackedUp) {
+          const backup = backupRecord(transaction);
+          if (newId) backup.id = newId;
+          backups.push(backup);
+        }
+        for (const item of items) {
+          changed += 1;
+          applied.push({ ...item, transaction: { ...transaction, id: newId || transaction.id } });
+          log(`  split ${transaction.date}  ${item.rule.name}`, "ok");
+        }
+      } else {
+        if (!alreadyBackedUp) backups.push(backupRecord(transaction));
+        const item = items[0];
+        await client.updateTransaction(
+          budgetId, transaction.id,
+          splitPayload(transaction, item.person1Amount, item.person2Amount,
+            item.rule.person1Id, item.rule.person2Id)
+        );
+        changed += 1;
+        applied.push(item);
+        log(`  split ${transaction.date}  ${item.rule.name}`, "ok");
       }
-      await client.updateTransaction(
-        budgetId, transaction.id,
-        splitPayload(transaction, person1Amount, person2Amount,
-          rule.person1Id, rule.person2Id)
-      );
-      changed += 1;
-      applied.push(item);
-      log(`  split ${transaction.date}  ${rule.name}`, "ok");
     } catch (error) {
-      failed += 1;
-      log(`  FAILED ${transaction.date} ${rule.name}: ${error.message}`, "error");
+      failed += items.length;
+      log(`  FAILED ${transaction.date}: ${error.message}`, "error");
     }
   }
   return { changed, failed, applied };

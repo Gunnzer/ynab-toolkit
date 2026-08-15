@@ -8,11 +8,10 @@ modules, no build step, no npm packages, no server.
 | Tool | What it is for |
 | --- | --- |
 | Shared Expenses | Turns transactions in your shared categories into native YNAB splits between two people, and can undo any of them. |
+| Bill Splitting | Exports shared expenses to a tracker spreadsheet, working out each person's share and who paid. |
 | Auto Assign | Empties a holding category into your targeted categories, group by group in the priority order you set. |
 | Duplicates | Finds transactions that look imported twice and flags them for review. It never deletes anything. |
 | Bank Import | Converts a bank export into the four-column CSV YNAB imports, tidying up payee names on the way. |
-
-Split Sheet is not here yet; it stays in the desktop app for now.
 
 ## Running it locally
 

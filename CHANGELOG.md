@@ -9,6 +9,22 @@ Maintained going forward: add a new dated entry for each push, in this same
 style (feature/fix name and files, then bullets on what changed and why),
 before or as part of the push itself.
 
+## 2026-08-15
+
+**Shared Expenses — splitting a leg of an already-split transaction** (`shared_expenses.js`, `shared.js`, `tools.test.js`)
+* A transaction already split into "what came back from friends" + "the genuinely shared portion" (e.g. one person pays a full restaurant bill, two friends transfer back their share) no longer gets skipped outright with "Skip transactions that are already split" unchecked - the leg sitting in a mapped shared category is found and split between the two people, while every other leg is carried through untouched.
+* `scan()` matches individual subtransaction legs against shared-category rules, computing each leg's own amount rather than the whole transaction's total.
+* `applySplits()` groups planned items by transaction; a group with a matched leg deletes and recreates the transaction (YNAB will not let an update patch subtransactions on one that's already split), preserving every other leg exactly as it was.
+* `backupRecord()`/`restoreCreatePayload()` extended to round-trip a full original split, not just a single category, so Undo restores the exact original - friends' leg included.
+* Fixed a real bug caught during live testing: the backup now records the transaction's new id after delete+recreate, not the deleted original, so a later Undo doesn't try to delete something that no longer exists.
+* `driftCheck()` fixed to key by transaction+leg instead of transaction id alone, since several legs can now share one transaction.
+* Preview and the "Last applied" table show the leg's own amount and "(one leg)" instead of the whole transaction's total, and an info tooltip next to the "Skip already split" checkbox explains what unchecking it does.
+
+**Repo cleanup — desktop version removed** (`.gitignore`, `CLAUDE.md`, `web/README.md`)
+* Deleted `desktop-archive/` (the old PySide6 desktop app), which was already gitignored and untracked, so this was a local-only removal with no git history impact.
+* Removed the now-unused `desktop-archive/` and `ynab_toolkit_config.json` entries from `.gitignore`.
+* Updated `CLAUDE.md`'s codebase overview and fixed a stale `web/README.md` line claiming Bill Splitting "stays in the desktop app for now" - it's been in `web/` for a while.
+
 ## 2026-08-14
 
 **Bill Splitting — refund/income handling** (`splitsheet.js`, `split_sheet.js`, `splitsheet.test.js`, `tools.test.js`)

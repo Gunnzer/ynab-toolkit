@@ -185,9 +185,11 @@ describe("shared expenses", () => {
       account_id: "a1", cleared: "cleared", approved: true, subtransactions: [] },
     { id: "t3", date: "2031-01-01", amount: -50000, category_id: "shared1",
       account_id: "a1", cleared: "cleared", approved: true, subtransactions: [] },
-    { id: "t4", date: "2025-03-03", amount: -20000, category_id: "shared1",
+    // Already split, category_id: null like a real YNAB split - the leg
+    // itself carries the shared category.
+    { id: "t4", date: "2025-03-03", amount: -20000, category_id: null,
       account_id: "a1", cleared: "cleared", approved: true,
-      subtransactions: [{ amount: -20000 }] },
+      subtransactions: [{ amount: -20000, category_id: "shared1" }] },
   ];
 
   test("scan filters by rule, date and split state", () => {
@@ -195,6 +197,15 @@ describe("shared expenses", () => {
       transactions(), [rule], "2025-01-01", "2030-12-31", 0.35);
     assert.deepEqual(result.planned.map((p) => p.transaction.id), ["t1"]);
     assert.equal(result.skippedAlreadySplit, 1);
+  });
+
+  test("scan reports exactly which transactions it skipped, and why", () => {
+    const items = transactions();
+    items[0].transfer_account_id = "acct";
+    const result = shared.scan(items, [rule], "2025-01-01", "2030-12-31", 0.35);
+    assert.deepEqual(
+      result.skipped.map((s) => [s.transaction.id, s.reason]),
+      [["t1", "transfer"], ["t4", "already split"]]);
   });
 
   test("an already-split transaction is still found via its subtransactions", () => {
@@ -310,6 +321,116 @@ describe("shared expenses", () => {
     const result = await shared.undoFromBackup(client, "b", backups, { ids: ["t2"] });
     assert.equal(result.restored, 1);
     assert.deepEqual(result.remaining.map((r) => r.id), ["t1"]);
+  });
+
+  describe("splitting a leg of an already-split transaction", () => {
+    // Dinner out: person 1 pays the full $150, friend 1 and friend 2 each
+    // transfer back their $37.50 share, leaving $75 (the "Household" leg)
+    // as the genuinely shared portion between person 1 and person 2.
+    const dinner = () => ({
+      id: "d1", date: "2025-03-05", amount: -150000, category_id: null,
+      account_id: "a1", payee_id: "py1", payee_name: "Restaurant",
+      memo: "dinner", cleared: "cleared", approved: true,
+      subtransactions: [
+        { category_id: "friends", amount: -75000, memo: "from friends" },
+        { category_id: "shared1", amount: -75000, memo: "" },
+      ],
+    });
+
+    test("only the shared leg is split - by its own amount, not the whole total", () => {
+      const result = shared.scan(
+        [dinner()], [rule], "2025-01-01", "2030-12-31", 0.5,
+        { skipAlreadySplit: false });
+      assert.equal(result.planned.length, 1);
+      const item = result.planned[0];
+      assert.equal(item.legIndex, 1);
+      // Split 50/50 on the $75 leg, not the $150 total.
+      assert.equal(item.person1Amount + item.person2Amount, -75000);
+    });
+
+    test("multiple shared legs each become their own planned item", () => {
+      const transaction = dinner();
+      transaction.subtransactions.push({ category_id: "shared1", amount: -10000, memo: "tip" });
+      const result = shared.scan(
+        [transaction], [rule], "2025-01-01", "2030-12-31", 0.5,
+        { skipAlreadySplit: false });
+      assert.deepEqual(result.planned.map((p) => p.legIndex), [1, 2]);
+    });
+
+    test("splitLegPayload keeps the untouched leg and preserves the total", () => {
+      const transaction = dinner();
+      const result = shared.scan(
+        [transaction], [rule], "2025-01-01", "2030-12-31", 0.5,
+        { skipAlreadySplit: false });
+      const payload = shared.splitLegPayload(transaction, result.planned);
+
+      assert.equal(payload.category_id, null);
+      assert.equal(payload.amount, -150000);
+      // The friends' leg is untouched...
+      assert.deepEqual(
+        payload.subtransactions[0],
+        { category_id: "friends", amount: -75000, memo: "from friends" });
+      // ...the shared leg became two person legs, still summing to $75.
+      assert.equal(payload.subtransactions.length, 3);
+      const personLegs = payload.subtransactions.slice(1);
+      assert.deepEqual(personLegs.map((s) => s.category_id), ["p1cat", "p2cat"]);
+      assert.equal(personLegs.reduce((sum, s) => sum + s.amount, 0), -75000);
+    });
+
+    test("applying deletes and recreates instead of updating", async () => {
+      const calls = [];
+      const client = {
+        async deleteTransaction(_budget, id) { calls.push(["delete", id]); },
+        async updateTransaction() { calls.push(["update"]); },
+        async createTransactions(_budget, txns) {
+          calls.push(["create", txns]);
+          return { transaction_ids: ["new-d1"] };
+        },
+      };
+      const transaction = dinner();
+      const planned = shared.scan(
+        [transaction], [rule], "2025-01-01", "2030-12-31", 0.5,
+        { skipAlreadySplit: false }).planned;
+      const backups = [];
+
+      const { changed, failed, applied } = await shared.applySplits(
+        client, "b", planned, backups);
+
+      assert.deepEqual([changed, failed], [1, 0]);
+      assert.deepEqual(calls.map((c) => c[0]), ["delete", "create"]);
+      assert.equal(applied[0].transaction.id, "new-d1");
+
+      // The backup carries the original split, not a single category - so
+      // undo can put back the friends' leg alongside the (still whole)
+      // shared leg, not just one category.
+      assert.equal(backups.length, 1);
+      assert.equal(backups[0].subtransactions.length, 2);
+      assert.equal(backups[0].subtransactions[1].category_id, "shared1");
+      // The backup's own id must be the NEW transaction's id, not the
+      // deleted original - a later Undo deletes whatever record.id says,
+      // and "d1" no longer exists once this write is done.
+      assert.equal(backups[0].id, "new-d1");
+
+      const restorePayload = shared.restoreCreatePayload(backups[0]);
+      assert.equal(restorePayload.category_id, null);
+      assert.equal(restorePayload.subtransactions.length, 2);
+      assert.equal(
+        restorePayload.subtransactions.reduce((sum, s) => sum + s.amount, 0), -150000);
+    });
+
+    test("drift check does not confuse two legs on the same transaction", () => {
+      const transaction = dinner();
+      transaction.subtransactions.push({ category_id: "shared1", amount: -10000, memo: "tip" });
+      const planned = shared.scan(
+        [transaction], [rule], "2025-01-01", "2030-12-31", 0.5,
+        { skipAlreadySplit: false }).planned;
+      assert.equal(planned.length, 2);
+
+      const { stillValid, drifted } = shared.driftCheck(
+        planned, [transaction], "2025-01-01", "2030-12-31", { skipAlreadySplit: false });
+      assert.equal(drifted.length, 0);
+      assert.equal(stillValid.length, 2);
+    });
   });
 });
 
