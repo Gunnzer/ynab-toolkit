@@ -9,6 +9,16 @@ Maintained going forward: add a new dated entry for each push, in this same
 style (feature/fix name and files, then bullets on what changed and why),
 before or as part of the push itself.
 
+## 2026-08-16
+
+**YNAB Budget: "Whose" filter moved to the top bar, now also narrows Accounts and the headline stats** (`budget.js`, `CLAUDE.md`)
+* The "Whose" filter used to sit down in the Categories section and only narrow the category table. Moved it up to the top action bar next to Month, so it reads as a whole-page filter instead of a Categories-only one.
+* "Assigned this month" and "Activity" on the headline stat cards now recompute to just the selected person's categories. "Ready to Assign", "Income" and "Age of Money" can't be split per-person (they aren't category-scoped in YNAB's data model), so they keep showing the whole-budget figure with an explicit "(whole budget)" note once a filter is active, rather than a misleading per-person number.
+* The Accounts table is now filterable by the same dropdown too, using `payerOf()` (the account-ownership logic Bill Splitting's settle-up math already used) rather than the category-group logic `ownerOf()` uses - an account is either someone's own or unattributed, never literally "shared" the way a category can be, so the filter's "shared" option maps to `payerOf()`'s "joint".
+
+**Shared Expenses: names and Preview/Apply buttons on one line** (`shared.js`)
+* The split-ratio line ("Julian 65% · Ara 35%") used to sit on its own line above the Preview/Apply action row. Moved it into the same `card-row` so both sit on one horizontal line, with the buttons still pushed to the right via the spacer.
+
 ## 2026-08-15
 
 **Shared Expenses — already-split transactions get their own visible table** (`shared_expenses.js`, `shared.js`, `tools.test.js`)

@@ -262,9 +262,9 @@ export function sharedExpensesPage(app) {
   applyButton.disabled = true;
 
   root.append(card(
-    splitLine, ratioError,
+    ratioError,
     el("div", { class: "card-row action-bar" },
-      el("span", { class: "spacer" }),
+      splitLine, el("span", { class: "spacer" }),
       previewButton, applyButton)));
 
   // ---------- preview results ----------

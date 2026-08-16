@@ -5,7 +5,7 @@
 // the one place that knows a category's API id.
 
 import { fmt } from "../money.js";
-import { ownerOf } from "../tools/split_sheet.js";
+import { ownerOf, payerOf } from "../tools/split_sheet.js";
 import {
   button, card, checkbox, clear, download, el, emptyRow, field, hint,
   logPane, monthOptions, pageActions, pageHeading, pill, sectionTitle,
@@ -55,9 +55,59 @@ export function budgetPage(app) {
     () => load());
   const loadedNote = hint("");
 
+  // Same "Whose" filter as Reports and Classic Budget: which category
+  // groups count, decided by the same person/group-prefix setup from the
+  // Setup page. Lives at the top next to Month - not just below Categories
+  // - because it narrows the whole page (stats, Needs attention, Accounts
+  // and the category table alike), not one section's worth of rows.
+  const ownerSelect = select([
+    { value: "all", label: "Everyone" },
+    { value: "p1", label: state.personName(1) },
+    { value: "p2", label: state.personName(2) },
+    { value: "shared", label: "Shared" },
+  ], store.get("budgetOverview.owner", "all"), (value) => {
+    store.set("budgetOverview.owner", value);
+    renderStats();
+    renderAttention();
+    renderAccounts();
+    renderCategories();
+  });
+
+  function groupOwner(groupName) {
+    return ownerOf(groupName, "", state.withPeople({}));
+  }
+
+  /** Whose account this is: "p1", "p2" or "joint" - the same logic Bill
+   * Splitting's settle-up math already uses (explicit account-owner
+   * mapping first, then account tag, then the account name starting with
+   * a person's name), read from Bill Splitting's own settings since
+   * that's the only place this mapping is configured. "joint" is what
+   * the "Whose" filter's "shared" option matches against here - an
+   * account is never literally "shared" the way a category can be, it is
+   * either someone's own or not attributed to a person at all. */
+  function accountOwner(accountName) {
+    const settings = {
+      ...state.withPeople({}),
+      accountOwners: store.get("splitSheet.accountOwners", {}) || {},
+    };
+    return payerOf(accountName, settings);
+  }
+
+  /** category id -> its group's name, built fresh each time since groups
+   * can change between loads. */
+  function groupNameById() {
+    const map = new Map();
+    for (const group of state.categoryGroups || []) {
+      for (const category of group.categories || []) map.set(category.id, group.name);
+    }
+    return map;
+  }
+
   root.append(pageActions(el("div", { class: "card-row" },
     el("label", { class: "field-label", style: "margin:0", text: "Month" }),
     el("div", { class: "narrow" }, monthInput),
+    el("label", { class: "field-label", style: "margin:0", text: "Whose" }),
+    el("div", { class: "narrow" }, ownerSelect),
     button("Export CSV", { onClick: exportCategories }),
     loadedNote)));
 
@@ -96,26 +146,6 @@ export function budgetPage(app) {
       renderCategories();
     });
 
-  // Same "Whose" filter as Reports and Classic Budget: which category
-  // groups count, decided by the same person/group-prefix setup from the
-  // Setup page. Affects both the category table below and Needs attention
-  // above, so picking a person really does narrow the whole page to their
-  // stuff, not just the table.
-  const ownerSelect = select([
-    { value: "all", label: "Everyone" },
-    { value: "p1", label: state.personName(1) },
-    { value: "p2", label: state.personName(2) },
-    { value: "shared", label: "Shared" },
-  ], store.get("budgetOverview.owner", "all"), (value) => {
-    store.set("budgetOverview.owner", value);
-    renderAttention();
-    renderCategories();
-  });
-
-  function groupOwner(groupName) {
-    return ownerOf(groupName, "", state.withPeople({}));
-  }
-
   const categoryTable = table([
     { key: "name", label: "Group / Category" },
     { key: "target", label: "Target" },
@@ -136,8 +166,7 @@ export function budgetPage(app) {
     hint("The same list the tools pick from. Click a group to roll it up; " +
       "which groups are rolled up is remembered. Copy ID gives you the id " +
       "the YNAB API uses, which is worth having when something goes wrong."),
-    el("div", { class: "card-grid" },
-      field("Filter", search), field("Whose", ownerSelect)),
+    field("Filter", search),
     el("div", { class: "card-row" }, hiddenBox),
     categoryTable,
     categoryStatus,
@@ -193,21 +222,44 @@ export function budgetPage(app) {
       return;
     }
 
+    // Assigned and Activity are sums over categories, so they can be
+    // recomputed for just one person's own categories. Ready to Assign,
+    // Income and Age of Money cannot: none of them are scoped to a
+    // category at all (Ready to Assign is specifically money that has not
+    // been given a job yet), so there is no meaningful "Julian's Ready to
+    // Assign" - they always show the whole budget's figure, and say so
+    // once a person filter narrows everything else on the page.
+    const owner = ownerSelect.value;
+    const filtered = owner !== "all";
+    let budgeted = month.budgeted || 0;
+    let activity = month.activity || 0;
+    if (filtered) {
+      const groupName = groupNameById();
+      const live = (month.categories || []).filter((category) =>
+        !category.deleted && !category.hidden &&
+        groupOwner(groupName.get(category.id) || "") === owner);
+      budgeted = live.reduce((sum, category) => sum + (category.budgeted || 0), 0);
+      activity = live.reduce((sum, category) => sum + (category.activity || 0), 0);
+    }
+
     const ready = month.to_be_budgeted || 0;
+    const wholeBudgetNote = filtered ? " (whole budget)" : "";
     statGrid.append(
       stat("Ready to assign", fmt(ready), {
         kind: ready < 0 ? "error" : ready > 0 ? "warn" : "ok",
-        note: ready < 0
+        note: (ready < 0
           ? "More is assigned than you have"
-          : ready > 0 ? "Still waiting for a job" : "Every dollar has a job",
+          : ready > 0 ? "Still waiting for a job" : "Every dollar has a job") +
+          wholeBudgetNote,
       }),
-      stat("Assigned this month", fmt(month.budgeted || 0)),
-      stat("Activity", fmt(month.activity || 0)),
-      stat("Income", fmt(month.income || 0)),
+      stat("Assigned this month", fmt(budgeted)),
+      stat("Activity", fmt(activity)),
+      stat("Income", fmt(month.income || 0),
+        filtered ? { note: "Whole budget" } : {}),
       stat("Age of money",
         month.age_of_money === null || month.age_of_money === undefined
           ? "n/a" : `${month.age_of_money} days`,
-        { note: "How long money sits before it is spent" }));
+        { note: "How long money sits before it is spent" + wholeBudgetNote }));
   }
 
   function renderAttention() {
@@ -217,13 +269,7 @@ export function budgetPage(app) {
       return;
     }
 
-    const groupName = new Map();
-    for (const group of state.categoryGroups || []) {
-      for (const category of group.categories || []) {
-        groupName.set(category.id, group.name);
-      }
-    }
-
+    const groupName = groupNameById();
     const owner = ownerSelect.value;
     const live = (month.categories || []).filter(
       (category) => !category.deleted && !category.hidden &&
@@ -290,13 +336,21 @@ export function budgetPage(app) {
   }
 
   function renderAccounts() {
-    const accounts = (state.accounts || []).filter(
-      (account) => !account.deleted && !account.closed);
+    const owner = ownerSelect.value;
+    // An account is never literally "shared" the way a category can be -
+    // it is either someone's own or not attributed to a person, so the
+    // filter's "shared" option matches payerOf()'s "joint" here.
+    const wanted = owner === "shared" ? "joint" : owner;
+    const accounts = (state.accounts || []).filter((account) =>
+      !account.deleted && !account.closed &&
+      (owner === "all" || accountOwner(account.name) === wanted));
 
     if (!accounts.length) {
-      emptyRow(accountsTable, state.hasBudgetData
-        ? "No open accounts in this budget."
-        : "Connect and choose a budget on the Setup page first.");
+      emptyRow(accountsTable, !state.hasBudgetData
+        ? "Connect and choose a budget on the Setup page first."
+        : owner === "all"
+          ? "No open accounts in this budget."
+          : "No open accounts match that filter.");
       return;
     }
 
