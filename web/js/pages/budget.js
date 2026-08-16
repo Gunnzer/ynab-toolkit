@@ -5,10 +5,11 @@
 // the one place that knows a category's API id.
 
 import { fmt } from "../money.js";
+import { ownerOf } from "../tools/split_sheet.js";
 import {
-  button, card, checkbox, clear, download, el, emptyRow, hint, logPane,
-  monthOptions, pageActions, pageHeading, pill, sectionTitle, select, table,
-  textInput, thisMonth,
+  button, card, checkbox, clear, download, el, emptyRow, field, hint,
+  logPane, monthOptions, pageActions, pageHeading, pill, sectionTitle,
+  select, table, textInput, thisMonth,
 } from "../ui.js";
 
 const LOG_EMPTY =
@@ -29,13 +30,6 @@ function targetProgress(category) {
   if (!target || target <= 0) return null;
   const done = (category.goal_overall_funded ?? category.budgeted) || 0;
   return Math.max(0, Math.min(1, done / target));
-}
-
-function progressBar(fraction) {
-  const bar = el("div", { class: "progress", role: "presentation" },
-    el("span", { style: `width:${Math.round(fraction * 100)}%` }));
-  if (fraction >= 1) bar.classList.add("is-full");
-  return bar;
 }
 
 export function budgetPage(app) {
@@ -102,6 +96,26 @@ export function budgetPage(app) {
       renderCategories();
     });
 
+  // Same "Whose" filter as Reports and Classic Budget: which category
+  // groups count, decided by the same person/group-prefix setup from the
+  // Setup page. Affects both the category table below and Needs attention
+  // above, so picking a person really does narrow the whole page to their
+  // stuff, not just the table.
+  const ownerSelect = select([
+    { value: "all", label: "Everyone" },
+    { value: "p1", label: state.personName(1) },
+    { value: "p2", label: state.personName(2) },
+    { value: "shared", label: "Shared" },
+  ], store.get("budgetOverview.owner", "all"), (value) => {
+    store.set("budgetOverview.owner", value);
+    renderAttention();
+    renderCategories();
+  });
+
+  function groupOwner(groupName) {
+    return ownerOf(groupName, "", state.withPeople({}));
+  }
+
   const categoryTable = table([
     { key: "name", label: "Group / Category" },
     { key: "target", label: "Target" },
@@ -122,8 +136,9 @@ export function budgetPage(app) {
     hint("The same list the tools pick from. Click a group to roll it up; " +
       "which groups are rolled up is remembered. Copy ID gives you the id " +
       "the YNAB API uses, which is worth having when something goes wrong."),
-    el("div", { class: "card-row" },
-      el("div", { class: "grow" }, search), hiddenBox),
+    el("div", { class: "card-grid" },
+      field("Filter", search), field("Whose", ownerSelect)),
+    el("div", { class: "card-row" }, hiddenBox),
     categoryTable,
     categoryStatus,
     log);
@@ -156,10 +171,12 @@ export function budgetPage(app) {
 
   function visibleGroups() {
     const includeHidden = hiddenBox.querySelector("input").checked;
+    const owner = ownerSelect.value;
     return (state.categoryGroups || []).filter((group) =>
       !group.deleted &&
       (includeHidden || !group.hidden) &&
-      group.name !== "Internal Master Category");
+      group.name !== "Internal Master Category" &&
+      (owner === "all" || groupOwner(group.name) === owner));
   }
 
   /** Month figures by category id, when a month has been loaded. */
@@ -207,8 +224,10 @@ export function budgetPage(app) {
       }
     }
 
+    const owner = ownerSelect.value;
     const live = (month.categories || []).filter(
-      (category) => !category.deleted && !category.hidden);
+      (category) => !category.deleted && !category.hidden &&
+        (owner === "all" || groupOwner(groupName.get(category.id) || "") === owner));
 
     const overspent = live
       .filter((category) => (category.balance || 0) < 0)
@@ -328,8 +347,11 @@ export function budgetPage(app) {
       if (!matches.length) continue;
 
       groupCount += 1;
-      const groupTotal = matches.reduce(
-        (sum, category) => sum + ((monthCategory(category.id) || category).balance || 0), 0);
+      const monthOf = (category) => monthCategory(category.id) || category;
+      const groupGoal = matches.reduce((sum, category) => sum + (monthOf(category).goal_target || 0), 0);
+      const groupBudgeted = matches.reduce((sum, category) => sum + (monthOf(category).budgeted || 0), 0);
+      const groupActivity = matches.reduce((sum, category) => sum + (monthOf(category).activity || 0), 0);
+      const groupTotal = matches.reduce((sum, category) => sum + (monthOf(category).balance || 0), 0);
 
       // A search that matched inside a rolled up group has to show what it
       // matched, so filtering wins over the collapsed state.
@@ -346,7 +368,9 @@ export function budgetPage(app) {
           el("span", { class: "caret", "aria-hidden": "true", text: "▾" }),
           el("span", { text: group.name + (group.hidden ? "  (hidden)" : "") }),
           el("span", { class: "count", text: `${matches.length}` }))),
-        el("td", {}), el("td", { class: "num" }), el("td", { class: "num" }),
+        el("td", { class: "num", text: groupGoal ? fmt(groupGoal) : "" }),
+        el("td", { class: "num", text: fmt(groupBudgeted) }),
+        el("td", { class: "num", text: fmt(groupActivity) }),
         el("td", { class: "num", text: fmt(groupTotal) }),
         el("td", {})));
 
@@ -364,9 +388,12 @@ export function budgetPage(app) {
         categoryTable.tbody.append(el("tr", {},
           el("td", { class: "indent",
             text: base.name + (base.hidden ? "  (hidden)" : "") }),
-          el("td", {}, progress === null
+          el("td", { class: "num" }, progress === null
             ? el("span", { class: "hint", text: "none" })
-            : progressBar(progress)),
+            : el("div", { class: "target-cell" },
+                el("span", { text: fmt(category.goal_target) }),
+                el("span", { class: `hint ${progress >= 1 ? "is-ok" : ""}`,
+                  text: `${Math.round(progress * 100)}%` }))),
           el("td", { class: "num", text: fmt(category.budgeted) }),
           el("td", { class: "num", text: fmt(category.activity) }),
           el("td", {

@@ -524,6 +524,12 @@ h1, h2, h3 { margin: 0; font-weight: 600; line-height: 1.3; }
    its own, and is free to run longer since it shares the wide label cell. */
 .progress.month-bar { flex: 1 1 auto; height: 8px; }
 
+/* YNAB Budget's Target column: the goal amount above its % funded, both as
+   plain numbers - a progress bar was tried first but said nothing about
+   what the goal actually was, only how far along it is. */
+.target-cell { display: flex; flex-direction: column; gap: 4px; }
+.target-cell .hint { font-size: 12px; }
+
 /* ---------- shared expenses split ---------- */
 
 .split-line {

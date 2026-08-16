@@ -3,8 +3,8 @@
 import { fmt } from "../money.js";
 import * as shared from "../tools/shared_expenses.js";
 import {
-  button, card, categoryPicker, checkbox, clear, confirmDialog, customDialog,
-  el, emptyRow, hint, icon, logPane, pageHeading, sectionTitle, table,
+  button, card, categoryPicker, clear, confirmDialog, customDialog,
+  el, emptyRow, hint, logPane, pageHeading, sectionTitle, table,
 } from "../ui.js";
 
 const LOG_EMPTY =
@@ -20,7 +20,7 @@ export function sharedExpensesPage(app) {
   const log = logPane(LOG_EMPTY);
 
   let planned = [];
-  let skipped = [];
+  let skippedTransfers = [];
   let editingIndex = null;
   let rules = (settings.rules || []).map((rule) => ({ ...rule }));
 
@@ -34,13 +34,6 @@ export function sharedExpensesPage(app) {
 
   // Names and the share of shared expenses are defined once, in Setup
   // (share lives right under each person's account tag there).
-  //
-  // Unchecked, an already-split transaction is not skipped outright: any
-  // leg of it that sits in a mapped shared category gets split between the
-  // two people on its own, leaving every other leg (a friend's repayment,
-  // say) untouched. See shared_expenses.js's scan()/splitLegPayload().
-  const skipSplit = checkbox("Skip transactions that are already split",
-    settings.skipAlreadySplit !== false, save);
 
   const ratioError = hint("");
   ratioError.hidden = true;
@@ -74,7 +67,6 @@ export function sharedExpensesPage(app) {
   }
 
   function save() {
-    settings.skipAlreadySplit = skipSplit.querySelector("input").checked;
     settings.rules = rules;
     store.save();
     paintLabels();
@@ -269,22 +261,9 @@ export function sharedExpensesPage(app) {
   const applyButton = button("Apply splits", { accent: true, onClick: applySelected });
   applyButton.disabled = true;
 
-  const skipSplitTooltip = el("span", {
-    class: "tooltip",
-    "data-tooltip": "Unchecked, an already-split transaction is not skipped " +
-      "outright: any leg of it sitting in a mapped shared category is " +
-      "split between the two people on its own, leaving every other leg " +
-      "(a friend's repayment, say) untouched.",
-  },
-    el("button", {
-      type: "button", class: "info-button",
-      "aria-label": "What unchecking this does",
-    }, icon("info", { size: 14 })));
-
   root.append(card(
     splitLine, ratioError,
     el("div", { class: "card-row action-bar" },
-      skipSplit, skipSplitTooltip,
       el("span", { class: "spacer" }),
       previewButton, applyButton)));
 
@@ -303,10 +282,12 @@ export function sharedExpensesPage(app) {
     "Run Preview to see exactly what would change. Nothing is written until " +
     "you press Apply.");
 
-  // A transaction that matched a shared category mapping but was left out
-  // (already split, or a transfer) used to be visible only as a count in
-  // the log - this shows exactly which ones and why, on demand rather than
-  // always on screen since most previews skip nothing.
+  // A transfer that matched a shared category mapping but was left out
+  // used to be visible only as a count in the log - this shows exactly
+  // which ones, on demand rather than always on screen since most previews
+  // skip no transfers. Already-split matches are not in here - they get
+  // their own always-visible table below, since knowing about a multi-split
+  // the tool can't touch is worth more than a click-to-reveal count.
   const skippedButton = button("Skipped", { small: true, onClick: openSkippedDialog });
   skippedButton.hidden = true;
 
@@ -318,31 +299,67 @@ export function sharedExpensesPage(app) {
     resultsTable, resultsHint);
 
   function openSkippedDialog() {
-    customDialog("Skipped transactions", (body) => {
+    customDialog("Skipped transfers", (body) => {
       body.append(hint(
-        "Matched one of the shared category mappings above, but was not " +
-        "included in Preview."));
+        "Matched one of the shared category mappings above, but is a " +
+        "transfer, which YNAB will not allow a split write on."));
       const skippedTable = table([
         { key: "date", label: "Date" },
         { key: "category", label: "Category" },
         { key: "amount", label: "Amount", className: "num" },
-        { key: "reason", label: "Reason" },
       ]);
       body.append(skippedTable);
-      if (!skipped.length) {
+      if (!skippedTransfers.length) {
         emptyRow(skippedTable, "Nothing skipped.");
       } else {
-        for (const item of skipped) {
+        for (const item of skippedTransfers) {
           skippedTable.tbody.append(el("tr", {},
             el("td", { text: item.transaction.date }),
             el("td", { text:
               `${item.rule.name}  ${item.transaction.payee_name || ""}`.trim() }),
-            el("td", { class: "num", text: fmt(item.transaction.amount) }),
-            el("td", { text: item.reason === "transfer" ? "Transfer" : "Already split" })));
+            el("td", { class: "num", text: fmt(item.transaction.amount) })));
         }
       }
       return { value: () => true };
     }, { confirmText: "Done", cancelText: "", hideCancel: true, wide: true });
+  }
+
+  // ---------- already split ----------
+  //
+  // A transaction that matched a shared category mapping but is already
+  // split can't be converted - YNAB refuses to change the subtransactions
+  // of a transaction that already has any (see shared_expenses.js). It
+  // still needs to be found and acted on by hand, though, so this stays
+  // visible on the page at all times rather than tucked behind a button -
+  // unlike the Skipped dialog above, missing one of these is a real
+  // "someone still owes money" problem, not just noise.
+  const alreadySplitTable = table([
+    { key: "date", label: "Date" },
+    { key: "category", label: "Category" },
+    { key: "amount", label: "Amount", className: "num" },
+  ]);
+  alreadySplitTable.classList.add("scroll-table");
+
+  root.append(
+    sectionTitle("Already split - needs manual review"),
+    hint("Matched one of the shared category mappings above, but is " +
+      "already split into more than one category, so this tool cannot " +
+      "divide it automatically. Handle these directly in YNAB."),
+    alreadySplitTable);
+
+  function renderAlreadySplit(items) {
+    clear(alreadySplitTable.tbody);
+    if (!items.length) {
+      emptyRow(alreadySplitTable, "None right now.");
+      return;
+    }
+    for (const item of items) {
+      alreadySplitTable.tbody.append(el("tr", {},
+        el("td", { text: item.transaction.date }),
+        el("td", { text:
+          `${item.rule.name}  ${item.transaction.payee_name || ""}`.trim() }),
+        el("td", { class: "num", text: fmt(item.transaction.amount) })));
+    }
   }
 
   // ---------- undo history ----------
@@ -390,31 +407,11 @@ export function sharedExpensesPage(app) {
     for (const item of items) {
       appliedTable.tbody.append(el("tr", {},
         el("td", { text: item.transaction.date }),
-        el("td", { text: rowLabel(item) }),
-        el("td", { class: "num", text: fmt(rowAmount(item)) }),
+        el("td", { text: `${item.rule.name}  ${item.transaction.payee_name || ""}`.trim() }),
+        el("td", { class: "num", text: fmt(item.transaction.amount) }),
         el("td", { class: "num", text: fmt(item.person1Amount) }),
         el("td", { class: "num", text: fmt(item.person2Amount) })));
     }
-  }
-
-  /** The amount actually being split for this row - a whole transaction's
-   * total normally, but just that one leg's amount when it's one shared
-   * leg of an already-split transaction (see scan()'s legIndex). Showing
-   * the transaction's full total there would not match Person 1 + Person 2
-   * for that row, which would look like a bug rather than the other legs
-   * being left alone. */
-  function rowAmount(item) {
-    return item.legIndex !== undefined
-      ? item.transaction.subtransactions[item.legIndex].amount
-      : item.transaction.amount;
-  }
-
-  /** "Restaurant" normally, "Restaurant (one leg)" when this row is only
-   * one shared leg of a larger already-split transaction, so it's clear
-   * at a glance that the rest of that transaction is untouched. */
-  function rowLabel(item) {
-    const base = `${item.rule.name}  ${item.transaction.payee_name || ""}`.trim();
-    return item.legIndex !== undefined ? `${base} (one leg)` : base;
   }
 
   function checkAll(checked) {
@@ -460,8 +457,8 @@ export function sharedExpensesPage(app) {
       resultsTable.tbody.append(el("tr", {},
         el("td", { class: "check" }, box),
         el("td", { text: item.transaction.date }),
-        el("td", { text: rowLabel(item) }),
-        el("td", { class: "num", text: fmt(rowAmount(item)) }),
+        el("td", { text: `${item.rule.name}  ${item.transaction.payee_name || ""}`.trim() }),
+        el("td", { class: "num", text: fmt(item.transaction.amount) }),
         el("td", { class: "num", text: fmt(item.person1Amount) }),
         el("td", { class: "num", text: fmt(item.person2Amount) })));
     }
@@ -518,17 +515,20 @@ export function sharedExpensesPage(app) {
         log.write(`Using transactions already loaded ${state.dataAge()}. ` +
           "Applying re-reads from YNAB regardless.", "muted");
       }
-      return shared.scan(fetched.list, checked.complete, "", "", checked.value,
-        { skipAlreadySplit: skipSplit.querySelector("input").checked });
+      return shared.scan(fetched.list, checked.complete, "", "", checked.value);
     }, { log, buttons: [previewButton] });
 
     if (!result) return;
-    skipped = result.skipped || [];
-    skippedButton.textContent = skipped.length ? `Skipped (${skipped.length})` : "Skipped";
-    skippedButton.hidden = skipped.length === 0;
+    const skipped = result.skipped || [];
+    skippedTransfers = skipped.filter((item) => item.reason === "transfer");
+    const alreadySplit = skipped.filter((item) => item.reason === "already split");
+    skippedButton.textContent = skippedTransfers.length
+      ? `Skipped (${skippedTransfers.length})` : "Skipped";
+    skippedButton.hidden = skippedTransfers.length === 0;
+    renderAlreadySplit(alreadySplit);
     if (result.skippedAlreadySplit) {
-      log.write(`Skipped ${result.skippedAlreadySplit} transaction(s) that ` +
-        "are already split.", "muted");
+      log.write(`Found ${result.skippedAlreadySplit} transaction(s) already ` +
+        "split - see \"Already split\" below, these need handling by hand.", "warn");
     }
     if (result.skippedTransfers) {
       log.write(`Skipped ${result.skippedTransfers} transfer(s).`, "muted");
@@ -559,9 +559,7 @@ export function sharedExpensesPage(app) {
       // changed in YNAB since, rather than overwriting it. Deliberately
       // forced past the cache: the whole point is to see the current truth.
       const { list: fresh } = await state.loadAllTransactions({ force: true });
-      const { stillValid, drifted } = shared.driftCheck(
-        chosen, fresh, "", "",
-        { skipAlreadySplit: skipSplit.querySelector("input").checked });
+      const { stillValid, drifted } = shared.driftCheck(chosen, fresh, "", "");
 
       for (const { item, reason } of drifted) {
         log.write(`  skipped ${item.transaction.date} ${item.rule.name}: ` +
@@ -580,27 +578,18 @@ export function sharedExpensesPage(app) {
     saveBackups(stored);
     if (!result) return;
 
-    // Splitting a leg of an already-split transaction goes through
-    // delete+recreate (same reason Undo does - see shared_expenses.js), so
-    // its id changed and a patch cannot express "two new legs alongside
-    // whatever else was already there." Invalidate instead of patching
-    // whenever any applied item took that path; otherwise patch the cache
-    // with exactly what was just written, instead of wiping it and hoping
-    // an instant re-fetch already reflects it.
-    if ((result.applied || []).some((item) => item.legIndex !== undefined)) {
-      state.invalidate();
-    } else {
-      state.patchTransactions((result.applied || []).map((item) => ({
-        id: item.transaction.id,
-        patch: {
-          category_id: null,
-          subtransactions: [
-            { category_id: item.rule.person1Id, amount: item.person1Amount },
-            { category_id: item.rule.person2Id, amount: item.person2Amount },
-          ],
-        },
-      })));
-    }
+    // Patch the cache with exactly what was just written, instead of
+    // wiping it and hoping an instant re-fetch already reflects it.
+    state.patchTransactions((result.applied || []).map((item) => ({
+      id: item.transaction.id,
+      patch: {
+        category_id: null,
+        subtransactions: [
+          { category_id: item.rule.person1Id, amount: item.person1Amount },
+          { category_id: item.rule.person2Id, amount: item.person2Amount },
+        ],
+      },
+    })));
     state.monthCache.clear();
     state.notify();
     // Without this, a reload straight after Apply pulls back whatever was
@@ -680,6 +669,7 @@ export function sharedExpensesPage(app) {
   paintRatio();
   renderRules();
   emptyRow(resultsTable, "Run Preview to see what would change.");
+  emptyRow(alreadySplitTable, "Run Preview to see this.");
   paintBackupLabel();
 
   return root;

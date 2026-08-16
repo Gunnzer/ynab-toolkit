@@ -11,6 +11,15 @@ before or as part of the push itself.
 
 ## 2026-08-15
 
+**Shared Expenses — already-split transactions get their own visible table** (`shared_expenses.js`, `shared.js`, `tools.test.js`)
+* Splitting just the shared leg of an already-split transaction (delete + recreate, since YNAB refuses to patch subtransactions on a transaction that's already split) was built, then removed entirely - it caused a real production issue where a category's YNAB budget-page activity total got stuck showing stale figures after the write, persisting across browser, incognito and the mobile app. Already-split transactions are unconditionally skipped again, with no setting or path to convert them.
+* Added a dedicated, always-visible "Already split - needs manual review" table on the page, so a multi-split the tool can't touch is still clearly surfaced rather than needing a click into a dialog. The "Skipped" dialog now only covers transfers.
+
+**YNAB Budget: Target as a number, group totals, and a "Whose" filter** (`budget.js`, `app.css`)
+* The Target column showed only a thin progress bar with no number anywhere - it now shows the goal's dollar figure and a plain `%` funded instead of a bar.
+* Group header rows now total all four numeric columns (Target/Assigned/Activity/Available), not just Available.
+* Added the same "Whose" filter (Everyone/Person 1/Person 2/Shared) that Reports and Classic Budget already have, applied to both the category table and the "Needs attention" list.
+
 **Consistency pass — sticky headers rolled out app-wide, two stale patterns fixed** (`app.css`, `budget.js`, `classicbudget.js`, `reports.js`, `autoassign.js`, `duplicates.js`, `shared.js`, `bank.js`, `splitsheet.js`)
 * Bill Splitting's Preview table was the only one with a bounded, sticky-header scroll panel; every other main table in the app just grew with the page. Renamed its `.preview-table` CSS class to the generic `.scroll-table` and rolled it out to every other table that can realistically grow long: YNAB Budget's and Classic Budget's category tables, Reports' four breakdown tables, Auto Assign's plan table, Duplicates' results, Shared Expenses' preview and applied tables, and Bank Import's preview.
 * Auto Assign's month picker used a native `<input type="month">` (a different widget than every other month picker in the app) plus its own duplicate `thisMonth()` function - switched to the same shared `select(monthOptions(...))` dropdown and `thisMonth()` import every other page already uses.
