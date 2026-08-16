@@ -10,6 +10,3 @@ node_modules/
 .idea/
 Thumbs.db
 desktop.ini
-
-# Claude Code local tooling config (per-machine, not part of the app)
-.claude/
