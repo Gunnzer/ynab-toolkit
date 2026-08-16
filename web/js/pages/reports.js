@@ -529,7 +529,7 @@ export function reportsPage(app) {
       { key: "count", label: "Items", className: "num col-items" },
       { key: "total", label: "Spent", className: "num col-spent" },
     ]);
-    wrap.classList.add("report-table");
+    wrap.classList.add("report-table", "scroll-table");
     return wrap;
   }
 

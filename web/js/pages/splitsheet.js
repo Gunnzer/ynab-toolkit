@@ -512,7 +512,7 @@ export function splitSheetPage(app) {
     { key: "Memo", label: "Memo" },
     { key: "exclude", label: "", className: "check" },
   ]);
-  preview.classList.add("preview-table");
+  preview.classList.add("scroll-table");
 
   // Income and refunds are reviewed in a separate dialog (openInflowsDialog,
   // below), not inline in this table - a mixed checkbox-per-row design here
@@ -593,7 +593,7 @@ export function splitSheetPage(app) {
         search, selectAllRow, list,
         el("div", { class: "filter-popup-actions" }, okButton, cancelButton));
       // Appended to <body>, not the <th> - the Preview table is its own
-      // bounded, scrolling panel (.preview-table), and a popup left inside
+      // bounded, scrolling panel (.scroll-table), and a popup left inside
       // it gets clipped to that panel instead of floating on top of it (you
       // end up scrolling a tiny table to see a filter popup that has
       // nowhere else to go). Positioned as `fixed` from the funnel button's

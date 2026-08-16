@@ -221,6 +221,7 @@ export function classicBudgetPage(app) {
     { key: "planned", label: "Budgeted", className: "num" },
     { key: "activity", label: "Activity", className: "num" },
   ]);
+  categoryTable.classList.add("scroll-table");
   const categoryStatus = hint("");
 
   root.append(

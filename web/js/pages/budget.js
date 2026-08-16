@@ -110,6 +110,7 @@ export function budgetPage(app) {
     { key: "balance", label: "Available", className: "num" },
     { key: "id", label: "" },
   ]);
+  categoryTable.classList.add("scroll-table");
   const categoryStatus = hint("");
 
   root.append(

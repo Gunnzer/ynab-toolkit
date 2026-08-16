@@ -87,6 +87,7 @@ export function duplicatesPage(app) {
     { key: "amount", label: "Amount", className: "num" },
     { key: "note", label: "" },
   ]);
+  results.classList.add("scroll-table");
 
   root.append(results, log);
 

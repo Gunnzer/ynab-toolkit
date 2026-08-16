@@ -298,6 +298,7 @@ export function sharedExpensesPage(app) {
     { key: "p1", label: "Person 1", className: "num" },
     { key: "p2", label: "Person 2", className: "num" },
   ]);
+  resultsTable.classList.add("scroll-table");
   const resultsHint = hint(
     "Run Preview to see exactly what would change. Nothing is written until " +
     "you press Apply.");
@@ -362,6 +363,7 @@ export function sharedExpensesPage(app) {
     { key: "p1", label: "Person 1", className: "num" },
     { key: "p2", label: "Person 2", className: "num" },
   ]);
+  appliedTable.classList.add("scroll-table");
   appliedTable.hidden = true;
 
   const historySection = el("div", {},

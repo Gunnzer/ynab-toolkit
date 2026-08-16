@@ -11,6 +11,11 @@ before or as part of the push itself.
 
 ## 2026-08-15
 
+**Consistency pass — sticky headers rolled out app-wide, two stale patterns fixed** (`app.css`, `budget.js`, `classicbudget.js`, `reports.js`, `autoassign.js`, `duplicates.js`, `shared.js`, `bank.js`, `splitsheet.js`)
+* Bill Splitting's Preview table was the only one with a bounded, sticky-header scroll panel; every other main table in the app just grew with the page. Renamed its `.preview-table` CSS class to the generic `.scroll-table` and rolled it out to every other table that can realistically grow long: YNAB Budget's and Classic Budget's category tables, Reports' four breakdown tables, Auto Assign's plan table, Duplicates' results, Shared Expenses' preview and applied tables, and Bank Import's preview.
+* Auto Assign's month picker used a native `<input type="month">` (a different widget than every other month picker in the app) plus its own duplicate `thisMonth()` function - switched to the same shared `select(monthOptions(...))` dropdown and `thisMonth()` import every other page already uses.
+* Bank Import's preview table was still capped at 50 rows with a "... and N more, all saved" footer - the same pattern Bill Splitting had and removed earlier; removed here too, since expected volume is small enough to just show everything.
+
 **Shared Expenses — splitting a leg of an already-split transaction** (`shared_expenses.js`, `shared.js`, `tools.test.js`)
 * A transaction already split into "what came back from friends" + "the genuinely shared portion" (e.g. one person pays a full restaurant bill, two friends transfer back their share) no longer gets skipped outright with "Skip transactions that are already split" unchecked - the leg sitting in a mapped shared category is found and split between the two people, while every other leg is carried through untouched.
 * `scan()` matches individual subtransaction legs against shared-category rules, computing each leg's own amount rather than the whole transaction's total.

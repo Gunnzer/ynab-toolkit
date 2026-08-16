@@ -992,10 +992,14 @@ select {
    `clip` isn't reliably supported as "no scroll container" everywhere).
    That makes .table-wrap its own vertical scroll container, which is
    exactly what a sticky header needs - it just was not tall enough to
-   ever need to scroll. Rather than fight that, Bill Splitting's Preview
-   table embraces it: a capped height turns it into a proper scrollable
-   panel with its own frozen header, instead of growing the whole page. */
-.preview-table { max-height: 65vh; overflow-y: auto; }
+   ever need to scroll. Rather than fight that, any table that can grow
+   long (transactions, categories, payees...) embraces it instead: a
+   capped height turns it into a proper scrollable panel with its own
+   frozen header, instead of growing the whole page. Originally named
+   .preview-table for Bill Splitting's Preview table alone; renamed once
+   the same treatment was rolled out to every other main table in the app,
+   since by then it was no longer specific to one page or one "preview". */
+.scroll-table { max-height: 65vh; overflow-y: auto; }
 
 table { border-collapse: collapse; width: 100%; font-size: 14px; }
 th {

@@ -4,8 +4,8 @@ import { fmt } from "../money.js";
 import * as autoassign from "../tools/autoassign.js";
 import {
   button, card, categoryPicker, clear, confirmDialog, customDialog, el,
-  emptyRow, field, hint, logPane, pageHeading, radioGroup, sectionTitle,
-  table, textInput,
+  emptyRow, field, hint, logPane, monthOptions, pageHeading, radioGroup,
+  sectionTitle, select, table, thisMonth,
 } from "../ui.js";
 
 const LOG_EMPTY =
@@ -37,9 +37,8 @@ export function autoAssignPage(app) {
     },
   });
 
-  const monthInput = textInput(
-    settings.month !== "current" ? settings.month : thisMonth(),
-    { type: "month", onInput: saveSettings });
+  const monthInput = select(monthOptions(state.firstBudgetMonth),
+    settings.month !== "current" ? settings.month : thisMonth(), saveSettings);
 
   const monthMode = radioGroup("month-mode", [
     { value: "current", label: "This month" },
@@ -54,10 +53,6 @@ export function autoAssignPage(app) {
     { value: autoassign.BASIS_UNDERFUNDED, label: "Underfunded this month" },
     { value: autoassign.BASIS_TARGET, label: "Target minus assigned" },
   ], settings.basis || autoassign.BASIS_UNDERFUNDED, saveSettings);
-
-  function thisMonth() {
-    return new Date().toISOString().slice(0, 7);
-  }
 
   function currentMonth() {
     const mode = monthMode.querySelector("input:checked").value;
@@ -207,6 +202,7 @@ export function autoAssignPage(app) {
     { key: "to", label: "After", className: "num" },
     { key: "amount", label: "Added", className: "num" },
   ]);
+  planTable.classList.add("scroll-table");
 
   root.append(sectionTitle("Plan"), planTable, log);
 

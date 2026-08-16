@@ -14,8 +14,6 @@ const LOG_EMPTY =
   "Choose a bank export to begin. Nothing is uploaded: the file is read in " +
   "this page and the result is saved straight back to your computer.";
 
-const PREVIEW_ROWS = 50;
-
 const DATE_FORMATS = [
   { value: "yyyy-MM-dd", label: "2025-03-05 (ISO)" },
   { value: "MM/dd/yyyy", label: "03/05/2025 (US)" },
@@ -543,6 +541,7 @@ export function bankImportPage(app) {
     { key: "Memo", label: "Memo" },
     { key: "Amount", label: "Amount", className: "num" },
   ]);
+  preview.classList.add("scroll-table");
 
   root.append(sectionTitle("Preview"), preview, log);
 
@@ -608,18 +607,12 @@ export function bankImportPage(app) {
 
     converted = result;
     clear(preview.tbody);
-    for (const row of result.rows.slice(0, PREVIEW_ROWS)) {
+    for (const row of result.rows) {
       preview.tbody.append(el("tr", {},
         el("td", { text: row.Date }),
         el("td", { text: row.Payee }),
         el("td", { text: row.Memo }),
         el("td", { class: "num", text: row.Amount })));
-    }
-    if (result.rows.length > PREVIEW_ROWS) {
-      preview.tbody.append(el("tr", { class: "empty-row" },
-        el("td", { colspan: String(preview.columns.length) },
-          `... and ${result.rows.length - PREVIEW_ROWS} more row(s). All of ` +
-          "them are saved.")));
     }
 
     for (const warning of result.warnings) log.write(warning, "warn");
