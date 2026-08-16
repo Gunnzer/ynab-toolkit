@@ -547,6 +547,15 @@ export function monthLabel(monthStr) {
   });
 }
 
+/** "YYYY-MM-DD" -> "16 Aug 2026". */
+export function dateLabel(dateStr) {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+    day: "numeric", month: "short", year: "numeric",
+  });
+}
+
 // However far back is used when a budget has not said when it starts, e.g.
 // before a first connection.
 const FALLBACK_MONTH_WINDOW = 96;

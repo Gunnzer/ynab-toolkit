@@ -3,8 +3,8 @@
 import { fmt } from "../money.js";
 import * as duplicates from "../tools/duplicates.js";
 import {
-  button, card, checkbox, clear, confirmDialog, el, emptyRow, field, hint,
-  logPane, monthsAgoIso, pageHeading, select, table, textInput,
+  button, card, checkbox, clear, confirmDialog, dateLabel, el, emptyRow,
+  field, hint, logPane, monthsAgoIso, pageHeading, select, table, textInput,
 } from "../ui.js";
 
 const LOG_EMPTY =
@@ -143,7 +143,7 @@ export function duplicatesPage(app) {
 
         results.tbody.append(el("tr", {},
           el("td", { class: "check" }, box),
-          el("td", { text: transaction.date }),
+          el("td", { text: dateLabel(transaction.date) }),
           el("td", { text: transaction.payee_name || "(no payee)" }),
           el("td", { text: state.accountName(transaction.account_id) || "" }),
           el("td", { class: "num", text: fmt(transaction.amount) }),
