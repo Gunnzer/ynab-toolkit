@@ -11,6 +11,14 @@ before or as part of the push itself.
 
 ## 2026-08-23
 
+**Bank Import: page reorganized into one "Conversion setup" card** (`bank.js`, `CLAUDE.md`)
+* Payee rules used to sit fully expanded on the page at all times; now a "Rules (N)" button opens the full list (add/edit/remove/reorder) in a dialog instead, with Add rule and Test a name staying on the page since those are used often. Caught and fixed a real bug during this change: this app's dialogs all share one `<dialog>` element with no stacking support, so opening Edit or Remove's dialog from inside the Rules dialog corrupted both - fixed by closing the Rules dialog first.
+* The old separate "Bank" preset card (save/select/delete a column mapping per bank) was removed outright - the mapping is only a handful of fields and auto-guessing from the file's header row already covers most cases.
+* Payee rules and the column mapping (previously two separate cards, one with a floating title once its content moved into a dialog) are now one "Conversion setup" card, with Payee rules first and Columns below it - each a proper subsection heading, not the too-small/muted style tried first. The Convert/Save row moved to the bottom of the same card instead of floating in its own sticky bar underneath.
+* The three optional column fields (Memo/Outflow/Inflow) now sit on their own fixed 3-column row, separate from the three required fields (Date/Payee/Amount) on theirs.
+* The save button offers QFX or CSV (QFX now default), with the format dropdown moved to the right of the save button; TSV, tried briefly, was removed as unwanted.
+* "Push to YNAB" (direct API push, undo) is hidden for now via a `SHOW_PUSH_TO_YNAB` flag - the code underneath is untouched, just not mounted to the page.
+
 **Bank Import: QFX/OFX support, both ways** (`bank_convert.js`, `bank.js`, `CLAUDE.md`, `tools.test.js`)
 * Bank Import only read delimited (CSV/TSV/semicolon) exports. Added `parseOfx()`, a line-by-line reader for QFX/OFX's SGML-style tags (most banks write `<DTPOSTED>...` with no closing tag, so it can't go through an XML/DOM parser), pulling date/payee/memo/amount out of each `<STMTTRN>` block.
 * A QFX/OFX file is detected by extension or by sniffing for `OFXHEADER`/`<OFX>` in the file's own content, and its output feeds straight into the same column-mapping/convert/payee-rules pipeline a delimited file already uses - the mapping is just pre-filled to the format's own fixed field names instead of guessed from a header row.

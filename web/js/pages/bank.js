@@ -6,7 +6,7 @@
 import * as bank from "../tools/bank_convert.js";
 import {
   button, card, checkbox, clear, confirmDialog, customDialog, download, el,
-  emptyRow, field, hint, logPane, pageActions, pageHeading, pickFile,
+  emptyRow, field, hint, logPane, pageHeading, pickFile,
   sectionTitle, select, table, textInput,
 } from "../ui.js";
 
@@ -23,14 +23,6 @@ const DATE_FORMATS = [
 const DATE_ORDERS = [
   { value: "monthFirst", label: "March 5th (month first)" },
   { value: "dayFirst", label: "3rd May (day first)" },
-];
-
-// What a saved bank preset carries. Payee rules stay global on purpose -
-// most people write those against words in a payee name, not against a
-// particular bank's export format.
-const PRESET_FIELDS = [
-  "dateColumn", "payeeColumn", "amountColumn", "memoColumn",
-  "outflowColumn", "inflowColumn", "dateFormat", "dateOrder", "invertAmount",
 ];
 
 export function bankImportPage(app) {
@@ -99,100 +91,22 @@ export function bankImportPage(app) {
 
   root.append(card(dropzone));
 
-  // ---------- bank presets ----------
-
-  function presets() {
-    return settings.presets || (settings.presets = {});
-  }
-
-  function presetOptions() {
-    return [{ value: "", label: "(custom, not saved)" }]
-      .concat(Object.keys(presets()).sort().map((name) => ({ value: name, label: name })));
-  }
-
-  const presetSelect = select(presetOptions(), settings.presetName || "",
-    (name) => applyPreset(name));
-  const presetSaveButton = button("Save as...", { small: true, onClick: savePreset });
-  const presetDeleteButton = button("Delete", { small: true, danger: true, onClick: deletePreset });
-
-  root.append(card(
-    sectionTitle("Bank"),
-    hint("Save this column mapping under a bank's name (EQ, Tangerine, ...) " +
-      "so switching banks is one click instead of remapping every column."),
-    el("div", { class: "card-row" },
-      el("div", { class: "narrow" }, presetSelect), presetSaveButton, presetDeleteButton)));
-
-  function applyPreset(name) {
-    settings.presetName = name;
-    const preset = presets()[name];
-    if (preset) Object.assign(settings, preset);
-    store.save();
-    renderMapping();
-  }
-
-  async function savePreset() {
-    const result = await customDialog("Save bank preset", (body) => {
-      const nameInput = textInput(settings.presetName || "", {
-        placeholder: "e.g. EQ Bank",
-      });
-      const error = el("p", { class: "hint is-error" });
-      body.append(field("Bank name", nameInput), error);
-      return {
-        validate: () => {
-          if (!nameInput.value.trim()) {
-            error.textContent = "Give it a name.";
-            return false;
-          }
-          return true;
-        },
-        value: () => nameInput.value.trim(),
-      };
-    }, { confirmText: "Save" });
-
-    if (!result) return;
-    const snapshot = {};
-    for (const key of PRESET_FIELDS) snapshot[key] = settings[key];
-    presets()[result] = snapshot;
-    settings.presetName = result;
-    store.save();
-    presetSelect.replaceChildren(...presetOptions().map(
-      (option) => el("option", { value: option.value, text: option.label })));
-    presetSelect.value = result;
-    log.write(`Saved the current mapping as '${result}'.`, "ok");
-  }
-
-  async function deletePreset() {
-    const name = settings.presetName;
-    if (!name || !presets()[name]) return;
-    const confirmed = await confirmDialog("Delete bank preset",
-      `Delete the saved mapping for '${name}'?`, { confirmText: "Delete" });
-    if (!confirmed) return;
-
-    delete presets()[name];
-    settings.presetName = "";
-    store.save();
-    presetSelect.replaceChildren(...presetOptions().map(
-      (option) => el("option", { value: option.value, text: option.label })));
-    presetSelect.value = "";
-    log.write(`Deleted '${name}'.`, "ok");
-  }
-
   // ---------- mapping ----------
 
-  const mapHost = el("div", { class: "card-grid" });
+  // Two explicit 3-column rows (not the general auto-fit card-grid, which
+  // would wrap to 2 or 1 per row on a narrower window) - the required
+  // fields together, and the three optional ones together, at explicit
+  // user request.
+  const mapHost = el("div", { class: "card-grid", style: "grid-template-columns: repeat(3, 1fr)" });
+  const optionalMapHost = el("div", { class: "card-grid", style: "grid-template-columns: repeat(3, 1fr)" });
   const optionsHost = el("div", { class: "stack" });
-  const mappingCard = card(
-    sectionTitle("Columns"),
-    hint("Map the columns in your file onto YNAB's four. Use Outflow and " +
-      "Inflow instead of Amount if your bank splits them into two columns."),
-    mapHost,
-    optionsHost);
-  root.append(mappingCard);
 
   const COLUMN_FIELDS = [
     ["dateColumn", "Date", true],
     ["payeeColumn", "Payee", true],
     ["amountColumn", "Amount", false],
+  ];
+  const OPTIONAL_COLUMN_FIELDS = [
     ["memoColumn", "Memo (optional)", false],
     ["outflowColumn", "Outflow (optional)", false],
     ["inflowColumn", "Inflow (optional)", false],
@@ -200,20 +114,23 @@ export function bankImportPage(app) {
 
   function renderMapping() {
     clear(mapHost);
+    clear(optionalMapHost);
     clear(optionsHost);
 
     const headers = parsed?.headers || [];
     const options = [{ value: "", label: headers.length ? "(not used)" : "(load a file first)" }]
       .concat(headers.map((header) => ({ value: header, label: header })));
 
-    for (const [key, label] of COLUMN_FIELDS) {
-      const current = headers.includes(settings[key]) ? settings[key] : "";
-      const node = select(options, current, (value) => {
-        settings[key] = value;
-        store.save();
-      });
-      node.disabled = !headers.length;
-      mapHost.append(field(label, node));
+    for (const [host, fields] of [[mapHost, COLUMN_FIELDS], [optionalMapHost, OPTIONAL_COLUMN_FIELDS]]) {
+      for (const [key, label] of fields) {
+        const current = headers.includes(settings[key]) ? settings[key] : "";
+        const node = select(options, current, (value) => {
+          settings[key] = value;
+          store.save();
+        });
+        node.disabled = !headers.length;
+        host.append(field(label, node));
+      }
     }
 
     const format = select(DATE_FORMATS, settings.dateFormat || "yyyy-MM-dd",
@@ -234,61 +151,116 @@ export function bankImportPage(app) {
   }
 
   // ---------- payee rules ----------
+  //
+  // Used to be its own section with its own floating title, which read
+  // strangely once the rules table itself moved into a dialog - there was
+  // no content left under the title to anchor it to. Folded into one
+  // "Conversion setup" card together with the column mapping instead, with
+  // Payee rules listed first and Columns below it, at explicit user request.
 
-  const rulesTable = table([
-    { key: "on", label: "On", className: "check" },
-    { key: "label", label: "Rule" },
-    { key: "pattern", label: "Matches" },
-    { key: "replacement", label: "Becomes" },
-    { key: "actions", label: "" },
-  ]);
+  const rulesButton = button("Rules (0)", { small: true, onClick: openRulesDialog });
+  // Set while the dialog is open, so a mutation from inside it (edit, move,
+  // remove) can repaint the dialog's own table too, not just the button's
+  // count - the same rules() array backs both, there is only ever one list.
+  let dialogRefresh = null;
 
-  root.append(
+  const mappingCard = card(
+    sectionTitle("Conversion setup"),
     el("div", { class: "section-head" },
       sectionTitle("Payee rules"),
       el("span", { class: "spacer" }),
+      rulesButton,
       button("Add rule", { small: true, onClick: () => editRule(null) }),
       button("Test a name", { small: true, onClick: testRule })),
-    rulesTable,
     hint("Rules run top to bottom and the first match wins. Patterns are " +
       "regular expressions; use $<name> in the replacement to bring a named " +
-      "group through."));
+      "group through."),
+    sectionTitle("Columns"),
+    hint("Map the columns in your file onto YNAB's four. Use Outflow and " +
+      "Inflow instead of Amount if your bank splits them into two columns."),
+    mapHost,
+    optionalMapHost,
+    optionsHost);
+  root.append(mappingCard);
 
   function rules() {
     return settings.payeeRules || (settings.payeeRules = []);
   }
 
   function renderRules() {
-    clear(rulesTable.tbody);
-    const list = rules();
-    if (!list.length) {
-      emptyRow(rulesTable, "No rules. Payee names will be used exactly as the bank wrote them.");
-      return;
-    }
+    const count = rules().length;
+    rulesButton.textContent = `Rules (${count})`;
+    if (dialogRefresh) dialogRefresh();
+  }
 
-    list.forEach((rule, index) => {
-      const box = el("input", { type: "checkbox" });
-      box.checked = rule.enabled !== false;
-      box.addEventListener("change", () => {
-        rule.enabled = box.checked;
-        store.save();
-      });
+  // Edit and Remove each open their own dialog (a form, or a confirm), but
+  // every dialog in this app shares one <dialog> element - there is no
+  // stacking, so a second dialog opened while the rules dialog is still
+  // open corrupts both (confirmed live: confirming a nested Remove silently
+  // closed the rules dialog too, since its listeners were still attached to
+  // the same shared form). Closing the rules dialog first, the same way
+  // Escape does (a "cancel" event, which is what its own close logic
+  // already listens for), avoids the corruption - editing or removing a
+  // rule now steps out of the list dialog rather than nesting inside it.
+  function closeOpenDialog() {
+    const node = document.getElementById("dialog");
+    if (node?.open) node.dispatchEvent(new Event("cancel"));
+  }
 
-      rulesTable.tbody.append(el("tr", {},
-        el("td", { class: "check" }, box),
-        el("td", { text: rule.label || "(unnamed)" }),
-        el("td", { class: "mono", text: rule.pattern || "" }),
-        el("td", { text: rule.replacement || "" }),
-        el("td", {},
-          el("div", { class: "inline" },
-            button("Up", { small: true, disabled: index === 0, onClick: () => moveRule(index, -1) }),
-            button("Down", {
-              small: true, disabled: index === list.length - 1,
-              onClick: () => moveRule(index, 1),
-            }),
-            button("Edit", { small: true, onClick: () => editRule(index) }),
-            button("Remove", { small: true, danger: true, onClick: () => removeRule(index) })))));
-    });
+  function openRulesDialog() {
+    customDialog("Payee rules", (body) => {
+      const dialogTable = table([
+        { key: "on", label: "On", className: "check" },
+        { key: "label", label: "Rule" },
+        { key: "pattern", label: "Matches" },
+        { key: "replacement", label: "Becomes" },
+        { key: "actions", label: "" },
+      ]);
+      dialogTable.classList.add("scroll-table");
+
+      function renderDialogTable() {
+        clear(dialogTable.tbody);
+        const list = rules();
+        if (!list.length) {
+          emptyRow(dialogTable,
+            "No rules. Payee names will be used exactly as the bank wrote them.");
+          return;
+        }
+
+        list.forEach((rule, index) => {
+          const box = el("input", { type: "checkbox" });
+          box.checked = rule.enabled !== false;
+          box.addEventListener("change", () => {
+            rule.enabled = box.checked;
+            store.save();
+          });
+
+          dialogTable.tbody.append(el("tr", {},
+            el("td", { class: "check" }, box),
+            el("td", { text: rule.label || "(unnamed)" }),
+            el("td", { class: "mono", text: rule.pattern || "" }),
+            el("td", { text: rule.replacement || "" }),
+            el("td", {},
+              el("div", { class: "inline" },
+                button("Up", { small: true, disabled: index === 0, onClick: () => moveRule(index, -1) }),
+                button("Down", {
+                  small: true, disabled: index === list.length - 1,
+                  onClick: () => moveRule(index, 1),
+                }),
+                button("Edit", { small: true, onClick: () => { closeOpenDialog(); editRule(index); } }),
+                button("Remove", {
+                  small: true, danger: true,
+                  onClick: () => { closeOpenDialog(); removeRule(index); },
+                })))));
+        });
+      }
+
+      dialogRefresh = renderDialogTable;
+      renderDialogTable();
+      body.append(dialogTable);
+      return { value: () => true };
+    }, { confirmText: "Done", cancelText: "", hideCancel: true, wide: true })
+      .finally(() => { dialogRefresh = null; });
   }
 
   function moveRule(index, delta) {
@@ -421,13 +393,24 @@ export function bankImportPage(app) {
   const undoButton = button("Undo last push", { danger: true, onClick: undoLastPush });
   const undoLabel = hint("");
 
-  root.append(pageActions(
-    el("div", { class: "card-row" },
-      convertButton, el("div", { class: "narrow" }, saveFormatSelect), saveButton, summary),
-    el("div", { class: "card-row" },
+  // Pushing straight to YNAB is turned off for now - flip this back on when
+  // it's wanted again rather than deleting the feature underneath it.
+  const SHOW_PUSH_TO_YNAB = false;
+
+  // Used to be its own sticky pageActions() bar floating below the setup
+  // card, which read as disconnected from the settings it acts on once
+  // Payee rules and Columns were merged into one card. Appended to the
+  // bottom of that same card instead, at explicit user request - a plain
+  // card-row, not pageActions(), since pageActions() gives itself its own
+  // sticky card chrome that would look like a card nested inside a card here.
+  mappingCard.append(el("div", { class: "card-row" },
+    convertButton, saveButton, el("div", { class: "narrow" }, saveFormatSelect), summary));
+  if (SHOW_PUSH_TO_YNAB) {
+    mappingCard.append(el("div", { class: "card-row" },
       el("span", { class: "field-label", text: "Push to" }),
       el("div", { class: "narrow" }, accountSelect),
-      pushButton, undoButton, undoLabel)));
+      pushButton, undoButton, undoLabel));
+  }
 
   function lastPushes() {
     return store.get("bankImport.lastPushByBudget", {}) || {};
