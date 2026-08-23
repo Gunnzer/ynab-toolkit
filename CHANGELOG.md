@@ -11,6 +11,11 @@ before or as part of the push itself.
 
 ## 2026-08-23
 
+**Bank Import: friendlier payee rules, column examples, clearer date format picker** (`bank.js`, `CLAUDE.md`)
+* Add/Edit rule now offers "Contains this text" as the default, alongside the original "Regular expression (advanced)" mode - no regex knowledge needed for the common case of renaming any payee containing some text. Both modes share a live "Try it" preview that updates as you type, instead of needing to save and separately open Test a name.
+* Each column dropdown (Date/Payee/Amount/Memo/Outflow/Inflow) now shows an `e.g. "..."` example value underneath it, pulled from the file's third row (or its last row, for a shorter file), updating live as the mapping changes.
+* The "Date format to write" dropdown's three examples all used day 5 - indistinguishable between MM/dd and dd/MM at a glance. Changed to day 23 so all three formats actually look different from each other; the separate "Read 03/05/2025 as" ambiguity-resolver was left alone, since a genuinely ambiguous date is the whole point of that one.
+
 **Bank Import: page reorganized into one "Conversion setup" card** (`bank.js`, `CLAUDE.md`)
 * Payee rules used to sit fully expanded on the page at all times; now a "Rules (N)" button opens the full list (add/edit/remove/reorder) in a dialog instead, with Add rule and Test a name staying on the page since those are used often. Caught and fixed a real bug during this change: this app's dialogs all share one `<dialog>` element with no stacking support, so opening Edit or Remove's dialog from inside the Rules dialog corrupted both - fixed by closing the Rules dialog first.
 * The old separate "Bank" preset card (save/select/delete a column mapping per bank) was removed outright - the mapping is only a handful of fields and auto-guessing from the file's header row already covers most cases.

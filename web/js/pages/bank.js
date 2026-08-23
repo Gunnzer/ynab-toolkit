@@ -14,12 +14,18 @@ const LOG_EMPTY =
   "Choose a bank export to begin. Nothing is uploaded: the file is read in " +
   "this page and the result is saved straight back to your computer.";
 
+// A day of 23 (not 5) so the three examples actually look different from
+// each other - a day <= 12 leaves MM/dd and dd/MM identical-looking, which
+// defeats the point of showing an example at all.
 const DATE_FORMATS = [
-  { value: "yyyy-MM-dd", label: "2025-03-05 (ISO)" },
-  { value: "MM/dd/yyyy", label: "03/05/2025 (US)" },
-  { value: "dd/MM/yyyy", label: "05/03/2025 (UK)" },
+  { value: "yyyy-MM-dd", label: "2025-03-23 (ISO)" },
+  { value: "MM/dd/yyyy", label: "03/23/2025 (US)" },
+  { value: "dd/MM/yyyy", label: "23/03/2025 (UK)" },
 ];
 
+// Matches the "Read 03/05/2025 as" field label below - both halves need to
+// be <= 12 here on purpose, since the whole point of this control is
+// resolving a date that's genuinely ambiguous between the two orders.
 const DATE_ORDERS = [
   { value: "monthFirst", label: "March 5th (month first)" },
   { value: "dayFirst", label: "3rd May (day first)" },
@@ -112,6 +118,16 @@ export function bankImportPage(app) {
     ["inflowColumn", "Inflow (optional)", false],
   ];
 
+  // Row 3 (the third actual transaction, not the header) if there are that
+  // many, otherwise whatever the last row is - enough rows in to have moved
+  // past a possible short first entry, without requiring the file to be
+  // large. Returns null for an empty file so callers can skip showing
+  // anything rather than printing "e.g. undefined".
+  function sampleRow() {
+    const rows = parsed?.rows || [];
+    return rows.length ? rows[Math.min(2, rows.length - 1)] : null;
+  }
+
   function renderMapping() {
     clear(mapHost);
     clear(optionalMapHost);
@@ -120,16 +136,26 @@ export function bankImportPage(app) {
     const headers = parsed?.headers || [];
     const options = [{ value: "", label: headers.length ? "(not used)" : "(load a file first)" }]
       .concat(headers.map((header) => ({ value: header, label: header })));
+    const row = sampleRow();
 
     for (const [host, fields] of [[mapHost, COLUMN_FIELDS], [optionalMapHost, OPTIONAL_COLUMN_FIELDS]]) {
       for (const [key, label] of fields) {
         const current = headers.includes(settings[key]) ? settings[key] : "";
+        const example = hint("");
+
+        function paintExample(column) {
+          example.textContent = row && column ? `e.g. "${row[column]}"` : "";
+        }
+
         const node = select(options, current, (value) => {
           settings[key] = value;
           store.save();
+          paintExample(value);
         });
         node.disabled = !headers.length;
-        host.append(field(label, node));
+        paintExample(current);
+        host.append(el("div", {},
+          el("label", { class: "field-label", text: label }), node, example));
       }
     }
 
@@ -282,19 +308,53 @@ export function bankImportPage(app) {
     renderRules();
   }
 
+  // Regex is the only thing this actually needs, but writing one is not
+  // something most people setting up a bank import want to learn. "Contains
+  // this text" is a plain-text mode that covers the common case (rename any
+  // payee containing some text to something cleaner) without exposing regex
+  // syntax at all - it just escapes the text into a literal-match pattern
+  // behind the scenes. "Regular expression" stays available for the cases
+  // that genuinely need it (the two built-in Interac rules, which pull a
+  // name out with a capture group, could not be written any other way).
+  const RULE_MODES = [
+    { value: "simple", label: "Contains this text" },
+    { value: "advanced", label: "Regular expression (advanced)" },
+  ];
+
+  function escapeRegExp(text) {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
   async function editRule(index) {
     const existing = index === null ? null : rules()[index];
+    // A brand new rule defaults to the friendlier Simple mode. An existing
+    // rule with no explicit mode is either legacy data or was written as
+    // regex before this toggle existed - either way its pattern is a real
+    // regex, not literal text, so it needs Advanced to edit correctly;
+    // only a rule explicitly saved as "simple" opens back into Simple.
+    const initialMode = !existing ? "simple" : existing.mode === "simple" ? "simple" : "advanced";
 
     const result = await customDialog(
       existing ? "Edit rule" : "Add rule",
       (body) => {
         const label = textInput(existing?.label || "", { placeholder: "What this rule is for" });
-        const pattern = textInput(existing?.pattern || "", {
+
+        const modeSelect = select(RULE_MODES, initialMode, () => paintMode());
+
+        const matchInput = textInput(
+          initialMode === "simple" ? (existing?.matchText || "") : "",
+          { placeholder: "Text that appears anywhere in the payee, for example AMZN MKTP" });
+        const renameInput = textInput(
+          initialMode === "simple" ? (existing?.replacement || "") : "",
+          { placeholder: "What to rename it to, for example Amazon" });
+
+        const pattern = textInput(initialMode === "advanced" ? (existing?.pattern || "") : "", {
           placeholder: "Regular expression, for example ^amzn mktp",
         });
-        const replacement = textInput(existing?.replacement || "", {
-          placeholder: "Replacement text, for example Amazon",
-        });
+        const replacement = textInput(
+          initialMode === "advanced" ? (existing?.replacement || "") : "", {
+            placeholder: "Replacement text, for example Amazon",
+          });
         pattern.className = "mono";
         replacement.className = "mono";
 
@@ -303,20 +363,80 @@ export function bankImportPage(app) {
         const cleanName = el("input", { type: "checkbox" });
         cleanName.checked = existing ? existing.cleanName !== false : true;
 
-        const error = el("p", { class: "hint is-error" });
-
-        body.append(
-          field("Name", label),
+        const simpleFields = el("div", { class: "stack" },
+          field("Payee contains", matchInput),
+          field("Rename to", renameInput));
+        const advancedFields = el("div", { class: "stack" },
           field("Pattern", pattern),
           field("Replacement", replacement),
           el("label", { class: "checkbox" }, titleCase,
             el("span", { text: "Title Case any captured name" })),
           el("label", { class: "checkbox" }, cleanName,
-            el("span", { text: "Trim trailing reference codes from captured names" })),
+            el("span", { text: "Trim trailing reference codes from captured names" })));
+
+        const sampleInput = textInput("", {
+          placeholder: "Try a payee name, for example AMZN MKTP US*1AB2C3",
+        });
+        const preview = el("p", { class: "hint" });
+
+        const error = el("p", { class: "hint is-error" });
+
+        function draftRule() {
+          return modeSelect.value === "simple"
+            ? {
+              pattern: escapeRegExp(matchInput.value.trim()),
+              replacement: renameInput.value,
+              titleCase: false, cleanName: false,
+            }
+            : {
+              pattern: pattern.value, replacement: replacement.value,
+              titleCase: titleCase.checked, cleanName: cleanName.checked,
+            };
+        }
+
+        function paintPreview() {
+          if (!sampleInput.value.trim()) return preview.textContent = "";
+          let compiled;
+          try {
+            ({ compiled } = bank.compileRules([draftRule()]));
+          } catch {
+            return preview.textContent = "";
+          }
+          const { payee, changed } = bank.applyPayeeRules(sampleInput.value, compiled);
+          preview.textContent = changed
+            ? `Becomes: ${payee}` : "Does not match this sample.";
+        }
+
+        function paintMode() {
+          const simple = modeSelect.value === "simple";
+          simpleFields.hidden = !simple;
+          advancedFields.hidden = simple;
+          paintPreview();
+        }
+
+        for (const input of [matchInput, renameInput, pattern, replacement, sampleInput]) {
+          input.addEventListener("input", paintPreview);
+        }
+
+        body.append(
+          field("Name", label),
+          field("Match", modeSelect),
+          simpleFields,
+          advancedFields,
+          field("Try it", sampleInput),
+          preview,
           error);
+        paintMode();
 
         return {
           validate: () => {
+            if (modeSelect.value === "simple") {
+              if (!matchInput.value.trim()) {
+                error.textContent = "Enter the text to match.";
+                return false;
+              }
+              return true;
+            }
             if (!pattern.value.trim()) {
               error.textContent = "A pattern is required.";
               return false;
@@ -329,14 +449,20 @@ export function bankImportPage(app) {
             }
             return true;
           },
-          value: () => ({
-            enabled: existing ? existing.enabled !== false : true,
-            label: label.value.trim() || pattern.value.trim(),
-            pattern: pattern.value,
-            replacement: replacement.value,
-            titleCase: titleCase.checked,
-            cleanName: cleanName.checked,
-          }),
+          value: () => {
+            const simple = modeSelect.value === "simple";
+            const draft = draftRule();
+            return {
+              enabled: existing ? existing.enabled !== false : true,
+              mode: modeSelect.value,
+              label: label.value.trim() || (simple ? matchInput.value.trim() : pattern.value.trim()),
+              matchText: simple ? matchInput.value.trim() : undefined,
+              pattern: draft.pattern,
+              replacement: draft.replacement,
+              titleCase: draft.titleCase,
+              cleanName: draft.cleanName,
+            };
+          },
         };
       },
       { confirmText: existing ? "Save" : "Add" });
