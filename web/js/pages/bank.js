@@ -47,8 +47,8 @@ export function bankImportPage(app) {
 
   root.append(pageHeading(
     "Bank Import",
-    "Reads a CSV, TSV or semicolon export from your bank and writes the " +
-    "four columns YNAB wants, tidying up payee names on the way."));
+    "Reads a CSV, TSV, semicolon, QFX or OFX export from your bank and " +
+    "writes the four columns YNAB wants, tidying up payee names on the way."));
 
   // ---------- file ----------
 
@@ -398,7 +398,15 @@ export function bankImportPage(app) {
   // ---------- convert ----------
 
   const convertButton = button("Convert", { accent: true, onClick: runConvert });
-  const saveButton = button("Save YNAB CSV...", { onClick: saveCsv });
+  const SAVE_FORMATS = [
+    { value: "csv", label: "CSV", ext: "csv" },
+    { value: "qfx", label: "QFX", ext: "qfx" },
+  ];
+  const saveFormatSelect = select(SAVE_FORMATS, settings.saveFormat || "qfx", (value) => {
+    settings.saveFormat = value;
+    store.save();
+  });
+  const saveButton = button("Save file...", { onClick: saveCsv });
   const summary = hint("");
 
   // Pushing writes straight to YNAB over the API, same idea as Shared
@@ -414,7 +422,8 @@ export function bankImportPage(app) {
   const undoLabel = hint("");
 
   root.append(pageActions(
-    el("div", { class: "card-row" }, convertButton, saveButton, summary),
+    el("div", { class: "card-row" },
+      convertButton, el("div", { class: "narrow" }, saveFormatSelect), saveButton, summary),
     el("div", { class: "card-row" },
       el("span", { class: "field-label", text: "Push to" }),
       el("div", { class: "narrow" }, accountSelect),
@@ -546,7 +555,8 @@ export function bankImportPage(app) {
   root.append(sectionTitle("Preview"), preview, log);
 
   async function chooseFile() {
-    const file = await pickFile(".csv,.txt,.tsv,text/csv,text/plain");
+    const file = await pickFile(
+      ".csv,.txt,.tsv,.qfx,.ofx,text/csv,text/plain");
     if (file) readFile(file);
   }
 
@@ -561,8 +571,10 @@ export function bankImportPage(app) {
       return log.write(`ERROR: could not read that file. ${error.message}`, "error");
     }
 
+    const isOfx = /\.(qfx|ofx)$/i.test(file.name) || bank.looksLikeOfx(text);
+
     try {
-      parsed = bank.parseDelimited(text);
+      parsed = isOfx ? bank.parseOfx(text) : bank.parseDelimited(text);
     } catch (error) {
       parsed = null;
       renderMapping();
@@ -572,17 +584,29 @@ export function bankImportPage(app) {
     sourceName = file.name;
     fileLabel.textContent =
       `${file.name}: ${parsed.rows.length} row(s), ${parsed.headers.length} column(s).`;
-    log.write(`Columns found: ${parsed.headers.join(", ")}`);
 
-    // Only guess when the saved mapping does not fit this file, so a
-    // returning user keeps the mapping they set up last time.
-    const fits = parsed.headers.includes(settings.dateColumn) &&
-      parsed.headers.includes(settings.payeeColumn);
-    if (!fits) {
-      const guess = bank.guessColumns(parsed.headers);
-      Object.assign(settings, guess);
+    if (isOfx) {
+      // QFX/OFX already names its own fields - there is no header row to
+      // guess from, so the mapping is set directly instead of guessed.
+      Object.assign(settings, {
+        dateColumn: "Date", payeeColumn: "Payee", memoColumn: "Memo",
+        amountColumn: "Amount", outflowColumn: "", inflowColumn: "",
+        dateFormat: settings.dateFormat || "yyyy-MM-dd",
+      });
       store.save();
-      log.write("Guessed the column mapping from the header row. Check it below.", "warn");
+      log.write("Read as a QFX/OFX file - columns are already known.");
+    } else {
+      log.write(`Columns found: ${parsed.headers.join(", ")}`);
+      // Only guess when the saved mapping does not fit this file, so a
+      // returning user keeps the mapping they set up last time.
+      const fits = parsed.headers.includes(settings.dateColumn) &&
+        parsed.headers.includes(settings.payeeColumn);
+      if (!fits) {
+        const guess = bank.guessColumns(parsed.headers);
+        Object.assign(settings, guess);
+        store.save();
+        log.write("Guessed the column mapping from the header row. Check it below.", "warn");
+      }
     }
 
     renderMapping();
@@ -636,10 +660,25 @@ export function bankImportPage(app) {
 
   function saveCsv() {
     if (!converted || !converted.rows.length) return;
+    const format = SAVE_FORMATS.find((f) => f.value === saveFormatSelect.value) || SAVE_FORMATS[0];
     const base = sourceName.replace(/\.[^.]+$/, "") || "bank-export";
-    download(`${base}-ynab.csv`, bank.toCsv(converted.rows), "text/csv");
-    log.write(`Saved ${base}-ynab.csv. Import it in YNAB under File Import ` +
-      "on the account.", "ok");
+    const filename = `${base}-ynab.${format.ext}`;
+
+    let text;
+    let mime;
+    if (format.value === "qfx") {
+      const accountName = (state.accounts || [])
+        .find((a) => a.id === accountSelect.value)?.name || base;
+      text = bank.toOfx(converted.rows, { accountName });
+      mime = "application/x-ofx";
+    } else {
+      text = bank.toCsv(converted.rows);
+      mime = "text/csv";
+    }
+
+    download(filename, text, mime);
+    log.write(`Saved ${filename}. Import it in YNAB under File Import on ` +
+      "the account.", "ok");
     app.state.recordRun("bankImport");
   }
 

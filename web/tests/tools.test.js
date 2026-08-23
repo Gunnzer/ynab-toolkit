@@ -170,6 +170,122 @@ describe("bank import", () => {
     assert.deepEqual(deleted, ["t1"]);
     assert.equal(result.deleted, 1);
   });
+
+  test("looksLikeOfx sniffs OFX content regardless of extension", () => {
+    assert.equal(bank.looksLikeOfx("OFXHEADER:100\nDATA:OFXSGML\n"), true);
+    assert.equal(bank.looksLikeOfx("<?xml version=\"1.0\"?><OFX>"), true);
+    assert.equal(bank.looksLikeOfx("Date,Description,Amount\n2025-01-01,Coffee,-4.50\n"), false);
+  });
+
+  test("parseOfx reads SGML-style QFX with unclosed tags", () => {
+    const text = [
+      "OFXHEADER:100",
+      "DATA:OFXSGML",
+      "<OFX>",
+      "<BANKTRANLIST>",
+      "<STMTTRN>",
+      "<TRNTYPE>DEBIT",
+      "<DTPOSTED>20250305120000[-5:EST]",
+      "<TRNAMT>-4.50",
+      "<FITID>202503050001",
+      "<NAME>COFFEE SHOP",
+      "<MEMO>card purchase",
+      "</STMTTRN>",
+      "<STMTTRN>",
+      "<TRNTYPE>CREDIT",
+      "<DTPOSTED>20250306",
+      "<TRNAMT>500.00",
+      "<FITID>202503060001",
+      "<NAME>PAYROLL",
+      "</STMTTRN>",
+      "</BANKTRANLIST>",
+      "</OFX>",
+    ].join("\n");
+
+    const { headers, rows } = bank.parseOfx(text);
+    assert.deepEqual(headers, ["Date", "Payee", "Memo", "Amount"]);
+    assert.equal(rows.length, 2);
+    assert.equal(rows[0].Date, "20250305");
+    assert.equal(rows[0].Payee, "COFFEE SHOP");
+    assert.equal(rows[0].Memo, "card purchase");
+    assert.equal(rows[0].Amount, "-4.50");
+    assert.equal(rows[1].Date, "20250306");
+    assert.equal(rows[1].Payee, "PAYROLL");
+    assert.equal(rows[1].Memo, "");
+  });
+
+  test("parseOfx also reads OFX 2.x/XML-style closed tags", () => {
+    const text = [
+      "<OFX><BANKTRANLIST><STMTTRN>",
+      "<DTPOSTED>20250305000000</DTPOSTED>",
+      "<TRNAMT>-12.34</TRNAMT>",
+      "<NAME>GROCERY STORE</NAME>",
+      "</STMTTRN></BANKTRANLIST></OFX>",
+    ].join("\n");
+    const { rows } = bank.parseOfx(text);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].Date, "20250305");
+    assert.equal(rows[0].Payee, "GROCERY STORE");
+    assert.equal(rows[0].Amount, "-12.34");
+  });
+
+  test("parseOfx feeds straight into convert() like any other source", () => {
+    const text = [
+      "<STMTTRN>",
+      "<DTPOSTED>20250305",
+      "<TRNAMT>-4.50",
+      "<NAME>COFFEE SHOP",
+      "</STMTTRN>",
+    ].join("\n");
+    const parsed = bank.parseOfx(text);
+    const result = bank.convert(parsed, {
+      dateColumn: "Date", payeeColumn: "Payee", amountColumn: "Amount",
+      memoColumn: "Memo", dateFormat: "yyyy-MM-dd",
+    });
+    assert.equal(result.rows[0].Date, "2025-03-05");
+    assert.equal(result.rows[0].Payee, "COFFEE SHOP");
+    assert.equal(result.rows[0].Amount, "-4.50");
+  });
+
+  test("parseOfx rejects a file with no transactions", () => {
+    assert.throws(() => bank.parseOfx("OFXHEADER:100\n<OFX></OFX>"), /No transactions/);
+  });
+
+  test("toOfx writes a QFX that parseOfx reads back the same", () => {
+    const rows = [
+      { Date: "2025-03-05", Payee: "Coffee Shop", Memo: "card purchase",
+        Amount: "-4.50", ISODate: "2025-03-05" },
+      { Date: "2025-03-06", Payee: "Payroll", Memo: "", Amount: "500.00",
+        ISODate: "2025-03-06" },
+    ];
+    const text = bank.toOfx(rows, { accountName: "Chequing" });
+    assert.ok(text.startsWith("OFXHEADER:100"));
+    assert.ok(text.includes("<ACCTID>Chequing"));
+    // DTSERVER must be exactly 14 digits (yyyymmddhhmmss) - no leftover "T"
+    // separator from toISOString().
+    const dtserver = text.match(/<DTSERVER>(\S+)/)[1];
+    assert.match(dtserver, /^\d{14}$/);
+
+    const roundTripped = bank.parseOfx(text);
+    assert.equal(roundTripped.rows.length, 2);
+    assert.equal(roundTripped.rows[0].Date, "20250305");
+    assert.equal(roundTripped.rows[0].Payee, "Coffee Shop");
+    assert.equal(roundTripped.rows[0].Memo, "card purchase");
+    assert.equal(roundTripped.rows[0].Amount, "-4.50");
+    assert.equal(roundTripped.rows[1].Payee, "Payroll");
+    assert.equal(roundTripped.rows[1].Amount, "500.00");
+  });
+
+  test("toOfx gives repeated same-day, same-amount transactions distinct FITIDs", () => {
+    const rows = [
+      { Date: "2025-03-05", Payee: "Coffee Shop", Memo: "", Amount: "-4.50", ISODate: "2025-03-05" },
+      { Date: "2025-03-05", Payee: "Coffee Shop", Memo: "", Amount: "-4.50", ISODate: "2025-03-05" },
+    ];
+    const text = bank.toOfx(rows);
+    const fitids = [...text.matchAll(/<FITID>(\S+)/g)].map((m) => m[1]);
+    assert.equal(fitids.length, 2);
+    assert.notEqual(fitids[0], fitids[1]);
+  });
 });
 
 describe("shared expenses", () => {

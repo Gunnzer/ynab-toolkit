@@ -9,6 +9,13 @@ Maintained going forward: add a new dated entry for each push, in this same
 style (feature/fix name and files, then bullets on what changed and why),
 before or as part of the push itself.
 
+## 2026-08-23
+
+**Bank Import: QFX/OFX support, both ways** (`bank_convert.js`, `bank.js`, `CLAUDE.md`, `tools.test.js`)
+* Bank Import only read delimited (CSV/TSV/semicolon) exports. Added `parseOfx()`, a line-by-line reader for QFX/OFX's SGML-style tags (most banks write `<DTPOSTED>...` with no closing tag, so it can't go through an XML/DOM parser), pulling date/payee/memo/amount out of each `<STMTTRN>` block.
+* A QFX/OFX file is detected by extension or by sniffing for `OFXHEADER`/`<OFX>` in the file's own content, and its output feeds straight into the same column-mapping/convert/payee-rules pipeline a delimited file already uses - the mapping is just pre-filled to the format's own fixed field names instead of guessed from a header row.
+* The save button ("Save file...", renamed from "Save YNAB CSV..." to avoid colliding with the unrelated "Save as..." preset button already on the page) now offers a QFX option alongside CSV, via `toOfx()` - QFX is the default. It writes a QFX/OFX file that round-trips cleanly back through `parseOfx()`.
+
 ## 2026-08-16
 
 **YNAB Budget: "Whose" filter moved to the top bar, now also narrows Accounts and the headline stats** (`budget.js`, `CLAUDE.md`)

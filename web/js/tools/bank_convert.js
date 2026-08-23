@@ -80,6 +80,74 @@ export function parseDelimited(text, delimiter = null) {
   return { headers, rows: records };
 }
 
+// ---------- OFX / QFX ----------
+
+/** Sniffs OFX/QFX content, for a file whose extension is ambiguous or lost. */
+export function looksLikeOfx(text) {
+  return /OFXHEADER|<OFX>/i.test(String(text || "").slice(0, 400));
+}
+
+/**
+ * OFX/QFX is SGML, not XML: most banks write <DTPOSTED>20250305120000 with
+ * no closing tag at all, so this can't be parsed with a DOM/XML parser.
+ * Read it line by line instead - a value line is <TAG>value, with an
+ * optional closing tag on the same line for the (rarer) OFX 2.x/XML style
+ * some banks use; anything else is a wrapper tag, which only matters here
+ * for spotting the start and end of each <STMTTRN> block.
+ */
+export function parseOfx(text) {
+  // Real-world exports are one tag per line, but a handful of OFX 2.x
+  // writers pack adjacent tags onto one line with nothing between them
+  // (e.g. "<OFX><BANKTRANLIST><STMTTRN>") - split those apart first so the
+  // line-by-line scan below never has to look for more than one tag.
+  const clean = String(text || "").replace(/^﻿/, "").replace(/></g, ">\n<");
+  const transactions = [];
+  let current = null;
+
+  for (const rawLine of clean.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line) continue;
+
+    if (/^<STMTTRN>$/i.test(line)) {
+      current = {};
+      continue;
+    }
+    if (/^<\/STMTTRN>$/i.test(line)) {
+      if (current) transactions.push(current);
+      current = null;
+      continue;
+    }
+    if (!current) continue;
+
+    const match = line.match(/^<([A-Za-z0-9._]+)>(.*)$/);
+    if (!match) continue;
+    const [, tag, rawValue] = match;
+    current[tag.toUpperCase()] = rawValue.replace(/<\/[A-Za-z0-9._]+>$/, "").trim();
+  }
+
+  if (!transactions.length) {
+    throw new ConvertError(
+      "No transactions found. Check this is a QFX/OFX file with " +
+      "<STMTTRN> records inside it.");
+  }
+
+  // OFX already gives semantic fields, not a bank's own arbitrary column
+  // names - fixed header names here let this feed straight into the same
+  // column-mapping settings (and so the same convert()) as a delimited
+  // file, just pre-guessed instead of guessed from a header row.
+  const headers = ["Date", "Payee", "Memo", "Amount"];
+  const rows = transactions.map((transaction) => ({
+    // DTPOSTED is "yyyymmdd[hhmmss[.xxx][gmt offset[:tz name]]]" - only the
+    // first 8 digits are the date, and parseDate's yyyymmdd pattern expects
+    // exactly that with nothing trailing.
+    Date: (transaction.DTPOSTED || "").slice(0, 8),
+    Payee: transaction.NAME || transaction.PAYEE || "",
+    Memo: transaction.MEMO || "",
+    Amount: transaction.TRNAMT || "",
+  }));
+  return { headers, rows };
+}
+
 // ---------- value parsing ----------
 
 // Year-first shapes are unambiguous. The three short shapes are not, so
@@ -339,6 +407,77 @@ export function toCsv(rows) {
     lines.push(YNAB_COLUMNS.map((column) => escape(row[column])).join(","));
   }
   return lines.join("\r\n") + "\r\n";
+}
+
+/** Strips characters that would break OFX's line-based SGML tags. */
+function ofxSafe(value) {
+  return String(value ?? "").replace(/[\r\n]+/g, " ").replace(/[<>]/g, "").trim();
+}
+
+/**
+ * Serialise rows as a QFX/OFX 1.02 (SGML) file - the same shape `parseOfx()`
+ * reads back, so round-tripping through Save then re-importing that file
+ * produces the same rows. Not a real bank statement (no live account/bank
+ * IDs to put in it), just a generic wrapper QFX/OFX-aware importers (YNAB's
+ * own file import included) accept.
+ */
+export function toOfx(rows, { accountName = "Import" } = {}) {
+  const now = new Date();
+  const dtserver = now.toISOString().replace(/[-:T]/g, "").slice(0, 14);
+  const dates = rows.map((row) => row.ISODate).filter(Boolean).sort();
+  const ofxDate = (iso) => String(iso || "").replace(/-/g, "");
+  const dtstart = ofxDate(dates[0]) || dtserver.slice(0, 8);
+  const dtend = ofxDate(dates[dates.length - 1]) || dtserver.slice(0, 8);
+
+  const seen = new Map();
+  const transactions = rows.map((row) => {
+    const milliunits = Math.round(Number(row.Amount) * 1000);
+    const key = `${milliunits}:${row.ISODate}`;
+    const occurrence = (seen.get(key) || 0) + 1;
+    seen.set(key, occurrence);
+
+    return [
+      "<STMTTRN>",
+      `<TRNTYPE>${Number(row.Amount) < 0 ? "DEBIT" : "CREDIT"}`,
+      `<DTPOSTED>${ofxDate(row.ISODate)}`,
+      `<TRNAMT>${Number(row.Amount).toFixed(2)}`,
+      `<FITID>${ofxDate(row.ISODate)}${Math.abs(milliunits)}${occurrence}`,
+      `<NAME>${ofxSafe(row.Payee)}`,
+      row.Memo ? `<MEMO>${ofxSafe(row.Memo)}` : null,
+      "</STMTTRN>",
+    ].filter(Boolean).join("\r\n");
+  }).join("\r\n");
+
+  return [
+    "OFXHEADER:100", "DATA:OFXSGML", "VERSION:102", "SECURITY:NONE",
+    "ENCODING:USASCII", "CHARSET:1252", "COMPRESSION:NONE",
+    "OLDFILEUID:NONE", "NEWFILEUID:NONE", "",
+    "<OFX>",
+    "<SIGNONMSGSRSV1><SONRS>",
+    "<STATUS><CODE>0<SEVERITY>INFO</STATUS>",
+    `<DTSERVER>${dtserver}`,
+    "<LANGUAGE>ENG",
+    "</SONRS></SIGNONMSGSRSV1>",
+    "<BANKMSGSRSV1><STMTTRNRS>",
+    "<TRNUID>1",
+    "<STATUS><CODE>0<SEVERITY>INFO</STATUS>",
+    "<STMTRS>",
+    "<CURDEF>USD",
+    "<BANKACCTFROM>",
+    "<BANKID>000000000",
+    `<ACCTID>${ofxSafe(accountName) || "Import"}`,
+    "<ACCTTYPE>CHECKING",
+    "</BANKACCTFROM>",
+    "<BANKTRANLIST>",
+    `<DTSTART>${dtstart}`,
+    `<DTEND>${dtend}`,
+    transactions,
+    "</BANKTRANLIST>",
+    `<LEDGERBAL><BALAMT>0.00<DTASOF>${dtserver}</LEDGERBAL>`,
+    "</STMTRS>",
+    "</STMTTRNRS></BANKMSGSRSV1>",
+    "</OFX>",
+  ].join("\r\n") + "\r\n";
 }
 
 /**
