@@ -11,6 +11,10 @@ before or as part of the push itself.
 
 ## 2026-08-23
 
+**Sidebar icons: RTA Tracker gets a $ sign, Classic Budget no longer shares an icon with YNAB Budget** (`ui.js`, `main.js`)
+* Added a new dollar-sign icon for RTA Tracker, replacing the generic info circle.
+* Classic Budget switched to the spreadsheet/grid icon (already used by Bill Splitting, but nowhere else in its own sidebar section) instead of the bar-chart icon it was sharing with YNAB Budget.
+
 **RTA Tracker: snapshot automatically on every budget refresh** (`state.js`, `rtatracker.js`, `CLAUDE.md`)
 * A snapshot used to only happen when you pressed "Snapshot now" on the RTA Tracker page itself. `AppState.reloadAll()` - the one place both the topbar Refresh button and Setup's Connect flow go through - now takes a snapshot on its own, wrapped in try/catch so a snapshot failure never fails the refresh that already succeeded. Respects the tool's enable/disable toggle. The page's own button now calls this same shared method instead of duplicating the fetch.
 

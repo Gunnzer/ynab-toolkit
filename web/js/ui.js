@@ -67,6 +67,8 @@ const ICONS = {
     '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/>' +
     '<path d="M9.5 4.5v15"/><path d="m7.2 10.4-1.8 1.6 1.8 1.6"/>',
   funnel: '<path d="M4 5h16l-6.2 7.5V19l-3.6-2v-4.5z"/>',
+  dollar:
+    '<path d="M12 2v20"/><path d="M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
   x: '<path d="m6 6 12 12"/><path d="m18 6-12 12"/>',
 };
 

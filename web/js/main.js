@@ -35,7 +35,7 @@ export const PAGES = [
     group: "info", groupLabel: "YNAB Info & Reporting",
   },
   {
-    id: "classic-budget", title: "Classic Budget", icon: "chart",
+    id: "classic-budget", title: "Classic Budget", icon: "sheet",
     key: "classicBudgetOverview", build: classicBudgetPage,
     blurb: "Your categories with a plan of your own next to them: set what " +
       "you meant to spend, and see whether a category ran over it.",
@@ -56,7 +56,7 @@ export const PAGES = [
     group: "tracking", groupLabel: "Tracking",
   },
   {
-    id: "rtatracker", title: "RTA Tracker", icon: "info", key: "rtaTracker",
+    id: "rtatracker", title: "RTA Tracker", icon: "dollar", key: "rtaTracker",
     build: rtaTrackerPage,
     blurb: "Snapshots Ready to Assign over time and tries to explain a " +
       "shift by finding backdated or uncategorized transactions.",
