@@ -14,6 +14,7 @@ import { sharedExpensesPage } from "./pages/shared.js";
 import { autoAssignPage } from "./pages/autoassign.js";
 import { duplicatesPage } from "./pages/duplicates.js";
 import { bankImportPage } from "./pages/bank.js";
+import { rtaTrackerPage } from "./pages/rtatracker.js";
 
 // Home first, then the daily tools. Setup is pinned to the sidebar footer.
 // `key` is the flag under tools.enabled; pages without one are always shown.
@@ -21,57 +22,73 @@ export const PAGES = [
   {
     id: "home", title: "Home", icon: "home", build: homePage,
   },
+  // Each group prints as a plain section label in the sidebar with its
+  // members listed underneath, rather than a flat list of eight separate
+  // nav entries. Setup's tool on/off list (setup.js) reads the same
+  // group/groupLabel fields and groups its checkboxes to match, so there
+  // is only one place that decides who's in which group.
   {
     id: "budget", title: "YNAB Budget", icon: "chart", key: "budgetOverview",
     build: budgetPage,
     blurb: "See where a month stands: what is left to assign, what is " +
       "overspent, and what every category holds.",
-    // Pops out as one "Budget" item in the sidebar with both choices under
-    // it, rather than two separate nav entries.
-    group: "budget", groupLabel: "Budget", groupIcon: "chart",
+    group: "info", groupLabel: "YNAB Info & Reporting",
   },
   {
     id: "classic-budget", title: "Classic Budget", icon: "chart",
     key: "classicBudgetOverview", build: classicBudgetPage,
     blurb: "Your categories with a plan of your own next to them: set what " +
       "you meant to spend, and see whether a category ran over it.",
-    group: "budget", groupLabel: "Budget", groupIcon: "chart",
+    group: "info", groupLabel: "YNAB Info & Reporting",
   },
   {
     id: "reports", title: "Reports", icon: "trend", key: "reports",
     build: reportsPage,
     blurb: "Monthly spending from your history, filtered to one person and " +
       "saved so the same report is one click.",
-  },
-  {
-    id: "shared", title: "Shared Expenses", icon: "split", key: "sharedExpenses",
-    build: sharedExpensesPage,
-    blurb: "Split transactions in your shared categories between two people, " +
-      "as native YNAB splits.",
-  },
-  {
-    id: "splitsheet", title: "Bill Splitting", icon: "sheet", key: "splitSheet",
-    build: splitSheetPage,
-    blurb: "Work out whose expense each transaction was and export one row " +
-      "per expense for a shared expense tracker.",
-  },
-  {
-    id: "autoassign", title: "Auto Assign", icon: "fill", key: "autoAssign",
-    build: autoAssignPage,
-    blurb: "Empty a holding category into your targeted categories, in the " +
-      "priority order you set.",
-  },
-  {
-    id: "duplicates", title: "Duplicates", icon: "copies", key: "duplicates",
-    build: duplicatesPage,
-    blurb: "Find transactions imported twice and flag them for review. " +
-      "Never deletes anything.",
+    group: "info", groupLabel: "YNAB Info & Reporting",
   },
   {
     id: "bank", title: "Bank Import", icon: "upload", key: "bankImport",
     build: bankImportPage,
     blurb: "Turn a bank export into a CSV that YNAB can import, tidying " +
       "payee names on the way.",
+    group: "tracking", groupLabel: "Tracking",
+  },
+  {
+    id: "rtatracker", title: "RTA Tracker", icon: "info", key: "rtaTracker",
+    build: rtaTrackerPage,
+    blurb: "Snapshots Ready to Assign over time and tries to explain a " +
+      "shift by finding backdated or uncategorized transactions.",
+    group: "tracking", groupLabel: "Tracking",
+  },
+  {
+    id: "shared", title: "Shared Expenses", icon: "split", key: "sharedExpenses",
+    build: sharedExpensesPage,
+    blurb: "Split transactions in your shared categories between two people, " +
+      "as native YNAB splits.",
+    group: "together", groupLabel: "YNAB Together",
+  },
+  {
+    id: "splitsheet", title: "Bill Splitting", icon: "sheet", key: "splitSheet",
+    build: splitSheetPage,
+    blurb: "Work out whose expense each transaction was and export one row " +
+      "per expense for a shared expense tracker.",
+    group: "together", groupLabel: "YNAB Together",
+  },
+  {
+    id: "autoassign", title: "Auto Assign", icon: "fill", key: "autoAssign",
+    build: autoAssignPage,
+    blurb: "Empty a holding category into your targeted categories, in the " +
+      "priority order you set.",
+    group: "cleanup", groupLabel: "Cleanup",
+  },
+  {
+    id: "duplicates", title: "Duplicates", icon: "copies", key: "duplicates",
+    build: duplicatesPage,
+    blurb: "Find transactions imported twice and flag them for review. " +
+      "Never deletes anything.",
+    group: "cleanup", groupLabel: "Cleanup",
   },
 ];
 
@@ -158,6 +175,12 @@ class App {
     this.sidebarToggle.title = collapsed ? "Expand sidebar" : "Collapse sidebar";
   }
 
+  // Plain always-expanded section labels above each group's own full-size
+  // nav items - the same look YNAB's own sidebar uses ("BUDGET", "ALL
+  // ACCOUNTS", ...) - rather than a click/hover-to-open flyout menu, which
+  // hid a page's own item behind an extra step. `.sidebar-section` already
+  // existed for the single "Tools" label above the whole list; reused here
+  // per group instead of inventing a second heading style.
   buildNav() {
     const render = (host, pages) => {
       clear(host);
@@ -166,70 +189,31 @@ class App {
         if (page.group) {
           if (doneGroups.has(page.group)) continue;
           doneGroups.add(page.group);
-          host.append(this.buildNavGroup(page,
-            pages.filter((p) => p.group === page.group)));
+          host.append(el("p", {
+            class: "sidebar-section",
+            text: page.groupLabel || page.title,
+          }));
+          for (const member of pages.filter((p) => p.group === page.group)) {
+            host.append(this.buildNavItem(member));
+          }
           continue;
         }
-        host.append(el("button", {
-          type: "button",
-          class: "nav-item",
-          "data-page": page.id,
-          title: page.title,
-          "aria-current": this.current === page.id ? "page" : null,
-          onClick: () => this.go(page.id),
-        }, icon(page.icon), el("span", { text: page.title })));
+        host.append(this.buildNavItem(page));
       }
     };
     render(this.nav, this.visiblePages());
     render(this.navSetup, [SETUP_PAGE]);
   }
 
-  /** One sidebar entry that pops out a small menu of its member pages. */
-  buildNavGroup(representative, members) {
-    const isActive = members.some((page) => page.id === this.current);
-    const parent = el("button", {
+  buildNavItem(page) {
+    return el("button", {
       type: "button",
-      class: "nav-item nav-item-parent",
-      title: representative.groupLabel || representative.title,
-      "aria-current": isActive ? "page" : null,
-      "aria-haspopup": "true",
-      "aria-expanded": "false",
-    }, icon(representative.groupIcon || representative.icon),
-      el("span", { text: representative.groupLabel || representative.title }),
-      el("span", { class: "nav-caret", "aria-hidden": "true", text: "›" }));
-
-    const flyout = el("div", { class: "nav-flyout", role: "menu" });
-    for (const page of members) {
-      flyout.append(el("button", {
-        type: "button",
-        class: "nav-flyout-item",
-        role: "menuitem",
-        "aria-current": this.current === page.id ? "page" : null,
-        onClick: () => { this.go(page.id); close(); },
-      }, el("span", { text: page.title })));
-    }
-
-    const wrap = el("div", { class: "nav-item-wrap" }, parent, flyout);
-    const close = () => {
-      wrap.classList.remove("is-open");
-      parent.setAttribute("aria-expanded", "false");
-    };
-    const open = () => {
-      wrap.classList.add("is-open");
-      parent.setAttribute("aria-expanded", "true");
-    };
-
-    // Hover is the primary way in; click and Escape cover keyboard and
-    // touch, where there is no hover to open or close it with.
-    wrap.addEventListener("mouseleave", close);
-    parent.addEventListener("click", () => {
-      wrap.classList.contains("is-open") ? close() : open();
-    });
-    parent.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") close();
-    });
-
-    return wrap;
+      class: "nav-item",
+      "data-page": page.id,
+      title: page.title,
+      "aria-current": this.current === page.id ? "page" : null,
+      onClick: () => this.go(page.id),
+    }, icon(page.icon), el("span", { text: page.title }));
   }
 
   routeFromHash() {

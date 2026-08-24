@@ -237,15 +237,31 @@ export function setupPage(app) {
       "settings are kept, so you can switch them back on any time."));
 
   import("../main.js").then(({ TOGGLEABLE }) => {
+    // Same grouping the sidebar itself uses (each page's own group/
+    // groupLabel, set once in main.js's PAGES array) - a page not in any
+    // group falls into its own "Other" bucket instead of being dropped,
+    // in case one is ever added without a group.
+    const seen = new Set();
     for (const page of TOGGLEABLE) {
-      toolsCard.append(
-        checkbox(page.title, app.toolEnabled(page.key), (checked) => {
-          const enabled = { ...(store.get("tools.enabled", {}) || {}) };
-          enabled[page.key] = checked;
-          store.set("tools.enabled", enabled);
-          app.buildNav();
-        }),
-        hint("      " + page.blurb));
+      const groupKey = page.group || page.id;
+      if (seen.has(groupKey)) continue;
+      seen.add(groupKey);
+
+      const members = page.group
+        ? TOGGLEABLE.filter((p) => p.group === page.group)
+        : [page];
+
+      toolsCard.append(sectionTitle(page.groupLabel || "Other"));
+      for (const member of members) {
+        toolsCard.append(
+          checkbox(member.title, app.toolEnabled(member.key), (checked) => {
+            const enabled = { ...(store.get("tools.enabled", {}) || {}) };
+            enabled[member.key] = checked;
+            store.set("tools.enabled", enabled);
+            app.buildNav();
+          }),
+          hint("      " + member.blurb));
+      }
     }
   });
   root.append(toolsCard);

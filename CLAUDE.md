@@ -69,6 +69,7 @@ three with a correct summed total row.
 | `autoassign.js` | `autoassign.js` | Drains a holding category into targeted categories in priority order |
 | `duplicates.js` | `duplicates.js` | Flags likely-duplicate transactions; never deletes |
 | `bank.js` ("Bank Import") | `bank_convert.js` | Bank export → YNAB's 4-column import CSV, with payee rewrite rules |
+| `rtatracker.js` ("RTA Tracker") | `rta_tracker.js` | Snapshots Ready to Assign over time and attributes a shift to backdated/uncategorized transactions |
 
 `bank_convert.js` handles two input shapes: delimited text (CSV/TSV/semicolon, `parseDelimited()`, user maps columns) and QFX/OFX (`parseOfx()`, `looksLikeOfx()`). OFX/QFX is SGML, not XML - most banks write `<DTPOSTED>20250305120000` with no closing tag at all, so it cannot go through a DOM/XML parser. `parseOfx()` normalizes adjacent tags with nothing between them (`></` → `>\n<`, needed for the rarer OFX 2.x/XML-style writers that pack several tags on one line) then reads line by line, tracking only `<STMTTRN>...</STMTTRN>` boundaries and pulling `DTPOSTED`/`NAME`(falls back to `PAYEE`)/`MEMO`/`TRNAMT` out of each. `DTPOSTED` carries a timestamp and optional timezone suffix (`20250305120000[-5:EST]`) - only the first 8 digits are the date. Output is the same `{ headers, rows }` shape `parseDelimited()` produces, with fixed header names (`Date`/`Payee`/`Memo`/`Amount`) so it feeds straight into the existing `convert()`/column-mapping/payee-rules pipeline unchanged - `bank.js`'s `readFile()` just pre-fills the mapping to those fixed names instead of guessing from a header row, detected via `.qfx`/`.ofx` extension or `looksLikeOfx()` content-sniffing (`OFXHEADER`/`<OFX>` in the first 400 characters) as a fallback for a renamed/extensionless file.
 
@@ -77,6 +78,8 @@ three with a correct summed total row.
 **Bank presets removed:** `bank.js` used to let you name and save a column mapping per bank (a "Bank" card above Columns, with its own save/select/delete UI, `PRESET_FIELDS`, `settings.presets`). Removed entirely at explicit user request - the mapping is only a handful of fields and auto-guessing from the file's header row already handles most cases, so a whole naming/saving system for it wasn't worth keeping. Any pre-existing `settings.presets`/`settings.presetName` in a user's stored settings is simply ignored now, not migrated - `store.js`'s forward-compatible settings merge means this is harmless, not a breaking change.
 
 `toOfx()` is not a real bank statement - there is no live bank/account id to put in it, just placeholder `<BANKID>`/`<ACCTID>` (the latter set from the account chosen in "Push to", falling back to the source filename) wrapping the converted rows so a QFX/OFX-aware importer (including YNAB's own file import) accepts it; round-tripping it straight back through `parseOfx()` reproduces the same rows (covered by a test). FITID is derived the same way `toYnabTransactions()`'s `import_id` is - date + milliunits + an occurrence counter, so repeated same-day/same-amount rows still get distinct ids. **Gotcha (real bug, caught live):** `Date.prototype.toISOString()` includes a literal `T` separator (`2026-08-23T20:44:23.456Z`); the first cut at `DTSERVER` only stripped `-`/`:` before slicing to 14 characters, leaving a stray `T` in the middle of what OFX expects to be 14 plain digits (`yyyymmddhhmmss`). Fixed by also stripping `T` before the slice. If any other OFX timestamp field is ever built from `toISOString()`, strip `T` there too.
+
+**RTA Tracker** (`rtatracker.js`/`rta_tracker.js`) exists because Ready to Assign is not scoped to the current month - it is a running total of every unbudgeted inflow since the budget started, carried forward. Backdating a transaction (importing a paycheque on the 5th but dating it for a prior pay period) makes YNAB recompute every month's rollover from that date forward, shifting the *current* month's RTA even though the transaction itself lives in a past month and never shows up if you only look at this month's own activity. `settings.snapshots` (an array, `store.section("rtaTracker")`) records `{ timestamp, month, toBeBudgeted, delta, flagged, flaggedSum, summary, serverKnowledge }` each time "Snapshot now" runs; `settings.serverKnowledge` is the delta-sync cursor, persisted separately since it is the thing each new run needs, not something that belongs to any one snapshot. Detecting what changed uses `client.transactionsDelta(budgetId, { lastKnowledgeOfServer })` (`api.js`, a second entry point onto the same `/transactions` endpoint as the existing `transactions()` - added rather than changed, since `transactions()`'s callers all expect a plain array and this one needs to keep `server_knowledge` too) rather than `since_date`: a *date* filter would miss a transaction that was edited or deleted after the fact without changing its own date, where `last_knowledge_of_server` catches any change since that cursor regardless of which date the change touches. `findFlaggedTransactions()` in `rta_tracker.js` looks for transactions dated before the current month with `category_id: null` that are not a split's parent record (same trap `shared_expenses.js` already documents - a split's own `category_id` reads `null` too, but the category lives on its subtransactions) and not a transfer (transfers carry `category_id: null` but do not touch Ready to Assign on their own). `buildAttribution()` sums the flagged transactions and compares that sum back against the actual RTA delta as a sanity check - if they do not match, the summary says so explicitly ("does not fully account for...") rather than presenting a partial explanation as a complete one; a budgeted-amount edit or a category move are both real causes this tool cannot see, since neither shows up as a transaction change.
 
 **Payee rules are behind a dialog, not shown inline:** the full rules table used to sit on the page permanently - now a "Rules (N)" button (`rulesButton`, in the same row as "Add rule"/"Test a name") opens it in a `customDialog` (wide, "Done"-only) instead, at explicit user request to stop always showing the whole list. This section also used to have its own card with a floating "Payee rules" title - once the table moved into a dialog there was nothing left under that title to anchor it to, so it reads oddly on its own. Folded into one "Conversion setup" card together with the column mapping instead (a single `card(...)` call named `mappingCard`, built after `rulesButton`/`editRule`/`testRule` exist since it references them as children), Payee rules listed first and Columns below it - each its own `sectionTitle()` (a `.field-label` was tried first for these subsections and looked wrong per explicit user feedback - too small and too muted next to the card's own title, which uses the same `sectionTitle()`; nesting `sectionTitle()` inside a card is an already-supported pattern, per the `.card > .section-title + *` CSS rule). The Convert/Save row (`mappingCard.append(...)`, not `pageActions()`) was moved to the bottom of this same card too, at explicit user request - it used to be its own separate sticky `pageActions()` bar underneath, which read as disconnected once Payee rules and Columns were merged into one card above it. `pageActions()` gives itself its own sticky card chrome, so nesting it inside `mappingCard` would look like a card inside a card - a plain `card-row` div is used instead. **Gotcha (real bug, caught live):** every dialog in this app - `customDialog` and `confirmDialog` alike - shares one singleton `<dialog>` element (`openDialog()` in `ui.js` always does `document.getElementById("dialog")`), so there is no dialog stacking. Opening a second dialog (e.g. `confirmDialog` for Remove, or `customDialog` for Edit) while the rules dialog is still open re-attaches listeners to the same shared form; confirmed live, confirming the nested Remove silently closed the *outer* rules dialog too, since both dialogs' `onSubmit` handlers fired off the one shared form. Fixed by having Edit/Remove's onClick call a `closeOpenDialog()` helper first - dispatches a synthetic `"cancel"` event on the shared `<dialog>`, the same event Escape fires, which is exactly what the existing close logic already listens for - before opening the follow-up dialog. Any future feature that opens a dialog from inside another dialog needs the same close-first step; this codebase's dialog system does not support nesting.
 
@@ -95,11 +98,35 @@ test file in `web/tests/`.
 ## Core infrastructure
 
 - **`main.js`** — `PAGES` array (id, title, icon, optional `key` for the
-  Setup tool-toggle and optional `group`/`groupLabel` for a pop-out sidebar
-  section), the `App` class (routing via `go`/`show`, `buildNav`,
-  `visiblePages`/`toolEnabled`, and `run(job, {log, buttons})` — the
-  standard wrapper every page uses for an async action: sets busy state,
+  Setup tool-toggle and optional `group`/`groupLabel` for a sidebar
+  section), the `App` class (routing via `go`/`show`,
+  `buildNav`, `visiblePages`/`toolEnabled`, and `run(job, {log, buttons})` —
+  the standard wrapper every page uses for an async action: sets busy state,
   disables the passed buttons, logs errors, always re-enables in `finally`).
+  Four groups cover every toggleable tool (at explicit user request):
+  `"info"` → **YNAB Info & Reporting** (YNAB Budget, Classic Budget,
+  Reports), `"tracking"` → **Tracking** (Bank Import, RTA Tracker),
+  `"together"` → **YNAB Together** (Shared Expenses, Bill Splitting),
+  `"cleanup"` → **Cleanup** (Auto Assign, Duplicates). Group order in the
+  sidebar follows each group's first appearance in the `PAGES` array, not
+  alphabetical or insertion-into-a-Set order - `"tracking"` sits between
+  `"info"` and `"together"` because that is where its first member (Bank
+  Import) sits in the array, at explicit user request to have it appear
+  above "YNAB Together". `buildNav()` renders each group as a plain `.sidebar-section`
+  label (the same style already used for the single "Tools" heading above
+  the whole list) with the group's own pages listed underneath as regular
+  full-size `nav-item` buttons - like YNAB's own sidebar, at explicit user
+  request. A hover/click flyout menu (`buildNavGroup()`) was tried first and
+  removed - it hid a page behind an extra step instead of always showing it.
+  `groupIcon` and the flyout's CSS (`.nav-flyout`, `.nav-item-parent`,
+  `.nav-caret`, `.nav-item-wrap`) were removed with it, since nothing reads
+  them any more. **`setup.js`'s "Tools" card mirrors the same grouping** rather
+  than listing all eight toggles flat - it reads each page's own
+  `group`/`groupLabel` (deduping by `page.group || page.id` so an
+  ungrouped future page still gets its own "Other" heading instead of being
+  silently dropped) rather than hardcoding the three group names a second
+  time, so a page's group only ever needs to change in one place
+  (`PAGES` here) to move it in both the sidebar and Setup at once.
 - **`state.js`** (`AppState`) — the connected client, the loaded budget
   (groups/accounts/transactions), and helpers like `personName(which)`,
   `categoryName(id)`, `withPeople(settings)`. `withPeople()` is the one place

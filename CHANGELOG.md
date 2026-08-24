@@ -11,6 +11,14 @@ before or as part of the push itself.
 
 ## 2026-08-23
 
+**New tool: RTA Tracker** (`rtatracker.js`, `rta_tracker.js`, `api.js`, `main.js`, `CLAUDE.md`, `rta_tracker.test.js`)
+* Ready to Assign is not scoped to the current month - it's a running total carried forward since the budget started, so a backdated paycheque can shift it without showing up in this month's own activity. Added a tool that snapshots Ready to Assign each time you run it and tries to explain a shift by finding backdated/uncategorized transactions.
+* Uses a new `client.transactionsDelta()` (delta sync via `last_knowledge_of_server`, not a date filter) so an edit or delete is caught even if it doesn't change the transaction's own date.
+* Flags a transaction as a likely cause only if it's dated before the current month, has no real category, isn't a split's parent record (which also reads `category_id: null`), and isn't a transfer. Sums the flagged amounts and checks that against the actual RTA delta, saying plainly when they don't fully agree rather than presenting a partial explanation as complete.
+
+**Sidebar reorganized into top-level sections, matching YNAB's own** (`main.js`, `setup.js`, `app.css`, `CLAUDE.md`)
+* The sidebar's eight tools are now grouped under three (now four, with RTA Tracker's own "Tracking" group) plain section labels - YNAB Info & Reporting, Tracking, YNAB Together, Cleanup - with every page listed directly underneath as its own clickable item. A hover/click flyout menu was tried first and replaced, since it hid a page behind an extra step. Setup's "Tools" enable/disable list mirrors the same grouping.
+
 **Bank Import: friendlier payee rules, column examples, clearer date format picker** (`bank.js`, `CLAUDE.md`)
 * Add/Edit rule now offers "Contains this text" as the default, alongside the original "Regular expression (advanced)" mode - no regex knowledge needed for the common case of renaming any payee containing some text. Both modes share a live "Try it" preview that updates as you type, instead of needing to save and separately open Test a name.
 * Each column dropdown (Date/Payee/Amount/Memo/Outflow/Inflow) now shows an `e.g. "..."` example value underneath it, pulled from the file's third row (or its last row, for a shorter file), updating live as the mapping changes.

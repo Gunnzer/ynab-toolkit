@@ -122,6 +122,20 @@ export class YnabClient {
     ).transactions;
   }
 
+  /**
+   * Same endpoint as transactions(), but keeps server_knowledge instead of
+   * discarding it, and supports last_knowledge_of_server for a true delta -
+   * only transactions added, changed or deleted since that value come back,
+   * rather than everything since a date. Used by RTA Tracker to see what
+   * changed between two snapshots without re-reading the whole history
+   * every time.
+   */
+  async transactionsDelta(budgetId, { lastKnowledgeOfServer } = {}) {
+    const params = lastKnowledgeOfServer
+      ? { last_knowledge_of_server: lastKnowledgeOfServer } : undefined;
+    return this.request("GET", `/budgets/${budgetId}/transactions`, { params });
+  }
+
   // ---------- writes ----------
 
   async updateTransaction(budgetId, transactionId, transaction) {
