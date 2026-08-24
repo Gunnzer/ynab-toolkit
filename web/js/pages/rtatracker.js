@@ -137,30 +137,13 @@ export function rtaTrackerPage(app) {
     log.clearLog();
     log.write("Taking a snapshot...", "head");
 
-    const result = await app.run(async () => {
-      const client = state.requireClient();
-      const month = rta.currentMonthString();
-
-      const monthData = await client.month(state.budgetId, month);
-      const { transactions, server_knowledge: serverKnowledge } =
-        await client.transactionsDelta(state.budgetId, {
-          lastKnowledgeOfServer: settings.serverKnowledge || undefined,
-        });
-
-      return rta.buildSnapshot({
-        month,
-        toBeBudgeted: monthData.to_be_budgeted,
-        previousSnapshot: lastSnapshot(),
-        deltaTransactions: transactions,
-        serverKnowledge,
-      });
-    }, { log, buttons: [snapshotButton] });
+    // Same snapshotRta() a plain budget refresh runs on its own - calling
+    // it here too instead of duplicating the fetch means there is only one
+    // place that decides what a snapshot actually contains.
+    const result = await app.run(() => state.snapshotRta(),
+      { log, buttons: [snapshotButton] });
 
     if (!result) return;
-
-    snapshots().push(result);
-    settings.serverKnowledge = result.serverKnowledge;
-    store.save();
 
     renderLatest(result);
     renderHistory();

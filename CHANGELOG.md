@@ -11,6 +11,9 @@ before or as part of the push itself.
 
 ## 2026-08-23
 
+**RTA Tracker: snapshot automatically on every budget refresh** (`state.js`, `rtatracker.js`, `CLAUDE.md`)
+* A snapshot used to only happen when you pressed "Snapshot now" on the RTA Tracker page itself. `AppState.reloadAll()` - the one place both the topbar Refresh button and Setup's Connect flow go through - now takes a snapshot on its own, wrapped in try/catch so a snapshot failure never fails the refresh that already succeeded. Respects the tool's enable/disable toggle. The page's own button now calls this same shared method instead of duplicating the fetch.
+
 **New tool: RTA Tracker** (`rtatracker.js`, `rta_tracker.js`, `api.js`, `main.js`, `CLAUDE.md`, `rta_tracker.test.js`)
 * Ready to Assign is not scoped to the current month - it's a running total carried forward since the budget started, so a backdated paycheque can shift it without showing up in this month's own activity. Added a tool that snapshots Ready to Assign each time you run it and tries to explain a shift by finding backdated/uncategorized transactions.
 * Uses a new `client.transactionsDelta()` (delta sync via `last_knowledge_of_server`, not a date filter) so an edit or delete is caught even if it doesn't change the transaction's own date.

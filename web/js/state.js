@@ -2,6 +2,7 @@
 
 import { YnabClient, flattenCategories } from "./api.js";
 import { Store } from "./store.js";
+import * as rtaTracker from "./tools/rta_tracker.js";
 
 // sessionStorage, not localStorage: this is fetched YNAB data, not a
 // setting, and it should not survive past this tab closing. Its only job
@@ -116,7 +117,58 @@ export class AppState {
     this.cacheTransactions(transactions);
     this.persistSession();
     this.notify();
+
+    // A snapshot on every refresh, not just when RTA Tracker's own page is
+    // open, is the whole point - Ready to Assign can move because of a
+    // transaction dated weeks ago, and the only way to notice is to have
+    // been recording it all along. Never lets a snapshot failure (a rate
+    // limit, most likely) fail the refresh that already succeeded.
+    try {
+      await this.snapshotRta();
+    } catch (error) {
+      console.error("RTA Tracker snapshot failed", error);
+    }
+
     return { groups, accounts, transactions };
+  }
+
+  /**
+   * Record one RTA Tracker snapshot: this month's Ready to Assign, the
+   * delta since the previous snapshot, and any backdated/uncategorized
+   * transactions found via delta sync in between. Same work RTA Tracker's
+   * own "Snapshot now" button does, factored out here so it also runs on
+   * every reloadAll() without that page needing to be open. Does nothing
+   * (returns null) if there is no budget to snapshot or the tool itself is
+   * switched off on Setup.
+   */
+  async snapshotRta() {
+    if (!this.token || !this.budgetId) return null;
+    const enabled = this.store.get("tools.enabled", {}) || {};
+    if (enabled.rtaTracker === false) return null;
+
+    const settings = this.store.section("rtaTracker");
+    const client = this.requireClient();
+    const month = rtaTracker.currentMonthString();
+
+    const monthData = await client.month(this.budgetId, month);
+    const { transactions: deltaTransactions, server_knowledge: serverKnowledge } =
+      await client.transactionsDelta(this.budgetId, {
+        lastKnowledgeOfServer: settings.serverKnowledge || undefined,
+      });
+
+    const list = settings.snapshots || (settings.snapshots = []);
+    const snapshot = rtaTracker.buildSnapshot({
+      month,
+      toBeBudgeted: monthData.to_be_budgeted,
+      previousSnapshot: list.length ? list[list.length - 1] : null,
+      deltaTransactions,
+      serverKnowledge,
+    });
+
+    list.push(snapshot);
+    settings.serverKnowledge = serverKnowledge;
+    this.store.save();
+    return snapshot;
   }
 
   // ---------- surviving a page reload ----------
