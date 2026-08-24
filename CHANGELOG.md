@@ -11,8 +11,8 @@ before or as part of the push itself.
 
 ## 2026-08-23
 
-**Sidebar icons: RTA Tracker gets a $ sign, Classic Budget no longer shares an icon with YNAB Budget** (`ui.js`, `main.js`)
-* Added a new dollar-sign icon for RTA Tracker, replacing the generic info circle.
+**Sidebar icons: RTA Tracker gets its own icon, Classic Budget no longer shares one with YNAB Budget** (`ui.js`, `main.js`)
+* RTA Tracker's icon went through two tries: a dollar sign (too messy as a thin line-icon at nav size) then a coin/circle-dollar, before landing on a pulse/EKG line - a better fit anyway, since the tool's job is watching a number move over time, not money in general.
 * Classic Budget switched to the spreadsheet/grid icon (already used by Bill Splitting, but nowhere else in its own sidebar section) instead of the bar-chart icon it was sharing with YNAB Budget.
 
 **RTA Tracker: snapshot automatically on every budget refresh** (`state.js`, `rtatracker.js`, `CLAUDE.md`)
