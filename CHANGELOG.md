@@ -9,6 +9,14 @@ Maintained going forward: add a new dated entry for each push, in this same
 style (feature/fix name and files, then bullets on what changed and why),
 before or as part of the push itself.
 
+## 2026-08-28
+
+**Reports: a Saving mode that reads Assigned, not spending activity** (`reports.js`, `tools/reports.js`, `CLAUDE.md`, `reports.test.js`)
+* Added a "Report" toggle (Spending/Saving) to Reports. Two earlier designs for what "saving" means were tried and replaced: transfers into a savings-typed account, then category-level spending activity - both wrong, since the second one still read backwards the moment you moved the money (transferring out of an "Investing" category to a real brokerage showed up as *spending* in that category).
+* Saving mode now reads YNAB's own Assigned figure (`category.budgeted`) per category per month instead - what you assigned into a category is not affected by what you do with it afterward, only activity/balance are. Fetches one `state.month()` per month in the report's date range, cached per range.
+* "Choose categories" lets you pick which categories count (e.g. an "Investing" category under a "Goals" group) - Spending and Saving each remember their own separate category selection, so choosing one never touches the other.
+* "Choose category groups" became "Choose categories" (individual categories, not whole groups), with a group's own checkbox as a "select everything in this group" shortcut. The separate "Exclude categories" dialog was removed entirely - not choosing a category already excludes it, so one control covers both cases.
+
 ## 2026-08-23
 
 **Sidebar icons: RTA Tracker gets its own icon, Classic Budget no longer shares one with YNAB Budget** (`ui.js`, `main.js`)

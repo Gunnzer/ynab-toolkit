@@ -53,14 +53,16 @@ export function matches(entry, filters) {
   }
   if (filters.since && entry.date < filters.since) return false;
   if (filters.until && entry.date > filters.until) return false;
-  if (filters.groupNames?.length && !filters.groupNames.includes(entry.groupName)) {
-    return false;
-  }
-  // Categories are excluded rather than included, so a category added to the
-  // budget later shows up in an existing saved filter instead of silently
-  // going missing from it.
-  if (filters.excludeCategoryIds?.length &&
-    filters.excludeCategoryIds.includes(entry.categoryId)) {
+  // categoryIds is the only category-level filter - an inclusion list,
+  // empty meaning every category included. There used to be a separate
+  // excludeCategoryIds ("except these") layered on top, but that was
+  // solving a problem categoryIds already solves: not choosing a category
+  // already excludes it, and ticking everything except a couple (the group
+  // checkbox in chooseCategories() makes "everything" one click) covers the
+  // "mostly all of them" case just as well with one control instead of two.
+  // Removed entirely at explicit user request. A category's group is not
+  // consulted for filtering at all, only for display.
+  if (filters.categoryIds?.length && !filters.categoryIds.includes(entry.categoryId)) {
     return false;
   }
   const needle = (filters.payeeContains || "").trim().toLowerCase();
@@ -80,6 +82,61 @@ function bump(map, key, amount) {
   current.total += amount;
   current.count += 1;
   map.set(key, current);
+}
+
+/**
+ * Totals of *assigned* money (YNAB's own "Assigned" figure, `budgeted` in
+ * the API) per month/group/category, for Saving mode.
+ *
+ * Saving started out reading the same activity/outflow figures Spending
+ * does, just pointed at whichever categories were chosen - but that reads
+ * backwards the moment you actually move the money: transferring out of an
+ * "Investing" category to a real brokerage shows up as spending in that
+ * category, even though the whole point was to save it. What you assigned
+ * into the category is the real answer, and assigning is not affected by
+ * what you do with the money afterward - a transfer out changes `activity`,
+ * never `budgeted`. `monthlyCategories` is `[{ month, categories: [{ id,
+ * name, groupName, budgeted, owner }] }]`, one entry per month in the
+ * report's date range - built by the caller from state.month(), since
+ * fetching a month's own category data is not something a pure function
+ * here can do itself.
+ */
+export function summariseAssigned(monthlyCategories, filters = {}) {
+  const months = new Map();
+  const groups = new Map();
+  const categories = new Map();
+
+  let total = 0;
+
+  for (const { month, categories: cats } of monthlyCategories || []) {
+    for (const cat of cats || []) {
+      if (filters.owner && filters.owner !== "all" && cat.owner !== filters.owner) continue;
+      if (filters.categoryIds?.length && !filters.categoryIds.includes(cat.id)) continue;
+
+      const amount = cat.budgeted || 0;
+      total += amount;
+
+      bump(months, month, amount);
+      bump(groups, cat.groupName || "(uncategorised)", amount);
+      bump(categories, cat.name || "(uncategorised)", amount);
+    }
+  }
+
+  const monthly = [...months.entries()]
+    .map(([month, value]) => ({ month, ...value }))
+    .sort((a, b) => a.month.localeCompare(b.month));
+
+  const activeMonths = monthly.filter((entry) => entry.total !== 0);
+
+  return {
+    total,
+    monthly,
+    average: activeMonths.length ? total / activeMonths.length : 0,
+    busiest: monthly.reduce(
+      (best, entry) => (!best || entry.total > best.total ? entry : best), null),
+    groups: rank(groups, 10),
+    categories: rank(categories, 10),
+  };
 }
 
 /**

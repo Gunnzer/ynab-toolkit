@@ -2,6 +2,7 @@
 
 import { fmt } from "../money.js";
 import * as reports from "../tools/reports.js";
+import { ownerOf } from "../tools/split_sheet.js";
 import {
   button, card, checkbox, clear, confirmDialog, customDialog, el, emptyRow,
   field, hint, logPane, monthLabel as monthLabelLong, monthOptions, monthsAgo,
@@ -54,6 +55,21 @@ function monthSpan(sinceIso, untilIso) {
   return Math.max(1, (uy - sy) * 12 + (um - sm) + 1);
 }
 
+/** Every "YYYY-MM" from sinceIso's month to untilIso's month, inclusive. */
+function monthsBetween(sinceIso, untilIso) {
+  const [sy, sm] = sinceIso.split("-").map(Number);
+  const [uy, um] = untilIso.split("-").map(Number);
+  const months = [];
+  let y = sy;
+  let m = sm;
+  while (y < uy || (y === uy && m <= um)) {
+    months.push(`${y}-${pad2(m)}`);
+    m += 1;
+    if (m > 12) { m = 1; y += 1; }
+  }
+  return months;
+}
+
 export function reportsPage(app) {
   const state = app.state;
   const store = state.store;
@@ -63,6 +79,13 @@ export function reportsPage(app) {
   const log = logPane(LOG_EMPTY);
 
   let entries = null;   // flattened transactions, kept so filters re-run free
+  // Saving mode's own data: assigned (budgeted) amounts per category, one
+  // entry per month in the report's date range - fetched separately from
+  // entries since it comes from state.month(), not the transaction list.
+  // Refetched whenever the covered range changes; monthlyRange remembers
+  // which since/until it was last built for.
+  let monthlyCategories = null;
+  let monthlyRange = "";
 
   root.append(pageHeading(
     "Reports",
@@ -179,6 +202,7 @@ export function reportsPage(app) {
       refresh();
     },
   });
+  const payeeLabel = el("span", { class: "field-label", text: "Payee contains" });
 
   const owner = select([
     { value: "all", label: "Everyone" },
@@ -198,25 +222,59 @@ export function reportsPage(app) {
       store.save();
       refresh();
     });
+  const categoryButtonsRow = el("div", { class: "card-row" },
+    button("Choose categories", { small: true, onClick: chooseCategories }),
+    button("Clear", { small: true, onClick: () => {
+      settings[categoryIdsKey()] = [];
+      store.save();
+      refresh();
+    } }),
+    groupNote);
+
+  // Saving mode is the exact same report as Spending - same toEntries(),
+  // same summarise(), same Whose/Payee/period/income controls - just
+  // pointed at a different category selection. "Saving" is not a thing
+  // YNAB's data model knows about; it is simply whichever categories you
+  // have chosen here mean saving to you (an Investing category under a
+  // Goals group, say), the same way Spending's own chooseCategories() lets
+  // you narrow to whichever categories you meant by "spending". Two modes,
+  // one mechanism, two separate remembered selections - not two different
+  // report engines.
+  const reportMode = radioGroup("report-mode", [
+    { value: "spending", label: "Spending" },
+    { value: "saving", label: "Saving" },
+  ], settings.reportMode || "spending", (value) => {
+    settings.reportMode = value;
+    store.save();
+    refresh();
+  });
 
   const filtersCard = card(
+    el("div", { class: "card-row" },
+      el("span", { class: "field-label", style: "margin:0", text: "Report" }),
+      reportMode),
     el("div", { class: "card-row" },
       el("span", { class: "field-label", style: "margin:0", text: "Period" }),
       periodMode),
     customRow, monthRow, rangeRow, earliestNote,
     el("div", { class: "card-grid" },
-      field("Whose", owner), field("Payee contains", payee)),
-    el("div", { class: "card-row" },
-      button("Choose category groups", { small: true, onClick: chooseGroups }),
-      button("Exclude categories", { small: true, onClick: chooseExclusions }),
-      button("Clear both", { small: true, onClick: () => {
-        settings.groupNames = [];
-        settings.excludeCategoryIds = [];
-        store.save();
-        refresh();
-      } }),
-      groupNote),
+      field("Whose", owner), el("div", {}, payeeLabel, payee)),
+    categoryButtonsRow,
     inflowBox);
+
+  function savingMode() {
+    return (settings.reportMode || "spending") === "saving";
+  }
+
+  // Spending and Saving each remember their own category selection
+  // (settings.categoryIds vs settings.savingCategoryIds) - picking
+  // "Investing" for Saving should not also narrow the Spending report, and
+  // vice versa. Every other filter (Whose, Payee, period, income) is
+  // shared between the two on purpose: those questions do not change
+  // meaning depending on which categories you are looking at.
+  function categoryIdsKey() {
+    return savingMode() ? "savingCategoryIds" : "categoryIds";
+  }
 
   function onCustomDateInput() {
     if (currentMode() !== "custom") return;
@@ -228,6 +286,7 @@ export function reportsPage(app) {
 
   function filters() {
     return {
+      reportMode: settings.reportMode || "spending",
       since: settings.since,
       until: settings.until,
       // Carried along so a saved filter reproduces the period picker too,
@@ -237,54 +296,74 @@ export function reportsPage(app) {
       rangeFrom: settings.rangeFrom,
       rangeTo: settings.rangeTo,
       owner: settings.owner,
-      groupNames: settings.groupNames || [],
-      excludeCategoryIds: settings.excludeCategoryIds || [],
+      categoryIds: settings[categoryIdsKey()] || [],
       payeeContains: settings.payeeContains,
       includeInflow: settings.includeInflow,
     };
   }
 
   function paintGroupNote() {
-    const chosen = (settings.groupNames || []).length;
-    const excluded = (settings.excludeCategoryIds || []).length;
-    const parts = [
-      chosen ? `${chosen} group(s) included` : "All category groups included",
-    ];
-    if (excluded) parts.push(`${excluded} categor(ies) excluded`);
-    groupNote.textContent = `${parts.join(", ")}.`;
+    const chosen = (settings[categoryIdsKey()] || []).length;
+    groupNote.textContent = chosen
+      ? `${chosen} categor(ies) included.` : "All categories included.";
   }
 
-  /** Pick individual categories to leave out, grouped as YNAB shows them. */
-  async function chooseExclusions() {
-    if (!state.hasBudgetData) {
+  /**
+   * Pick individual categories to include, grouped as YNAB shows them.
+   * Used to sit alongside a separate "Exclude categories" dialog, but the
+   * two were doing the same job from opposite ends - not choosing a
+   * category already excludes it, so ticking everything except a couple
+   * categories here (helped along by the group checkbox to start from
+   * "everything") covers the "mostly all of them" case too. Removed
+   * "Exclude categories" entirely at explicit user request rather than
+   * keep two controls for one selection. Used to only offer whole groups;
+   * moved to category granularity separately, with the group's own
+   * checkbox left in as a "select all in this group" shortcut rather than
+   * being the only unit you could pick. Shared by both report modes -
+   * which underlying setting it reads/writes depends on categoryIdsKey(),
+   * so choosing categories for Saving (e.g. an Investing category) never
+   * touches Spending's own selection.
+   */
+  async function chooseCategories() {
+    const groups = state.groups(true);
+    if (!groups.length) {
       return log.write("Load a budget on the Setup page first.", "warn");
     }
+    const current = new Set(settings[categoryIdsKey()] || []);
+    const total = state.flatCategories(true).length;
 
-    const excluded = new Set(settings.excludeCategoryIds || []);
-    const chosen = await customDialog("Exclude categories", (body) => {
+    const chosen = await customDialog("Choose categories", (body) => {
       const boxes = [];
       const wrap = el("div", { style: "max-height:340px;overflow-y:auto" });
 
-      // Hidden categories are shown here regardless of the Budget page's
-      // "Show hidden" toggle: a report reads your whole history, and a
-      // category hidden after the fact is exactly the kind of thing you
-      // came here to exclude.
-      for (const group of state.groups(true)) {
+      for (const group of groups) {
         const inGroup = state.flatCategories(true)
           .filter((entry) => entry.group === group.name);
         if (!inGroup.length) continue;
 
-        wrap.append(el("p", {
-          class: "field-label",
-          style: "margin:12px 0 4px",
+        const groupBoxes = [];
+        const groupBox = el("input", { type: "checkbox" });
+        groupBox.checked = inGroup.every(
+          ({ category }) => current.size === 0 || current.has(category.id));
+        // Checking or unchecking the group's own box sets every category
+        // inside it to match - a shortcut, not a separate level of
+        // filtering, so nothing here reads groupBox.checked afterward.
+        groupBox.addEventListener("change", () => {
+          for (const box of groupBoxes) box.checked = groupBox.checked;
+        });
+        wrap.append(el("label", {
+          class: "checkbox", style: "margin:12px 0 4px; font-weight:600",
+        }, groupBox, el("span", {
           text: group.name + (group.hidden ? "  (hidden)" : ""),
-        }));
+        })));
+
         for (const { category } of inGroup) {
           const box = el("input", { type: "checkbox" });
-          box.checked = excluded.has(category.id);
+          box.checked = current.size === 0 || current.has(category.id);
           boxes.push({ box, id: category.id });
+          groupBoxes.push(box);
           wrap.append(el("label", {
-            class: "checkbox", style: "padding:3px 0 3px 12px",
+            class: "checkbox", style: "padding:3px 0 3px 24px",
           }, box, el("span", {
             text: category.name + (category.hidden ? "  (hidden)" : ""),
           })));
@@ -292,11 +371,9 @@ export function reportsPage(app) {
       }
 
       body.append(
-        hint("Ticked categories are left out of the report, including " +
-          "hidden ones. Anything you add to the budget later is included " +
-          "by default."),
+        hint("Tick individual categories, or tick a group's own checkbox " +
+          "to select every category inside it at once."),
         wrap);
-
       return {
         value: () => boxes.filter((entry) => entry.box.checked)
           .map((entry) => entry.id),
@@ -304,44 +381,9 @@ export function reportsPage(app) {
     }, { confirmText: "Apply" });
 
     if (!chosen) return;
-    settings.excludeCategoryIds = chosen;
-    store.save();
-    refresh();
-  }
-
-  async function chooseGroups() {
-    // Hidden groups included here too, for the same reason as the
-    // exclusion picker: a report reads history, not just this month's
-    // active budget.
-    const groups = state.groups(true);
-    if (!groups.length) {
-      return log.write("Load a budget on the Setup page first.", "warn");
-    }
-    const current = new Set(settings.groupNames || []);
-    const chosen = await customDialog("Category groups", (body) => {
-      const boxes = [];
-      const wrap = el("div", { style: "max-height:340px;overflow-y:auto" });
-      for (const group of groups) {
-        const box = el("input", { type: "checkbox" });
-        box.checked = current.size === 0 || current.has(group.name);
-        boxes.push(box);
-        wrap.append(el("label", { class: "checkbox", style: "padding:4px 0" },
-          box, el("span", {
-            text: group.name + (group.hidden ? "  (hidden)" : ""),
-          })));
-      }
-      body.append(hint("Tick the groups to include."), wrap);
-      return {
-        value: () => groups
-          .filter((_group, index) => boxes[index].checked)
-          .map((group) => group.name),
-      };
-    }, { confirmText: "Apply" });
-
-    if (!chosen) return;
     // Everything ticked means no filter at all, which keeps saved filters
-    // working when a new group is added to the budget later.
-    settings.groupNames = chosen.length === groups.length ? [] : chosen;
+    // working when a new category is added to the budget later.
+    settings[categoryIdsKey()] = chosen.length === total ? [] : chosen;
     store.save();
     refresh();
   }
@@ -369,6 +411,7 @@ export function reportsPage(app) {
   /** A short readable line for a filter, e.g. "March 2026   ·   Everyone". */
   function describeFilters(f) {
     const parts = [];
+    if (f.reportMode === "saving") parts.push("Saving");
     if (f.periodMode === "month") parts.push(monthLabelLong(f.periodMonth));
     else if (f.periodMode === "range") {
       parts.push(`${monthLabelLong(f.rangeFrom)} to ${monthLabelLong(f.rangeTo)}`);
@@ -380,11 +423,8 @@ export function reportsPage(app) {
         : state.personName(f.owner === "p1" ? 1 : 2));
 
     if (f.payeeContains) parts.push(`payee has "${f.payeeContains}"`);
-    if ((f.groupNames || []).length) {
-      parts.push(`${f.groupNames.length} group(s) only`);
-    }
-    if ((f.excludeCategoryIds || []).length) {
-      parts.push(`${f.excludeCategoryIds.length} excluded`);
+    if ((f.categoryIds || []).length) {
+      parts.push(`${f.categoryIds.length} categor(ies) only`);
     }
     if (f.includeInflow) parts.push("includes income");
 
@@ -473,7 +513,16 @@ export function reportsPage(app) {
   function applySaved(index) {
     const entry = saved()[index];
     settings.activeSavedName = entry.name;
-    Object.assign(settings, entry.filters);
+    // filters()'s categoryIds is a generic name, already resolved to
+    // whichever mode was active when the filter was saved (see filters()) -
+    // Object.assign-ing it straight onto settings would land in the
+    // *current* mode's key instead, silently overwriting the wrong one
+    // (e.g. applying a saved Saving filter could clobber Spending's own
+    // remembered categories). reportMode is applied first, then categoryIds
+    // is routed to whichever key that mode actually reads.
+    const { categoryIds, ...rest } = entry.filters;
+    Object.assign(settings, rest);
+    settings[categoryIdsKey()] = categoryIds || [];
     store.save();
     app.refresh();
   }
@@ -501,12 +550,13 @@ export function reportsPage(app) {
 
   /** Back to what a filter section defaults to: last month, everyone. */
   function resetFilters() {
+    settings.reportMode = "spending";
     settings.periodMode = "month";
     settings.periodMonth = previousMonth();
     settings.owner = "all";
     settings.payeeContains = "";
-    settings.groupNames = [];
-    settings.excludeCategoryIds = [];
+    settings.categoryIds = [];
+    settings.savingCategoryIds = [];
     settings.includeInflow = false;
     settings.activeSavedName = "";
     store.save();
@@ -576,13 +626,54 @@ export function reportsPage(app) {
 
     const groupOf = groupLookup();
     entries = reports.toEntries(fetched.list, groupOf, state.withPeople({}));
+    await ensureMonthlyCategories();
     state.recordRun("reports");
     render();
   }
 
-  /** Re-summarise the transactions already in hand. No network involved. */
-  function refresh() {
+  /**
+   * Saving mode reads YNAB's own Assigned figure per category per month
+   * (`category.budgeted`), not transaction activity - see the comment on
+   * summariseAssigned() for why. That means one state.month() per month in
+   * the report's range, which entries (built once from the whole
+   * transaction list) does not need. Cached per range so switching filters
+   * that do not change since/until - Whose, which categories are chosen -
+   * costs nothing more than a re-summarise.
+   */
+  async function ensureMonthlyCategories() {
+    if (!savingMode()) return;
+    const key = `${settings.since}|${settings.until}`;
+    if (monthlyCategories && monthlyRange === key) return;
+
+    const months = monthsBetween(settings.since, settings.until);
+    const groupOf = groupLookup();
+    const catNameOf = categoryLookup();
+    const peopleSettings = state.withPeople({});
+
+    const fetched = await app.run(() => Promise.all(months.map(async (month) => {
+      const { data } = await state.month(month);
+      const categories = (data.categories || [])
+        .filter((c) => !c.deleted)
+        .map((c) => ({
+          id: c.id,
+          name: catNameOf(c.id) || c.name,
+          groupName: groupOf(c.id),
+          budgeted: c.budgeted || 0,
+          owner: ownerOf(groupOf(c.id), "", peopleSettings),
+        }));
+      return { month, categories };
+    })), { log });
+
+    if (!fetched) return;
+    monthlyCategories = fetched;
+    monthlyRange = key;
+  }
+
+  /** Re-summarise what is already in hand. Only reaches YNAB again if
+   * Saving mode needs a month it has not fetched yet for this date range. */
+  async function refresh() {
     if (!entries) return reload();
+    await ensureMonthlyCategories();
     render();
   }
 
@@ -606,6 +697,8 @@ export function reportsPage(app) {
 
   function render() {
     paintGroupNote();
+    const saving = savingMode();
+
     if (!entries) {
       clear(statGrid).append(card(hint(
         "Connect and choose a budget on the Setup page to see your history.")));
@@ -616,15 +709,20 @@ export function reportsPage(app) {
       return;
     }
 
-    // Filters re-apply instantly: the transactions are already in hand, so
-    // changing one costs nothing and never spends another API call.
-    const result = reports.summarise(entries, filters(), {
-      limit: TOP, categoryNameFor: categoryLookup(),
-    });
+    // Filters re-apply instantly: the transactions (or, for Saving,
+    // monthlyCategories) are already in hand, so changing one costs nothing
+    // and never spends another API call by itself.
+    const result = saving
+      ? reports.summariseAssigned(monthlyCategories || [], filters())
+      : reports.summarise(entries, filters(), {
+        limit: TOP, categoryNameFor: categoryLookup(),
+      });
 
     clear(statGrid).append(
-      stat("Total spent", fmt(result.total)),
-      stat("Transactions", String(result.count)),
+      stat(saving ? "Total saved" : "Total spent", fmt(result.total)),
+      saving
+        ? stat("Categories", String(result.categories.length))
+        : stat("Transactions", String(result.count)),
       stat("Average month", fmt(result.average)),
       stat("Biggest month", result.busiest
         ? `${monthLabel(result.busiest.month)}` : "n/a",
@@ -648,7 +746,14 @@ export function reportsPage(app) {
 
     fill(groupTable, result.groups);
     fill(categoryTable, result.categories);
-    fill(payeeTable, result.payees);
+    // Assigned money is not tied to any one transaction, so there is no
+    // payee to break it down by - shown as an explanatory empty state
+    // rather than hiding the table, the same 4-table shape either way.
+    if (saving) {
+      emptyRow(payeeTable, "Assigned amounts are not tied to a payee.");
+    } else {
+      fill(payeeTable, result.payees);
+    }
 
     const who = settings.owner === "all" ? "everyone"
       : settings.owner === "shared" ? "shared expenses"

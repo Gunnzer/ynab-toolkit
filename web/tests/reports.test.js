@@ -9,10 +9,10 @@ const PEOPLE = {
 };
 
 const groupOf = (id) => ({
-  c1: "Household", c2: "Alex Wants", c3: "Sam Wants",
+  c1: "Household", c2: "Alex Wants", c3: "Sam Wants", c4: "Goals",
 }[id] || "");
 const nameOf = (id) => ({
-  c1: "Groceries", c2: "Hobbies", c3: "Books",
+  c1: "Groceries", c2: "Hobbies", c3: "Books", c4: "Investing",
 }[id] || "");
 
 const tx = (date, payee, amount, category, extra = {}) => ({
@@ -75,29 +75,24 @@ describe("summarising", () => {
     assert.equal(reports.summarise(entries, { owner: "shared" }).total, 35000);
   });
 
-  test("dates, payee text and groups all narrow it", () => {
+  test("dates, payee text and categories all narrow it", () => {
     assert.equal(reports.summarise(entries, { since: "2026-02-01" }).total, 55000);
     assert.equal(reports.summarise(entries, { until: "2026-01-31" }).total, 30000);
     assert.equal(reports.summarise(entries, { payeeContains: "corner" }).total, 35000);
-    assert.equal(reports.summarise(entries, { groupNames: ["Alex Wants"] }).total, 50000);
+    assert.equal(reports.summarise(entries, { categoryIds: ["c2"] }).total, 50000);
   });
 
-  test("individual categories can be excluded", () => {
-    // Groceries is c1: two spends totalling 35000 of the 85000.
-    const result = reports.summarise(entries, { excludeCategoryIds: ["c1"] });
+  test("leaving one category out of categoryIds is how you exclude it - no separate exclude list", () => {
+    // Groceries is c1: two spends totalling 35000 of the 85000. Choosing
+    // every other category (c2, c3) has the same effect an "exclude c1"
+    // control used to - there is no longer a second list for that.
+    const result = reports.summarise(entries, { categoryIds: ["c2", "c3"] });
     assert.equal(result.total, 50000);
     assert.equal(result.count, 1);
   });
 
-  test("excluding a category inside an included group still applies", () => {
-    const result = reports.summarise(entries, {
-      groupNames: ["Household"], excludeCategoryIds: ["c1"],
-    });
-    assert.equal(result.total, 0);
-  });
-
-  test("an empty exclusion list excludes nothing", () => {
-    assert.equal(reports.summarise(entries, { excludeCategoryIds: [] }).total, 85000);
+  test("an empty categoryIds list includes everything", () => {
+    assert.equal(reports.summarise(entries, { categoryIds: [] }).total, 85000);
   });
 
   test("income can be included when asked for", () => {
@@ -120,5 +115,57 @@ describe("summarising", () => {
     assert.equal(result.average, 0);
     assert.equal(result.busiest, null);
     assert.deepEqual(result.monthly, []);
+  });
+});
+
+describe("saving: assigned amounts, not activity", () => {
+  // Saving reads what was assigned (budgeted) into chosen categories, not
+  // what was spent - a transfer out of "Investing" to an actual brokerage
+  // reads as activity/spending in that category, which is backwards for
+  // "how much did I save". monthlyCategories is what the page builds from
+  // state.month() for each month in the report's date range.
+  const monthlyCategories = [
+    {
+      month: "2026-01",
+      categories: [
+        { id: "c4", name: "Investing", groupName: "Goals", budgeted: 50000, owner: "p1" },
+        { id: "c1", name: "Groceries", groupName: "Household", budgeted: 20000, owner: "shared" },
+      ],
+    },
+    {
+      month: "2026-02",
+      categories: [
+        { id: "c4", name: "Investing", groupName: "Goals", budgeted: 30000, owner: "p1" },
+        { id: "c1", name: "Groceries", groupName: "Household", budgeted: 22000, owner: "shared" },
+      ],
+    },
+  ];
+
+  test("choosing just Investing ignores every other category's assigned amount", () => {
+    const result = reports.summariseAssigned(monthlyCategories, { categoryIds: ["c4"] });
+    assert.equal(result.total, 80000);
+    assert.equal(result.categories.length, 1);
+    assert.equal(result.categories[0].name, "Investing");
+  });
+
+  test("owner filters by the category's own owner", () => {
+    const result = reports.summariseAssigned(monthlyCategories, { owner: "p1" });
+    assert.equal(result.total, 80000);
+  });
+
+  test("sums per month independently of what happens to the money afterward", () => {
+    const result = reports.summariseAssigned(monthlyCategories, { categoryIds: ["c4"] });
+    assert.deepEqual(result.monthly.map((m) => [m.month, m.total]), [
+      ["2026-01", 50000], ["2026-02", 30000],
+    ]);
+    assert.equal(result.average, 40000);
+    assert.equal(result.busiest.month, "2026-01");
+  });
+
+  test("no monthly data is empty, not a crash", () => {
+    const result = reports.summariseAssigned([], { categoryIds: ["c4"] });
+    assert.equal(result.total, 0);
+    assert.equal(result.average, 0);
+    assert.equal(result.busiest, null);
   });
 });
