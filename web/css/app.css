@@ -377,6 +377,11 @@ h1, h2, h3 { margin: 0; font-weight: 600; line-height: 1.3; }
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 16px 20px;
 }
+/* Bank Import's column-mapping rows: a fixed 3-up grid instead of the
+   general auto-fit above, so the required (or optional) fields stay
+   grouped together rather than wrapping to 2-then-1 as the window
+   narrows. See the phone breakpoint for where this stops applying. */
+.map-grid-3 { grid-template-columns: repeat(3, 1fr); }
 
 /*
  * A loose row of buttons on the page background looks unanchored, so the
@@ -1398,6 +1403,78 @@ td .btn-small { min-height: 28px; padding: 0 9px; font-size: 12.5px; }
   .page-actions { top: 55px; }
   .topbar h1 { font-size: 17px; }
   .meta { display: none; }
+}
+
+/*
+ * Phone. Everything above already turns the sidebar into a wrapping top
+ * bar, which is as far as a tablet-width screen needs to go - this tier
+ * exists for what only breaks once the viewport itself gets narrow: the
+ * nav bar wrapping into several rows, table cells too padded to leave room
+ * for actual data, and dialogs/headings sized for a screen wider than the
+ * one displaying them. Nothing here undoes the 900px rules above; a phone
+ * matches both.
+ */
+@media (max-width: 560px) {
+  :root { --gutter: 14px; --control-height: 40px; }
+
+  /* Smaller and tighter than the 900px tier's nav-item so a full tool
+     list wraps to two rows instead of three or four - the grouping labels
+     are already dropped above this width, so row count is the only thing
+     left to economize on. */
+  .nav-item { padding: 6px 9px; font-size: 12.5px; gap: 7px; }
+  .nav-item svg { width: 15px; height: 15px; }
+  .brand { height: 46px; }
+  .brand-name { font-size: 14px; }
+
+  .topbar-inner { height: 48px; gap: 8px; }
+  .topbar h1 {
+    font-size: 15.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .page-actions { top: 49px; }
+  .page { padding: 16px 14px 48px; }
+  .page-title { font-size: 21px; }
+
+  /* Every row-based control (stat cards, tool cards, form field grids)
+     already collapses to one column on its own once the viewport is
+     narrower than its own minmax() minimum - nothing to override there.
+     What's left is spacing and touch-friendliness. */
+  .card { padding: 14px; gap: 14px; }
+  .card-grid { gap: 12px 14px; }
+  .page-body > .card-row { padding: 12px 14px; }
+  .stat-grid { gap: 10px; }
+  .stat { padding: 13px 14px; }
+  .stat-value { font-size: 20px; }
+
+  /* A row of buttons that wraps on a narrow screen reads better as a
+     stack: full width, so each is an easy tap target instead of a
+     cramped half-row. */
+  .card-row .btn, .page-body > .card-row .btn { flex: 1 1 auto; }
+  .card-row .btn-link { flex: 0 0 auto; }
+
+  /* The table itself keeps scrolling horizontally (.table-wrap already
+     handles that) rather than reflowing into cards - Bill Splitting's and
+     Reports' tables have too many columns for a card layout to help, and
+     a working horizontal scroll beats a redesign that would need its own
+     per-table column-priority rules. Tighter padding just leaves more of
+     each row's data on screen before the scroll starts. */
+  table { font-size: 13px; }
+  th { padding: 10px 10px; font-size: 10.5px; }
+  td { padding: 9px 10px; }
+  td.indent { padding-left: 22px; }
+  .table-wrap { -webkit-overflow-scrolling: touch; }
+
+  .dialog h2 { padding: 18px 18px 0; font-size: 16.5px; }
+  .dialog #dialog-body { padding: 12px 18px 18px; gap: 12px; }
+  .dialog menu { padding: 12px 18px; flex-wrap: wrap; }
+  .dialog menu .btn { flex: 1 1 auto; }
+
+  /* Bank Import's fixed 3-up column-mapping grid: three selects at
+     ~100px each is too narrow to show anything, so phone drops back to
+     the one-per-row layout the general .card-grid already uses. */
+  .map-grid-3 { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {

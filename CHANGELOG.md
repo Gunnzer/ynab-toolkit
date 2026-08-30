@@ -9,6 +9,13 @@ Maintained going forward: add a new dated entry for each push, in this same
 style (feature/fix name and files, then bullets on what changed and why),
 before or as part of the push itself.
 
+## 2026-08-29
+
+**Mobile-responsive layout** (`app.css`, `pages/bank.js`, `CLAUDE.md`)
+* Added a phone breakpoint (under 560px wide) on top of the existing tablet one: tighter spacing and padding throughout, smaller nav items so the full tool list wraps to two rows instead of three or four, denser table cells, tighter dialogs, and full-width buttons in any row that wraps.
+* Wide tables (Reports, Bill Splitting, Budget) still scroll horizontally rather than reflowing into cards - the existing scrollable-table behavior already covers it.
+* Fixed Bank Import's column-mapping grid, which used to force 3 columns via an inline style that no breakpoint could ever override - it now collapses to one column per row on a phone.
+
 ## 2026-08-28
 
 **Reports: a Saving mode that reads Assigned, not spending activity** (`reports.js`, `tools/reports.js`, `CLAUDE.md`, `reports.test.js`)

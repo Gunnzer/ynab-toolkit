@@ -318,6 +318,33 @@ node --test web/tests/tools.test.js   # one file
   `var(--faint)`, `var(--border-strong)`, etc.) — see the `:root` block at
   the top of `app.css` for the full palette.
 
+**Responsive breakpoints (`app.css`, bottom "Responsive" section):** two
+tiers, tablet at `max-width: 900px` then phone at `max-width: 560px` (a
+phone always matches both — the 560px rules only add to or override the
+900px ones, never replace the whole approach). 900px turns the sidebar
+into a wrapping horizontal top bar; that's as far as tablet needs to go.
+560px is for what only breaks once the viewport itself gets phone-narrow:
+nav items shrink further so a full tool list wraps to two rows instead of
+three or four, `--gutter`/card padding/stat-card padding all tighten,
+table cells get denser (no attempt to reflow a wide table into cards —
+`.table-wrap`'s existing horizontal scroll is the mobile answer for
+Reports'/Bill Splitting's many-column tables, since a card layout would
+need its own per-table column-priority rules), dialogs get tighter
+padding, and a wrapped row of buttons (`.card-row .btn`) goes full-width
+so each is an easy tap target instead of a cramped half-row. **Gotcha:**
+Bank Import's column-mapping grid (`bank.js`) used to be a `.card-grid`
+with an inline `style="grid-template-columns: repeat(3, 1fr)"` overriding
+the class's own auto-fit, specifically so 3 related fields (Date/Payee/
+Amount, then the 3 optional ones) stayed grouped together while a desktop
+window narrows, instead of the auto-fit's usual wrap-to-2-then-1. An
+inline style can't be touched by a later, more specific selector, so it
+would have stayed 3-up (each select ~100px wide, unusable) even on a
+phone. Moved into a real class, `.map-grid-3` (3 columns by default,
+collapses to `1fr` inside the phone breakpoint) so the desktop grouping
+behavior is preserved while phones still get one field per row. Any
+future page-specific grid override should be a class for the same reason
+— an inline style is invisible to every other breakpoint.
+
 ## Deploy
 
 `web/` is published as-is to GitHub Pages by `.github/workflows/pages.yml`

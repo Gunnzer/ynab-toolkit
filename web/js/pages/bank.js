@@ -102,9 +102,12 @@ export function bankImportPage(app) {
   // Two explicit 3-column rows (not the general auto-fit card-grid, which
   // would wrap to 2 or 1 per row on a narrower window) - the required
   // fields together, and the three optional ones together, at explicit
-  // user request.
-  const mapHost = el("div", { class: "card-grid", style: "grid-template-columns: repeat(3, 1fr)" });
-  const optionalMapHost = el("div", { class: "card-grid", style: "grid-template-columns: repeat(3, 1fr)" });
+  // user request. The fixed 3-up count is a desktop-window-narrowing
+  // concern, not a phone one - .map-grid-3 carries the 3-column rule in
+  // app.css instead of inline, so the phone breakpoint there can drop it
+  // back to one column without three squeezed-to-illegible selects.
+  const mapHost = el("div", { class: "card-grid map-grid-3" });
+  const optionalMapHost = el("div", { class: "card-grid map-grid-3" });
   const optionsHost = el("div", { class: "stack" });
 
   const COLUMN_FIELDS = [
