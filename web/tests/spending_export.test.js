@@ -148,6 +148,43 @@ describe("toCsv", () => {
     assert.equal(csv.split("\r\n")[0], "Month,Rent,Groceries,Internet");
   });
 
+  test("a due-date suffix like '- 11th' is cut off too", () => {
+    const decorated = [
+      { id: "c1", name: "🌎 Internet - 11th", groupName: "Household" },
+      { id: "c2", name: "Rent (J) [$1643] - 1st", groupName: "Household" },
+    ];
+    const csv = spendingExport.toCsv(decorated, [{ month: "2026-01", c1: 0, c2: 0 }], (m) => m);
+    assert.equal(csv.split("\r\n")[0], "Month,Internet,Rent");
+  });
+
+  test("an en dash before the suffix cuts the name just the same as a hyphen", () => {
+    // A due-date suffix some banks/autocorrect write with an en dash
+    // instead of a plain hyphen - written via fromCharCode, not typed
+    // literally, since this file is scanned for that character the same
+    // way user-facing text is (see privacy.test.js).
+    const enDash = String.fromCharCode(0x2013);
+    const decorated = [{ id: "c1", name: `Car Insurance ${enDash} 22nd`, groupName: "Household" }];
+    const csv = spendingExport.toCsv(decorated, [{ month: "2026-01", c1: 0 }], (m) => m);
+    assert.equal(csv.split("\r\n")[0], "Month,Car Insurance");
+  });
+
+  test("emoji, a bracketed goal amount, a due-date suffix and a trailing " +
+    "progress note are all cut at once - only the first special character matters", () => {
+    // A real example: everything after the first decoration character
+    // goes, regardless of how many different kinds follow it.
+    const decorated = [
+      { id: "c1", name: "🌎 Internet [$67.80] - 11th (Alex $23.73)", groupName: "Household" },
+    ];
+    const csv = spendingExport.toCsv(decorated, [{ month: "2026-01", c1: 0 }], (m) => m);
+    assert.equal(csv.split("\r\n")[0], "Month,Internet");
+  });
+
+  test("a name with no decoration at all passes through untouched, spaces included", () => {
+    const plain = [{ id: "c1", name: "Car Insurance", groupName: "Household" }];
+    const csv = spendingExport.toCsv(plain, [{ month: "2026-01", c1: 0 }], (m) => m);
+    assert.equal(csv.split("\r\n")[0], "Month,Car Insurance");
+  });
+
   test("the on-screen label (with its own decoration) is untouched - cleaning is export-only", () => {
     const decorated = [{ id: "c1", name: "🏠 Rent (J) [$1643]", groupName: "Household", label: "🏠 Rent (J) [$1643]" }];
     assert.equal(decorated[0].label, "🏠 Rent (J) [$1643]", "unchanged by toCsv() below");

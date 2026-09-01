@@ -105,29 +105,42 @@ function escapeCsv(value) {
   return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
+// A "special character" marks the end of the actual category name and the
+// start of decoration - the shape people use in practice is emoji, then
+// the word(s) to keep, then a special character, then anything else: an
+// account tag in parens ("(J)"), a goal amount in brackets ("[$1643]"), a
+// due-date suffix ("- 11th"), a per-person progress note
+// ("(Alex $23.73)"), or any combination/order of those. Cutting at the
+// first one handles all of them at once, rather than pattern-matching
+// each decoration style on its own. The dash characters below are an en
+// dash and an em dash, written as unicode escapes rather than typed
+// literally - this file is scanned for those the same as user-facing
+// text, see privacy.test.js.
+const EN_DASH = String.fromCharCode(0x2013);
+const EM_DASH = String.fromCharCode(0x2014);
+const DECORATION_START = new RegExp(`[([\\-${EN_DASH}${EM_DASH}]`);
+
 /**
- * Strips the decoration people often put on a YNAB category name -
- * emoji, an account tag in parens (e.g. "(J)"), a goal amount in
- * brackets (e.g. "[$1643]") - down to the plain name a spreadsheet
- * header should read. Only used for the exported column headers, not the
- * on-screen preview table: on screen you are looking at your own budget
- * and the decoration is meaningful there, but a tracker you paste this
- * into just wants "Rent", not "🏠 Rent (J) [$1643]".
+ * Cuts a YNAB category name down to just the word(s) before its first
+ * decoration character (see DECORATION_START), after stripping any
+ * leading emoji - the plain name a spreadsheet header should read. Only
+ * used for the exported column headers, not the on-screen preview table:
+ * on screen you are looking at your own budget and the decoration is
+ * meaningful there, but a tracker you paste this into just wants
+ * "Internet", not "(globe emoji) Internet [$67.80] - 11th (Alex $23.73)".
  */
 function cleanLabel(text) {
-  return String(text || "")
-    .replace(/\p{Extended_Pictographic}/gu, "")
-    .replace(/\(.*?\)/g, "")
-    .replace(/\[.*?\]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  const withoutEmoji = String(text || "").replace(/\p{Extended_Pictographic}/gu, "");
+  const cut = withoutEmoji.search(DECORATION_START);
+  const kept = cut === -1 ? withoutEmoji : withoutEmoji.slice(0, cut);
+  return kept.replace(/\s+/g, " ").trim();
 }
 
 /**
  * A horizontal CSV: Month, then one column per category, cleaned down to
  * a plain name (see cleanLabel) - re-disambiguated by group name if two
- * categories' names collide only once the decoration is stripped off,
- * the same way ownedCategories() disambiguates its own on-screen label.
+ * categories' names collide only once the decoration is cut off, the
+ * same way ownedCategories() disambiguates its own on-screen label.
  * `monthLabelFor` formats the month cell (defaults to the raw "YYYY-MM"
  * key); the page passes a friendlier "March 2026" formatter. A $0 cell is
  * left blank rather than printed as "0.00" - the column itself still
