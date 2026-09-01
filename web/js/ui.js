@@ -45,6 +45,9 @@ const ICONS = {
   upload:
     '<path d="M12 15.5V4"/><path d="m8 8 4-4 4 4"/>' +
     '<path d="M4.5 15v3.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V15"/>',
+  download:
+    '<path d="M12 4v11.5"/><path d="m8 11.5 4 4 4-4"/>' +
+    '<path d="M4.5 15v3.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V15"/>',
   info:
     '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/>' +
     '<circle cx="12" cy="7.75" r=".9" fill="currentColor" stroke="none"/>',

@@ -9,6 +9,7 @@ import { setupPage } from "./pages/setup.js";
 import { budgetPage } from "./pages/budget.js";
 import { classicBudgetPage } from "./pages/classicbudget.js";
 import { reportsPage } from "./pages/reports.js";
+import { spendingExportPage } from "./pages/spendingexport.js";
 import { splitSheetPage } from "./pages/splitsheet.js";
 import { sharedExpensesPage } from "./pages/shared.js";
 import { autoAssignPage } from "./pages/autoassign.js";
@@ -46,6 +47,14 @@ export const PAGES = [
     build: reportsPage,
     blurb: "Monthly spending from your history, filtered to one person and " +
       "saved so the same report is one click.",
+    group: "info", groupLabel: "YNAB Info & Reporting",
+  },
+  {
+    id: "spendingexport", title: "Spending Export", icon: "download",
+    key: "spendingExport", build: spendingExportPage,
+    blurb: "Export one person's spending as a horizontal spreadsheet: one " +
+      "row per month, one column per category, $0 filled in for a month " +
+      "with no activity.",
     group: "info", groupLabel: "YNAB Info & Reporting",
   },
   {

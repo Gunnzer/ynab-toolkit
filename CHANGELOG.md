@@ -9,6 +9,13 @@ Maintained going forward: add a new dated entry for each push, in this same
 style (feature/fix name and files, then bullets on what changed and why),
 before or as part of the push itself.
 
+## 2026-08-31
+
+**New tool: Spending Export** (`pages/spendingexport.js`, `tools/spending_export.js`, `main.js`, `ui.js`, `CLAUDE.md`, `spending_export.test.js`)
+* Added "Spending Export": one person's spending laid out as a horizontal spreadsheet - one row per month, one column per category they own, over a chosen date range.
+* Every category that person currently owns becomes a column automatically (no manual list to maintain), amounts are actual spending activity, and a category with no activity that month shows blank rather than "$0.00" - the column still always appears, so every row lines up the same way.
+* Save CSV and Copy (for pasting straight into a spreadsheet) both clean up a category's exported column header - emoji, an account tag in parens like "(J)", a goal amount in brackets like "[$1643]" - down to a plain name. The on-screen table still shows a category's real, undecorated YNAB name.
+
 ## 2026-08-29
 
 **Mobile-responsive layout** (`app.css`, `pages/bank.js`, `CLAUDE.md`)
