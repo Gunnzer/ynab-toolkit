@@ -148,6 +148,19 @@ describe("toCsv", () => {
     assert.equal(csv.split("\r\n")[0], "Month,Rent,Groceries,Internet");
   });
 
+  test("an emoji built from a base character plus a variation selector leaves nothing stray behind", () => {
+    // Real bug report: "️ Dining out" - a leading box/circle glyph left
+    // over because the emoji is actually a plain character (a dumbbell,
+    // here) plus an invisible U+FE0F "render this as emoji" selector, and
+    // \p{Extended_Pictographic} alone only strips the base character.
+    const dumbbell = String.fromCodePoint(0x1F3CB) + String.fromCharCode(0xFE0F);
+    const decorated = [
+      { id: "c1", name: `${dumbbell} Healthcare / Gym Membership`, groupName: "Household" },
+    ];
+    const csv = spendingExport.toCsv(decorated, [{ month: "2026-01", c1: 0 }], (m) => m);
+    assert.equal(csv.split("\r\n")[0], "Month,Healthcare / Gym Membership");
+  });
+
   test("a due-date suffix like '- 11th' is cut off too", () => {
     const decorated = [
       { id: "c1", name: "🌎 Internet - 11th", groupName: "Household" },

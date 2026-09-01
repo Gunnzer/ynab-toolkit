@@ -129,8 +129,21 @@ const DECORATION_START = new RegExp(`[([\\-${EN_DASH}${EM_DASH}]`);
  * meaningful there, but a tracker you paste this into just wants
  * "Internet", not "(globe emoji) Internet [$67.80] - 11th (Alex $23.73)".
  */
+// \p{Extended_Pictographic} alone leaves stray marks behind for a lot of
+// real-world emoji: many are actually a plain text character (like a
+// dumbbell or a heart) plus an invisible "render this as emoji" variation
+// selector (U+FE0F) riding along next to it, and \p{Extended_Pictographic}
+// only matches the base character - the selector survives with nothing
+// left to modify, and shows up as a stray box/circle glyph instead of
+// disappearing (confirmed live: "️ Dining out" is exactly what a
+// gym/dumbbell-style emoji plus its own name leaves behind). Skin-tone
+// modifiers and the zero-width joiner that stitches a multi-part emoji
+// together (e.g. a family emoji) have the same problem, so all three ride
+// along with the emoji strip.
+const EMOJI = /[\p{Extended_Pictographic}\u{FE0E}\u{FE0F}\u{200D}\u{1F3FB}-\u{1F3FF}]/gu;
+
 function cleanLabel(text) {
-  const withoutEmoji = String(text || "").replace(/\p{Extended_Pictographic}/gu, "");
+  const withoutEmoji = String(text || "").replace(EMOJI, "");
   const cut = withoutEmoji.search(DECORATION_START);
   const kept = cut === -1 ? withoutEmoji : withoutEmoji.slice(0, cut);
   return kept.replace(/\s+/g, " ").trim();

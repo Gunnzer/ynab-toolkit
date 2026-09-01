@@ -16,6 +16,7 @@ before or as part of the push itself.
 * Every category that person currently owns becomes a column automatically (no manual list to maintain), amounts are actual spending activity, and a category with no activity that month shows blank rather than "$0.00" - the column still always appears, so every row lines up the same way.
 * Save CSV and Copy (for pasting straight into a spreadsheet) both clean up a category's exported column header: after any emoji, the name is cut at its first special character, so an account tag in parens, a goal amount in brackets, a due-date suffix, or any combination of those all come off in one pass down to a plain name. The on-screen table still shows a category's real, undecorated YNAB name.
 * Also replaced every em dash in `CLAUDE.md` and this changelog with a plain hyphen, matching the app source's own no-em-dash rule.
+* Fixed a real bug: some emoji are a plain character plus an invisible "render as emoji" marker riding along next to it, and only stripping the character left the marker behind as a stray box/circle glyph in the exported header (e.g. a gym/dumbbell-style emoji before "Dining out"). Now stripped along with the emoji itself.
 
 ## 2026-08-29
 
