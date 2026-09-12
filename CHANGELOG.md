@@ -9,6 +9,17 @@ Maintained going forward: add a new dated entry for each push, in this same
 style (feature/fix name and files, then bullets on what changed and why),
 before or as part of the push itself.
 
+## 2026-09-12
+
+**Fixed: Shared Expenses' Undo dialog defaulted to "restore everything"** (`pages/shared.js`, `CLAUDE.md`)
+* Real bug, reported live: every backed-up split showed up already ticked in the Undo dialog, contradicting its own "tick the ones to restore" hint. Opening it meaning to undo one transaction silently restored every other pending one too - which, for backdated transactions, is exactly what can shift the current month's Ready to Assign.
+* Rows now start unticked. A "select all" checkbox in the header still restores everything in one click, but only when you actually click it.
+* The list is also newest-first and grouped under a date heading, instead of whatever order the splits happened to be applied in - a growing list was hard to scan for the one or two you actually meant to undo.
+
+**Fixed: a scroll table's scrollbar visually overlapped its own header row** (`app.css`, `CLAUDE.md`)
+* Reported live on Bank Import's Preview table, but the fix applies to every table using the shared `.scroll-table` class (Reports, Bill Splitting, Budget, Duplicates, Shared Expenses, and now Bank Import) - the vertical scrollbar spans the whole scrolling box, header included, so at the top of the list the thumb sat right alongside the header instead of only alongside the data rows.
+* Chromium/WebKit browsers now reserve the header's own height out of the scrollbar track, so the thumb stays confined to the row area. No effect in Firefox, which has no equivalent styling hook - it keeps its previous, unaffected scrollbar there.
+
 ## 2026-08-31
 
 **New tool: Spending Export** (`pages/spendingexport.js`, `tools/spending_export.js`, `main.js`, `ui.js`, `CLAUDE.md`, `spending_export.test.js`)

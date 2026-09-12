@@ -964,6 +964,19 @@ select {
    since by then it was no longer specific to one page or one "preview". */
 .scroll-table { max-height: 65vh; overflow-y: auto; }
 
+/* The scrollbar belongs to .scroll-table itself, which contains the
+   sticky header as well as the rows - so its track naturally spans the
+   header's own height too, and at scrollTop 0 the thumb sits right
+   alongside the header row instead of only alongside the data beneath
+   it. Chromium/WebKit let a scrollbar-track carry its own margin, which
+   is enough to visually reserve the header's height (~40px, matching
+   th's padding/font-size everywhere in this file) so the track - and the
+   thumb - only ever run alongside the actual rows. Firefox has no
+   equivalent scrollbar-track pseudo-element, so this is a Chromium-only
+   improvement rather than a cross-browser fix; the plain
+   `overflow-y: auto` above still works everywhere regardless. */
+.scroll-table::-webkit-scrollbar-track { margin-top: 40px; }
+
 table { border-collapse: collapse; width: 100%; font-size: 14px; }
 th {
   position: sticky;

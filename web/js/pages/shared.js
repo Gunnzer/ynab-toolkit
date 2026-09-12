@@ -4,7 +4,7 @@ import { fmt } from "../money.js";
 import * as shared from "../tools/shared_expenses.js";
 import {
   button, card, categoryPicker, clear, confirmDialog, customDialog,
-  el, emptyRow, hint, logPane, pageHeading, sectionTitle, table,
+  dateLabel, el, emptyRow, hint, logPane, pageHeading, sectionTitle, table,
 } from "../ui.js";
 
 const LOG_EMPTY =
@@ -608,30 +608,64 @@ export function sharedExpensesPage(app) {
     const stored = backups();
     if (!stored.length) return;
 
+    // Newest first, grouped under a date heading - backups pile up in
+    // whatever order they happened to be applied (oldest-applied first,
+    // since applySplits() processes a preview sorted that way), which
+    // makes a growing list hard to scan for the one or two you actually
+    // meant to undo. A copy, not stored itself - stored's own order still
+    // feeds saveBackups()/undoFromBackup() below, neither of which cares
+    // about order, only about matching ids.
+    const sorted = [...stored].sort((a, b) => b.date.localeCompare(a.date));
+
     const chosen = await customDialog("Undo splits", (body) => {
       body.append(hint(
         "These transactions were converted by this app and can be put back " +
         "to a single category. Tick the ones to restore."));
       const undoTable = table([
         { key: "check", label: "", className: "check" },
-        { key: "date", label: "Date" },
         { key: "payee", label: "Payee" },
         { key: "amount", label: "Amount", className: "num" },
       ]);
-      for (const record of stored) {
+      const boxes = [];
+      let lastDate = null;
+      for (const record of sorted) {
+        if (record.date !== lastDate) {
+          lastDate = record.date;
+          undoTable.tbody.append(el("tr", { class: "group-row" },
+            el("td", { colspan: String(undoTable.columns.length) },
+              dateLabel(record.date))));
+        }
         const box = el("input", { type: "checkbox" });
-        box.checked = true;
+        // Starts unticked, matching the hint above ("tick the ones to
+        // restore") - this reverts a real write to the budget, so it
+        // should be opt-in, never "everything, unless you notice you
+        // need to uncheck it." Defaulting to checked let a single
+        // intended undo silently restore every other pending backup too.
+        box.checked = false;
+        boxes.push(box);
         undoTable.tbody.append(el("tr", {},
           el("td", { class: "check" }, box),
-          el("td", { text: record.date }),
           el("td", { text: record.payeeName || "(no payee)" }),
           el("td", { class: "num", text: fmt(record.amount) })));
       }
+      // A deliberate "select all" in the check column's own header, same
+      // shortcut pattern as Reports' category picker - restoring
+      // everything is still one click, just one you have to actually
+      // take rather than one that happens by not noticing.
+      const selectAllBox = el("input", { type: "checkbox" });
+      selectAllBox.addEventListener("change", () => {
+        for (const box of boxes) box.checked = selectAllBox.checked;
+      });
+      undoTable.querySelectorAll("th")[
+        undoTable.columns.findIndex((c) => c.key === "check")
+      ].append(selectAllBox);
       body.append(undoTable);
       return {
+        // group-row heading cells carry no <input>, so this still lines
+        // up one-to-one with `sorted` and with `boxes` above.
         value: () => {
           const boxes = [...undoTable.tbody.querySelectorAll("input")];
-          return stored.filter((_r, index) => boxes[index]?.checked);
+          return sorted.filter((_r, index) => boxes[index]?.checked);
         },
       };
     }, { confirmText: "Restore selected" });
