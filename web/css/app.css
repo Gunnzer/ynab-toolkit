@@ -521,6 +521,11 @@ h1, h2, h3 { margin: 0; font-weight: 600; line-height: 1.3; }
   line-height: 1.5;
 }
 .rta-cause .pill { justify-self: start; }
+.rta-ledger-what { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rta-ledger-detail { color: var(--faint); font-size: 12px; }
+tr.rta-cross td { background: var(--error-soft); }
+/* Beats tr.group-row's own zero padding, meant for Budget's collapsible rows. */
+table tr.group-row.rta-ledger-group td:first-child { padding: 8px 14px; }
 
 @media (max-width: 560px) {
   .rta-finding { grid-template-columns: auto 1fr; }

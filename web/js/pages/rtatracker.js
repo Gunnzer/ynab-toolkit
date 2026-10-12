@@ -144,8 +144,7 @@ export function rtaTrackerPage(app) {
       { key: "other", label: "Other", className: "num" },
       { key: "ynab", label: "Ready to Assign", className: "num" },
       { key: "change", label: "Change", className: "num" },
-      { key: "status", label: "Check" },
-      { key: "details", label: "" });
+      { key: "status", label: "Check" });
     const wrap = table(columns);
     wrap.classList.add("scroll-table");
     return wrap;
@@ -244,7 +243,12 @@ export function rtaTrackerPage(app) {
         : row.month > thisMonth ? pill("Future", "muted")
         : pill("OK", "muted");
       const cells = [
-        el("td", { text: monthLabel(row.month) }),
+        el("td", {}, (() => {
+          const link = button(monthLabel(row.month), { small: true, onClick: () => showMonth(row) });
+          link.classList.add("btn-link");
+          link.title = "See this month line by line";
+          return link;
+        })()),
         el("td", { class: "num", text: fmt(row.income) }),
         el("td", { class: "num", text: fmt(row.assigned) }),
       ];
@@ -255,12 +259,7 @@ export function rtaTrackerPage(app) {
         el("td", { class: "num", text: row.other ? signed(row.other) : "-" }),
         el("td", { class: `num ${row.negative ? "is-error" : ""}`, text: fmt(row.ynab) }),
         el("td", { class: "num", text: row.change === null ? "-" : signed(row.change) }),
-        el("td", {}, status),
-        el("td", {}, (() => {
-          const link = button("Details", { small: true, onClick: () => showMonth(row) });
-          link.classList.add("btn-link");
-          return link;
-        })()));
+        el("td", {}, status));
       reconTable.tbody.append(el("tr", {}, ...cells));
     }
   }
@@ -268,12 +267,20 @@ export function rtaTrackerPage(app) {
   // YNAB's month detail does not reliably carry each category's group
   // name, which explainMonth() needs to leave out the internal Ready to
   // Assign category - filled in here from the already-loaded groups.
+  // Also puts them in budget order (group, then category, as on YNAB's
+  // own budget screen), which is the order the ledger lists assignments in.
   function withGroupNames(categories) {
     const groupById = new Map((state.categoryGroups || []).map((g) => [g.id, g.name]));
-    return (categories || []).map((c) => ({
-      ...c,
-      category_group_name: c.category_group_name || groupById.get(c.category_group_id) || "",
-    }));
+    const order = new Map();
+    for (const group of state.categoryGroups || []) {
+      for (const category of group.categories || []) order.set(category.id, order.size);
+    }
+    return (categories || [])
+      .map((c) => ({
+        ...c,
+        category_group_name: c.category_group_name || groupById.get(c.category_group_id) || "",
+      }))
+      .sort((a, b) => (order.get(a.id) ?? Infinity) - (order.get(b.id) ?? Infinity));
   }
 
   function inMonth(list, month) {
@@ -288,16 +295,57 @@ export function rtaTrackerPage(app) {
       state.month(row.month),
       previous ? state.month(previous.month) : null,
     ]);
-    return rta.explainMonth({
+    const categories = withGroupNames(current.data.categories);
+    const inflows = inMonth(rebuilt.inflows, row.month);
+    const explanation = rta.explainMonth({
       row,
       previous,
       deductsLater: rebuilt.deductsLater,
-      categories: withGroupNames(current.data.categories),
+      categories,
       previousCategories: withGroupNames(before?.data.categories),
-      inflows: inMonth(rebuilt.inflows, row.month),
+      inflows,
       previousInflows: previous ? inMonth(rebuilt.inflows, previous.month) : [],
       uncategorized: inMonth(rebuilt.uncategorized, row.month),
     });
+    explanation.ledger = rta.buildLedger({
+      row, previous, deductsLater: rebuilt.deductsLater, categories, inflows,
+      overspent: explanation.overspent,
+    });
+    return explanation;
+  }
+
+  function ledgerTable(ledger) {
+    const wrap = table([
+      { key: "date", label: "Date" },
+      { key: "what", label: "What" },
+      { key: "amount", label: "Amount", className: "num" },
+      { key: "balance", label: "Ready to Assign", className: "num" },
+    ]);
+    wrap.classList.add("scroll-table");
+    let section = null;
+    const headings = {
+      income: "Income, by date",
+      assigned: "Assigned, in budget order (YNAB does not record when)",
+    };
+    for (const line of ledger.lines) {
+      if (headings[line.kind] && section !== line.kind) {
+        section = line.kind;
+        wrap.tbody.append(el("tr", { class: "group-row rta-ledger-group" },
+          el("td", { colspan: "4", text: headings[line.kind] })));
+      }
+      const detail = [line.detail, line.accountId ? state.accountName(line.accountId) : ""]
+        .filter(Boolean).join(" · ");
+      const flag = line.wentNegative ? pill("Went negative here", "error")
+        : line.recovered ? pill("Back above zero", "ok") : null;
+      wrap.tbody.append(el("tr", { class: line.wentNegative ? "rta-cross" : "" },
+        el("td", { text: line.date ? dateLabel(line.date) : "" }),
+        el("td", {},
+          el("div", { class: "rta-ledger-what" }, el("span", { text: line.label }), flag),
+          detail ? el("div", { class: "rta-ledger-detail", text: detail }) : null),
+        el("td", { class: "num", text: signed(line.amount) }),
+        el("td", { class: `num ${line.balance < 0 ? "is-error" : ""}`, text: fmt(line.balance) })));
+    }
+    return wrap;
   }
 
   function causeList(explanation) {
@@ -336,8 +384,12 @@ export function rtaTrackerPage(app) {
       causesCard.append(slot);
       try {
         const explanation = await explain(row);
+        const lineByLine = button("See it line by line", { small: true, onClick: () => showMonth(row) });
+        lineByLine.classList.add("btn-link");
         slot.replaceChildren(
-          el("div", { class: "rta-finding-month", text: monthLabel(row.month) }),
+          el("div", { class: "card-row" },
+            el("span", { class: "rta-finding-month", text: monthLabel(row.month) }),
+            lineByLine),
           hint(explanation.headline),
           causeList(explanation));
       } catch (error) {
@@ -349,9 +401,7 @@ export function rtaTrackerPage(app) {
   }
 
   async function showMonth(row) {
-    const inflows = inMonth(rebuilt.inflows, row.month);
     const uncategorized = inMonth(rebuilt.uncategorized, row.month);
-    const previous = rebuilt.rows[rebuilt.rows.indexOf(row) - 1];
     const explanation = await app.run(() => explain(row), { log });
 
     customDialog(monthLabel(row.month), (body) => {
@@ -359,42 +409,22 @@ export function rtaTrackerPage(app) {
         body.append(sectionTitle("What moved it"), hint(explanation.headline),
           causeList(explanation));
       }
-      const lines = [
-        ["Left over from last month", previous ? fmt(previous.ynab) : "-"],
-        ["Income (YNAB)", fmt(row.income)],
-        ["Income (from transactions)", fmt(row.transactionIncome)],
-        ["Assigned this month", fmt(-row.assigned)],
-      ];
-      if (rebuilt.deductsLater) lines.push(["Assigned in later months", fmt(-row.assignedLater)]);
-      lines.push(
-        ["Other (overspending, etc.)", row.other ? signed(row.other) : "-"],
-        ["Ready to Assign (YNAB)", fmt(row.ynab)]);
-      const breakdown = table([
-        { key: "what", label: "Breakdown" },
-        { key: "amount", label: "Amount", className: "num" },
-      ]);
-      for (const [what, amount] of lines) {
-        breakdown.tbody.append(el("tr", {},
-          el("td", { text: what }), el("td", { class: "num", text: amount })));
+      if (explanation) {
+        const ledger = explanation.ledger;
+        const crossing = ledger.lines.find((line) => line.wentNegative);
+        body.append(
+          sectionTitle("Line by line"),
+          hint(crossing
+            ? `Ran out at "${crossing.label}" - the running total drops to ` +
+              `${fmt(crossing.balance)} on that line.`
+            : ledger.lines[0]?.balance < 0
+              ? "Already negative going into this month."
+              : "Never drops below zero within this month."),
+          ledgerTable(ledger));
+      } else {
+        body.append(hint(`Ready to Assign: ${fmt(row.ynab)}. ` +
+          "The month's details could not be loaded, so there is no line-by-line view."));
       }
-      body.append(breakdown);
-
-      body.append(sectionTitle(`Income to Ready to Assign (${inflows.length})`));
-      const incomeTable = table([
-        { key: "date", label: "Date" },
-        { key: "payee", label: "Payee" },
-        { key: "account", label: "Account" },
-        { key: "amount", label: "Amount", className: "num" },
-      ]);
-      if (!inflows.length) emptyRow(incomeTable, "No income this month.");
-      for (const item of inflows) {
-        incomeTable.tbody.append(el("tr", {},
-          el("td", { text: dateLabel(item.date) }),
-          el("td", { text: item.payee + (item.splitLeg ? " (split)" : "") }),
-          el("td", { text: state.accountName(item.accountId) }),
-          el("td", { class: "num", text: fmt(item.amount) })));
-      }
-      body.append(incomeTable);
 
       if (uncategorized.length) {
         body.append(

@@ -11,6 +11,10 @@ before or as part of the push itself.
 
 ## 2026-10-12
 
+**RTA Tracker: month-by-month ledger, line by line** (`pages/rtatracker.js`, `tools/rta_tracker.js`, `app.css`, `tests/rta_tracker.test.js`, `CLAUDE.md`)
+* Click any month in the reconstruction (or "See it line by line" on the causes card) to see it as a running ledger: left over, overspending, each income transaction by date, then each category's assigned amount, with Ready to Assign after every line and the exact line where it went negative highlighted.
+* YNAB does not record when money was assigned, so assignments are listed after the month's income in budget order - the highlighted line is the assignment that no longer fit. The ledger always ends on YNAB's own figure, with a labelled line for anything that does not otherwise add up.
+
 **RTA Tracker: what made Ready to Assign go negative** (`pages/rtatracker.js`, `tools/rta_tracker.js`, `app.css`, `tests/rta_tracker.test.js`, `CLAUDE.md`)
 * The reconstruction only said *that* Ready to Assign went negative. A new "Why it went negative" card now names the causes for each month it happened (the three most recent automatically, any month from its Details dialog), compared with the month before:
   * which categories were assigned more,

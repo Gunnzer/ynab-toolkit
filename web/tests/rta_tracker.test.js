@@ -305,4 +305,62 @@ describe("rta tracker", () => {
     assert.match(assigned.text, /Largest amounts: Rent \$200\.00, Groceries \$150\.00/);
     assert.equal(result.causes.some((c) => c.kind === "income"), false);
   });
+
+  // ---------- line by line ----------
+
+  test("buildLedger runs a balance and marks the line where it ran out", () => {
+    const row = { income: 300000, assigned: 380000, other: -30000, ynab: -10000 };
+    const previous = { ynab: 100000 };
+    const { lines, matches } = rta.buildLedger({
+      row, previous,
+      categories: [
+        cat("rta", "Inflow: Ready to Assign", 0, 0, "Internal Master Category"),
+        cat("rent", "Rent", 200000), cat("food", "Groceries", 150000),
+        cat("fun", "Fun", 30000), cat("zero", "Unused", 0),
+      ],
+      inflows: [
+        { date: "2026-08-15", payee: "Payroll", amount: 150000 },
+        { date: "2026-08-01", payee: "Payroll", amount: 150000 },
+      ],
+      overspent: [{ name: "Groceries", balance: -30000 }],
+    });
+    assert.deepEqual(lines.map((l) => [l.kind, l.amount, l.balance]), [
+      ["start", 100000, 100000],
+      ["other", -30000, 70000],
+      ["income", 150000, 220000],
+      ["income", 150000, 370000],
+      ["assigned", -200000, 170000],
+      ["assigned", -150000, 20000],
+      ["assigned", -30000, -10000],
+    ]);
+    assert.equal(lines[2].date, "2026-08-01");
+    assert.match(lines[1].detail, /Groceries -\$30\.00/);
+    assert.deepEqual(lines.filter((l) => l.wentNegative).map((l) => l.label), ["Fun"]);
+    assert.equal(matches, true);
+  });
+
+  test("buildLedger adds reconciling lines so it always ends on YNAB's figure", () => {
+    const { lines, endBalance } = rta.buildLedger({
+      row: { income: 500000, assigned: 100000, other: 0, ynab: 350000 },
+      previous: { ynab: 0 },
+      categories: [cat("rent", "Rent", 100000)],
+      inflows: [{ date: "2026-08-01", payee: "Payroll", amount: 400000 }],
+    });
+    assert.deepEqual(lines.filter((l) => l.kind === "reconcile").map((l) => l.amount),
+      [100000, -50000]);
+    assert.equal(endBalance, 350000);
+  });
+
+  test("buildLedger flags a recovery and handles the deductsLater model", () => {
+    const { lines, endBalance } = rta.buildLedger({
+      row: { income: 100000, assigned: 50000, assignedLater: 20000, other: 0, ynab: 50000 },
+      previous: { ynab: -50000, assignedLater: 70000 },
+      deductsLater: true,
+      categories: [cat("rent", "Rent", 50000)],
+      inflows: [{ date: "2026-08-01", payee: "Payroll", amount: 100000 }],
+    });
+    assert.equal(endBalance, 50000);
+    assert.equal(lines.some((l) => l.kind === "reconcile"), false);
+    assert.equal(lines.find((l) => l.recovered).kind, "later");
+  });
 });

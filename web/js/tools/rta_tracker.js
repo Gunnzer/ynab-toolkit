@@ -523,6 +523,102 @@ export function explainMonth({
 }
 
 /**
+ * One month as a running ledger, line by line, ending exactly on YNAB's
+ * own figure: what was left over, then (YNAB applies it on the 1st)
+ * anything taken out for overspending, then each Ready to Assign inflow
+ * by date, then each category's assigned amount. Assigned amounts carry
+ * no date in YNAB, so they come after the month's income, in whatever
+ * order `categories` is given (the page passes budget order) - the line
+ * marked `wentNegative` is the assignment that no longer fit, not a
+ * moment in time. Reconciling lines are added wherever the parts do not
+ * add up to YNAB's own totals, so the last balance always matches.
+ */
+export function buildLedger({
+  row, previous, deductsLater = false, categories, inflows, overspent = [],
+}) {
+  const lines = [];
+  let balance = 0;
+  const add = (line) => {
+    const before = balance;
+    balance += line.amount;
+    lines.push({
+      date: "", detail: "", ...line, balance,
+      wentNegative: before >= 0 && balance < 0,
+      recovered: before < 0 && balance >= 0,
+    });
+  };
+
+  add({ kind: "start", label: "Left over from last month", amount: previous ? previous.ynab : 0 });
+  if (deductsLater && previous && previous.assignedLater) {
+    add({
+      kind: "later",
+      label: "Assigned to this month and later, already taken out last month",
+      amount: previous.assignedLater,
+    });
+  }
+
+  if (row.other) {
+    add({
+      kind: "other",
+      label: "Overspending / other",
+      detail: overspent.length
+        ? `Overspent last month: ${overspent.slice(0, 5)
+          .map((c) => `${c.name} ${money(c.balance)}`).join(", ")}` +
+          (overspent.length > 5 ? `, and ${overspent.length - 5} more` : "")
+        : "",
+      amount: row.other,
+    });
+  }
+
+  let incomeSeen = 0;
+  for (const inflow of [...(inflows || [])].sort((a, b) => a.date.localeCompare(b.date))) {
+    incomeSeen += inflow.amount;
+    add({
+      kind: "income", date: inflow.date, accountId: inflow.accountId,
+      label: inflow.payee || "(no payee)",
+      detail: inflow.splitLeg ? "Part of a split" : "",
+      amount: inflow.amount,
+    });
+  }
+  if (Math.abs(row.income - incomeSeen) >= 10) {
+    add({
+      kind: "reconcile",
+      label: "Income YNAB counted that is not in the loaded transactions",
+      amount: row.income - incomeSeen,
+    });
+  }
+
+  let assignedSeen = 0;
+  for (const category of assignable(categories)) {
+    if (!category.budgeted) continue;
+    assignedSeen += category.budgeted;
+    add({
+      kind: "assigned",
+      label: category.name,
+      detail: category.category_group_name || "",
+      amount: -category.budgeted,
+    });
+  }
+  if (Math.abs(row.assigned - assignedSeen) >= 10) {
+    add({
+      kind: "reconcile",
+      label: "Assigned in categories not listed (deleted or moved)",
+      amount: -(row.assigned - assignedSeen),
+    });
+  }
+
+  if (deductsLater && row.assignedLater) {
+    add({ kind: "later", label: "Already assigned in later months", amount: -row.assignedLater });
+  }
+
+  if (Math.abs(row.ynab - balance) >= 10) {
+    add({ kind: "reconcile", label: "Difference to YNAB's own figure", amount: row.ynab - balance });
+  }
+
+  return { lines, endBalance: balance, matches: Math.abs(row.ynab - balance) < 10 };
+}
+
+/**
  * Earliest recorded snapshot showing a negative Ready to Assign, if any.
  * The month view can only say which month went negative (assigned amounts
  * carry no date), so a snapshot is the closest thing to an actual moment.
