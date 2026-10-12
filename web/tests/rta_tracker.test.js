@@ -111,4 +111,121 @@ describe("rta tracker", () => {
     assert.equal(snapshot.flaggedSum, 50000);
     assert.match(snapshot.summary, /Fully explained/);
   });
+
+  // ---------- reconstruction ----------
+
+  const groups = [
+    {
+      name: "Internal Master Category",
+      categories: [
+        { id: "rta", name: "Inflow: Ready to Assign" },
+        { id: "uncat", name: "Uncategorized" },
+      ],
+    },
+    { name: "Bills", categories: [{ id: "rent", name: "Rent" }] },
+  ];
+
+  test("readyToAssignCategoryIds finds the internal inflow category only", () => {
+    assert.deepEqual([...rta.readyToAssignCategoryIds(groups)], ["rta"]);
+    assert.deepEqual([...rta.readyToAssignCategoryIds([
+      { name: "Internal Master Category", categories: [{ id: "old", name: "To be Budgeted" }] },
+    ])], ["old"]);
+  });
+
+  test("readyToAssignInflows reads split legs and skips deleted", () => {
+    const inflows = rta.readyToAssignInflows([
+      { id: "a", date: "2026-02-03", category_id: "rta", amount: 1000, payee_name: "Pay" },
+      {
+        id: "b", date: "2026-01-20", category_id: null, amount: 3000,
+        subtransactions: [
+          { category_id: "rta", amount: 2000 },
+          { category_id: "rent", amount: 1000 },
+        ],
+      },
+      { id: "c", date: "2026-02-04", category_id: "rta", amount: 5, deleted: true },
+    ], new Set(["rta"]));
+    assert.deepEqual(inflows.map((i) => [i.id, i.amount, i.splitLeg]),
+      [["b", 2000, true], ["a", 1000, false]]);
+  });
+
+  const months = [
+    { month: "2026-03-01", income: 1000, budgeted: 2000, to_be_budgeted: -500, deleted: false },
+    { month: "2026-01-01", income: 3000, budgeted: 2000, to_be_budgeted: 1000, deleted: false },
+    { month: "2026-02-01", income: 1000, budgeted: 1500, to_be_budgeted: 500, deleted: false },
+    { month: "2026-04-01", income: 2000, budgeted: 0, to_be_budgeted: 1000, deleted: false },
+  ];
+  const transactions = [
+    { id: "p1", date: "2026-01-15", category_id: "rta", amount: 3000 },
+    { id: "p2", date: "2026-02-15", category_id: "rta", amount: 1000 },
+    { id: "p3", date: "2026-03-15", category_id: "rta", amount: 1000 },
+    // April's income is missing from transactions: an income mismatch.
+    { id: "u1", date: "2026-03-20", category_id: null, amount: 700 },
+  ];
+
+  test("reconstruct finds when Ready to Assign went negative and recovered", () => {
+    const result = rta.reconstruct({ months, transactions, rtaIds: new Set(["rta"]) });
+    assert.equal(result.deductsLater, false);
+    assert.deepEqual(result.rows.map((r) => r.month),
+      ["2026-01", "2026-02", "2026-03", "2026-04"]);
+    assert.deepEqual(result.rows.map((r) => r.rebuilt), [1000, 500, -500, 1500]);
+    assert.equal(result.firstNegative.month, "2026-03");
+    assert.equal(result.rows[2].wentNegative, true);
+    assert.equal(result.rows[3].recovered, true);
+    assert.deepEqual(result.stretches, [{ from: "2026-03", to: "2026-03", lowest: -500 }]);
+    assert.equal(result.lowest.month, "2026-03");
+    assert.equal(result.currentlyNegative, false);
+  });
+
+  test("reconstruct reports unexplained moves as other, per month", () => {
+    const result = rta.reconstruct({ months, transactions, rtaIds: new Set(["rta"]) });
+    const april = result.rows[3];
+    assert.equal(april.otherTotal, -500);
+    assert.equal(april.other, -500);
+    assert.deepEqual(result.rows.slice(0, 3).map((r) => r.other), [0, 0, 0]);
+  });
+
+  test("reconstruct audits income mismatches and uncategorized money", () => {
+    const result = rta.reconstruct({ months, transactions, rtaIds: new Set(["rta"]) });
+    const kinds = result.findings.map((f) => `${f.month}:${f.kind}`);
+    assert.deepEqual(kinds, [
+      "2026-03:negative", "2026-03:uncategorized", "2026-04:income", "2026-04:other",
+    ]);
+    assert.equal(result.rows[2].uncategorizedSum, 700);
+  });
+
+  test("reconstruct detects a budget whose figures deduct later assignments", () => {
+    const later = [
+      { month: "2026-01-01", income: 3000, budgeted: 1000, to_be_budgeted: 1500 },
+      { month: "2026-02-01", income: 0, budgeted: 500, to_be_budgeted: 1500 },
+    ];
+    const result = rta.reconstruct({ months: later, transactions: [], rtaIds: new Set() });
+    assert.equal(result.deductsLater, true);
+    assert.deepEqual(result.rows.map((r) => [r.assignedLater, r.rebuilt, r.other]),
+      [[500, 1500, 0], [0, 1500, 0]]);
+  });
+
+  test("an ongoing negative stretch is marked ongoing", () => {
+    const result = rta.reconstruct({
+      months: months.slice(0, 1).concat([
+        { month: "2026-02-01", income: 0, budgeted: 2000, to_be_budgeted: -1000 },
+      ]),
+      transactions: [],
+      rtaIds: new Set(),
+    });
+    assert.equal(result.currentlyNegative, true);
+    assert.equal(result.stretches[0].ongoing, true);
+  });
+
+  test("firstNegativeSnapshot and reconstructionCsv", () => {
+    assert.equal(rta.firstNegativeSnapshot([
+      { timestamp: 1, toBeBudgeted: 5 }, { timestamp: 2, toBeBudgeted: -5 },
+      { timestamp: 3, toBeBudgeted: -9 },
+    ]).timestamp, 2);
+    assert.equal(rta.firstNegativeSnapshot([]), null);
+
+    const result = rta.reconstruct({ months, transactions, rtaIds: new Set(["rta"]) });
+    const lines = rta.reconstructionCsv(result.rows).trim().split("\n");
+    assert.equal(lines.length, 5);
+    assert.equal(lines[3], "2026-03,1.00,1.00,2.00,0.00,-0.50,0.00,-0.50,-1.00,1,0.70");
+  });
 });

@@ -9,6 +9,8 @@
 // even though the transaction itself lives in a past month and never shows
 // up if you only look at the current month's own activity.
 
+import { fmt as money } from "../money.js";
+
 /** "YYYY-MM" for today, in the browser's local time. */
 export function currentMonthString(now = new Date()) {
   const year = now.getFullYear();
@@ -120,3 +122,256 @@ export function buildSnapshot({
     serverKnowledge,
   };
 }
+
+// ---------- reconstruction ----------
+//
+// Rebuilds Ready to Assign month by month from its parts: every inflow
+// categorized to "Inflow: Ready to Assign" so far, minus everything
+// assigned so far, and (depending on the budget, see deductsLater in
+// reconstruct()) minus whatever is already assigned in a later month.
+// Anything YNAB's own
+// figure still differs by after that is reported as "other" rather than
+// guessed at - cash overspending rolled into the next month is the usual
+// cause, and the API has no field that separates cash from credit
+// overspending, so it cannot be rebuilt exactly from here.
+
+/** "YYYY-MM-DD" (or "YYYY-MM") -> "YYYY-MM". */
+export function monthKey(date) {
+  return String(date || "").slice(0, 7);
+}
+
+/**
+ * Ids of the internal "Inflow: Ready to Assign" category (named "To be
+ * Budgeted" in older budgets). Looked up by name inside YNAB's internal
+ * group rather than hardcoded, since the id differs per budget.
+ */
+export function readyToAssignCategoryIds(categoryGroups) {
+  const ids = new Set();
+  for (const group of categoryGroups || []) {
+    if (group.name !== "Internal Master Category") continue;
+    for (const category of group.categories || []) {
+      if (/^(inflow:|to be budgeted)/i.test(category.name || "")) ids.add(category.id);
+    }
+  }
+  return ids;
+}
+
+/**
+ * Every transaction (or split leg) categorized to Ready to Assign, as
+ * flat `{ id, date, payee, accountId, amount, splitLeg }` entries. A split
+ * parent's own category_id is null, so its legs are read instead.
+ */
+export function readyToAssignInflows(transactions, rtaIds) {
+  const out = [];
+  for (const t of transactions || []) {
+    if (t.deleted) continue;
+    const legs = (t.subtransactions || []).filter((s) => !s.deleted);
+    if (legs.length) {
+      for (const leg of legs) {
+        if (!rtaIds.has(leg.category_id)) continue;
+        out.push({
+          id: t.id, date: t.date, payee: leg.payee_name || t.payee_name || "",
+          accountId: t.account_id, amount: leg.amount, splitLeg: true,
+        });
+      }
+    } else if (rtaIds.has(t.category_id)) {
+      out.push({
+        id: t.id, date: t.date, payee: t.payee_name || "",
+        accountId: t.account_id, amount: t.amount, splitLeg: false,
+      });
+    }
+  }
+  return out.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
+ * Transactions with no category at all, not a transfer and not a split
+ * parent. These never touch Ready to Assign - which is the problem when
+ * one is actually a paycheque nobody categorized yet.
+ */
+export function uncategorizedTransactions(transactions) {
+  return (transactions || []).filter((t) =>
+    !t.deleted && !t.transfer_account_id && t.category_id === null &&
+    !t.subtransactions?.some((s) => !s.deleted));
+}
+
+function sumByMonth(entries) {
+  const out = new Map();
+  for (const entry of entries) {
+    const key = monthKey(entry.date);
+    out.set(key, (out.get(key) || 0) + (entry.amount || 0));
+  }
+  return out;
+}
+
+/**
+ * The month-by-month rebuild. `months` is YNAB's /months summary list
+ * (`{ month, income, budgeted, to_be_budgeted, deleted }`); transactions
+ * are only used to cross-check YNAB's own income figure and to flag
+ * uncategorized money. Returns rows oldest first, plus the audit findings.
+ */
+export function reconstruct({ months, transactions, rtaIds }) {
+  const list = (months || [])
+    .filter((m) => !m.deleted)
+    .map((m) => ({ ...m, key: monthKey(m.month) }))
+    .sort((a, b) => a.key.localeCompare(b.key));
+
+  const inflows = readyToAssignInflows(transactions, rtaIds);
+  const txIncome = sumByMonth(inflows);
+  const uncategorized = uncategorizedTransactions(transactions);
+  const uncategorizedSum = sumByMonth(uncategorized);
+  const uncategorizedCount = new Map();
+  for (const t of uncategorized) {
+    const key = monthKey(t.date);
+    uncategorizedCount.set(key, (uncategorizedCount.get(key) || 0) + 1);
+  }
+
+  const totalAssigned = list.reduce((sum, m) => sum + (m.budgeted || 0), 0);
+
+  // Whether YNAB's per-month figure also subtracts money already assigned
+  // in later months is decided from the budget's own numbers, not assumed:
+  // whichever model leaves less unexplained across every month wins.
+  let income = 0;
+  let assigned = 0;
+  let missWithout = 0;
+  let missWith = 0;
+  for (const m of list) {
+    income += m.income || 0;
+    assigned += m.budgeted || 0;
+    const base = income - assigned;
+    missWithout += Math.abs((m.to_be_budgeted || 0) - base);
+    missWith += Math.abs((m.to_be_budgeted || 0) - (base - (totalAssigned - assigned)));
+  }
+  const deductsLater = missWith < missWithout;
+
+  let cumIncome = 0;
+  let cumAssigned = 0;
+  let previous = null;
+  const rows = [];
+
+  for (const m of list) {
+    cumIncome += m.income || 0;
+    cumAssigned += m.budgeted || 0;
+    const assignedLater = totalAssigned - cumAssigned;
+    const rebuilt = cumIncome - cumAssigned - (deductsLater ? assignedLater : 0);
+    const ynab = m.to_be_budgeted || 0;
+    const otherTotal = ynab - rebuilt;
+    const transactionIncome = txIncome.get(m.key) || 0;
+
+    const row = {
+      month: m.key,
+      income: m.income || 0,
+      transactionIncome,
+      incomeMatches: Math.abs(transactionIncome - (m.income || 0)) < 10,
+      assigned: m.budgeted || 0,
+      assignedLater,
+      rebuilt,
+      ynab,
+      otherTotal,
+      other: otherTotal - (previous ? previous.otherTotal : 0),
+      change: previous ? ynab - previous.ynab : null,
+      uncategorizedCount: uncategorizedCount.get(m.key) || 0,
+      uncategorizedSum: uncategorizedSum.get(m.key) || 0,
+      negative: ynab < 0,
+      wentNegative: ynab < 0 && (!previous || previous.ynab >= 0),
+      recovered: ynab >= 0 && Boolean(previous && previous.ynab < 0),
+    };
+    rows.push(row);
+    previous = row;
+  }
+
+  return { rows, inflows, uncategorized, deductsLater, ...summarise(rows) };
+}
+
+/** Negative stretches, the low point, and a plain-language audit list. */
+export function summarise(rows) {
+  const stretches = [];
+  let open = null;
+  for (const row of rows) {
+    if (row.negative && !open) open = { from: row.month, to: row.month, lowest: row.ynab };
+    if (row.negative && open) {
+      open.to = row.month;
+      open.lowest = Math.min(open.lowest, row.ynab);
+    }
+    if (!row.negative && open) {
+      stretches.push(open);
+      open = null;
+    }
+  }
+  if (open) stretches.push({ ...open, ongoing: true });
+
+  const lowest = rows.reduce(
+    (low, row) => (!low || row.ynab < low.ynab ? row : low), null);
+
+  const findings = [];
+  for (const row of rows) {
+    if (row.wentNegative) {
+      findings.push({
+        month: row.month, kind: "negative",
+        text: `Went negative (${money(row.ynab)}). Ready to Assign moved ` +
+          `${money(row.change ?? row.ynab)} this month: income ${money(row.income)}, ` +
+          `assigned ${money(row.assigned)}` +
+          (row.other ? `, other ${money(row.other)}` : "") + ".",
+      });
+    }
+    if (!row.incomeMatches) {
+      findings.push({
+        month: row.month, kind: "income",
+        text: `YNAB reports ${money(row.income)} of Ready to Assign income, but ` +
+          `the transactions categorized to it add up to ` +
+          `${money(row.transactionIncome)}. Refresh, or check for a ` +
+          "transaction dated in a different month than you expect.",
+      });
+    }
+    if (Math.abs(row.other) >= 10) {
+      findings.push({
+        month: row.month, kind: "other",
+        text: `${money(row.other)} moved Ready to Assign that is not income or ` +
+          "an assigned amount - usually cash overspending from the month " +
+          "before being taken out of Ready to Assign.",
+      });
+    }
+    if (row.uncategorizedCount) {
+      findings.push({
+        month: row.month, kind: "uncategorized",
+        text: `${row.uncategorizedCount} uncategorized transaction(s) totalling ` +
+          `${money(row.uncategorizedSum)} - not counted in Ready to Assign ` +
+          "until categorized. A paycheque left here makes it look short.",
+      });
+    }
+  }
+
+  return {
+    stretches,
+    lowest,
+    firstNegative: rows.find((row) => row.negative) || null,
+    currentlyNegative: Boolean(rows.length && rows[rows.length - 1].negative),
+    findings,
+  };
+}
+
+/**
+ * Earliest recorded snapshot showing a negative Ready to Assign, if any.
+ * The month view can only say which month went negative (assigned amounts
+ * carry no date), so a snapshot is the closest thing to an actual moment.
+ */
+export function firstNegativeSnapshot(snapshots) {
+  return (snapshots || []).find((s) => s.toBeBudgeted < 0) || null;
+}
+
+/** Rows as CSV, oldest first, for an external audit trail. */
+export function reconstructionCsv(rows) {
+  const header = [
+    "Month", "Income", "Income (from transactions)", "Assigned",
+    "Assigned in later months", "Rebuilt", "Other", "YNAB Ready to Assign",
+    "Change", "Uncategorized count", "Uncategorized total",
+  ];
+  const d = (milli) => (milli / 1000).toFixed(2);
+  const lines = rows.map((r) => [
+    r.month, d(r.income), d(r.transactionIncome), d(r.assigned),
+    d(r.assignedLater), d(r.rebuilt), d(r.otherTotal), d(r.ynab),
+    r.change === null ? "" : d(r.change), r.uncategorizedCount, d(r.uncategorizedSum),
+  ].join(","));
+  return [header.join(","), ...lines].join("\n") + "\n";
+}
+

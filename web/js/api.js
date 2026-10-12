@@ -115,6 +115,15 @@ export class YnabClient {
       .month;
   }
 
+  /**
+   * Every month's summary (income, budgeted, to_be_budgeted) in one call,
+   * without per-category detail. RTA Tracker's reconstruction reads this
+   * instead of one month() call per month, which would cost a request each.
+   */
+  async months(budgetId) {
+    return (await this.request("GET", `/budgets/${budgetId}/months`)).months;
+  }
+
   async transactions(budgetId, sinceDate) {
     const params = sinceDate ? { since_date: sinceDate } : undefined;
     return (
