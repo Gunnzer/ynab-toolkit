@@ -710,75 +710,109 @@ export function buildLedger({
 
 // ---------- by person ----------
 
-const LIABILITY_TYPES = new Set(["creditCard", "lineOfCredit"]);
-const PEOPLE = ["p1", "p2", "shared"];
+const DEBT_TYPES = new Set([
+  "creditCard", "lineOfCredit", "otherLiability", "mortgage", "autoLoan",
+  "studentLoan", "personalLoan", "medicalDebt", "otherDebt",
+]);
 
 /**
- * Each person's money in accounts against what is sitting in their
- * categories. Across a whole budget, every on-budget account balance adds
- * up to every category's Available plus Ready to Assign - so split by
- * person, each one's gap (accounts minus Available) is their share of
- * Ready to Assign, and a negative gap means their categories are holding
- * money their own accounts do not have. That is what makes this useful
- * next to the reconstruction: it says whose side is short.
+ * Whether each person's categories hold more than their own accounts
+ * actually have - e.g. $1,000 in their accounts but $1,200 sitting in
+ * their categories means $200 of it is the other person's money.
  *
- * Accounts are owned via payerOf() (explicit mapping, then tag, then the
- * person's name; anything else is shared), categories via ownerOf() on
- * their group name, the same rules every other tool uses. A credit card
- * payment category has no person prefix on its group, so it follows the
- * card it pays off instead (same name as the account). `categories` are
- * one month's categories (YNAB's month detail, group names filled in);
- * Available is `balance`, Assigned is `budgeted`.
+ * Only each person's own non-debt accounts (open, on budget) and the
+ * Available in categories they own count. Credit is shared in this
+ * household, so debt accounts and the "Credit Card Payments" group are
+ * not counted as anyone's, and anything that belongs to neither person
+ * is ignored (it rarely holds much).
+ *
+ * Card spending still has to be counted back in, though (reported
+ * live): buying on a card lowers the category straight away, but the
+ * person's own account only drops once the card is paid, so in between
+ * they would look ahead by exactly what they spent. `unpaid` is each
+ * person's card spending in their own categories, minus card payments
+ * made from their own accounts, over all of history - so a purchase
+ * and its payment cancel out wherever the money comes from, and only
+ * assigning money they do not have moves the gap. Money one person
+ * sends the other counts as paying back their share of the card, so a
+ * settle-up transfer leaves both gaps where they were.
+ *
+ * Accounts are owned via payerOf(), categories via ownerOf() on the
+ * group name, same as every other tool. `categories` are one month's
+ * (YNAB's month detail, group names filled in); Available is `balance`.
  */
-export function byPerson({ accounts, categories, settings }) {
-  const totals = Object.fromEntries(PEOPLE.map((who) => [who, {
-    who, cash: 0, owed: 0, accounts: 0, available: 0, assigned: 0,
+export function byPerson({ accounts, categories, transactions = [], settings }) {
+  const people = ["p1", "p2"].map((who) => ({
+    who, accounts: 0, available: 0, cardSpending: 0, cardPayments: 0,
     accountList: [], categoryList: [],
-  }]));
-  const owners = new Map();
+  }));
+  const entry = (who) => people.find((p) => p.who === who);
+  const accountById = new Map((accounts || []).map((a) => [a.id, a]));
+  const isDebt = (id) => DEBT_TYPES.has(accountById.get(id)?.type);
+  const accountPerson = (id) => entry(payerOf(accountById.get(id)?.name || "", settings));
 
   for (const account of accounts || []) {
     if (account.deleted || account.closed || !account.on_budget) continue;
-    const owner = payerOf(account.name, settings);
-    const who = owner === "joint" ? "shared" : owner;
-    owners.set(account.name, who);
-    const entry = totals[who];
-    const balance = account.balance || 0;
-    if (LIABILITY_TYPES.has(account.type)) entry.owed += balance;
-    else entry.cash += balance;
-    entry.accounts += balance;
-    entry.accountList.push({ name: account.name, type: account.type, balance });
+    if (DEBT_TYPES.has(account.type)) continue;
+    const person = entry(payerOf(account.name, settings));
+    if (!person) continue;
+    person.accounts += account.balance || 0;
+    person.accountList.push({ name: account.name, balance: account.balance || 0 });
   }
 
+  const categoryGroup = new Map();
   for (const category of assignable(categories)) {
-    if (category.hidden && !category.balance && !category.budgeted) continue;
     const group = category.category_group_name || "";
-    const who = group === "Credit Card Payments" && owners.has(category.name)
-      ? owners.get(category.name)
-      : ownerOf(group, "", settings);
-    const entry = totals[who];
-    entry.available += category.balance || 0;
-    entry.assigned += category.budgeted || 0;
-    entry.categoryList.push({
-      name: category.name, group,
-      available: category.balance || 0, assigned: category.budgeted || 0,
-    });
+    categoryGroup.set(category.id, group);
+    if (group === "Credit Card Payments") continue;
+    if (!category.balance) continue;
+    const person = entry(ownerOf(group, "", settings));
+    if (!person) continue;
+    person.available += category.balance;
+    person.categoryList.push({ name: category.name, group, available: category.balance });
   }
 
-  const rows = PEOPLE.map((who) => {
-    const entry = totals[who];
-    entry.accountList.sort((a, b) => b.balance - a.balance);
-    entry.categoryList.sort((a, b) => b.available - a.available);
-    return { ...entry, gap: entry.accounts - entry.available };
+  for (const t of transactions || []) {
+    if (t.deleted) continue;
+    if (isDebt(t.account_id) && !t.transfer_account_id) {
+      const legs = (t.subtransactions || []).filter((leg) => !leg.deleted);
+      for (const leg of legs.length ? legs : [t]) {
+        if (!categoryGroup.has(leg.category_id)) continue;
+        const person = entry(ownerOf(categoryGroup.get(leg.category_id), "", settings));
+        if (person) person.cardSpending -= leg.amount;
+      }
+    } else if (!isDebt(t.account_id) && t.transfer_account_id && isDebt(t.transfer_account_id)) {
+      // Read from the paying account's side only - the card's own copy of
+      // the same transfer would count it twice.
+      const person = accountPerson(t.account_id);
+      if (person) person.cardPayments -= t.amount;
+    } else if (t.transfer_account_id && t.amount < 0 &&
+      !isDebt(t.account_id) && !isDebt(t.transfer_account_id)) {
+      // One person sending the other money is them paying back their
+      // share of a card the other one paid (reported live), so it moves
+      // that much of the card from one to the other: without this the
+      // sender would look short and the receiver ahead by the transfer.
+      // Read from the sending side only (amount below zero), so the
+      // receiving account's copy is not counted twice.
+      const from = accountPerson(t.account_id);
+      const to = accountPerson(t.transfer_account_id);
+      if (from && to && from !== to) {
+        from.cardPayments -= t.amount;
+        to.cardPayments += t.amount;
+      }
+    }
+  }
+
+  return people.map((person) => {
+    const unpaid = person.cardSpending - person.cardPayments;
+    return {
+      ...person,
+      unpaid,
+      accountList: person.accountList.sort((a, b) => b.balance - a.balance),
+      categoryList: person.categoryList.sort((a, b) => b.available - a.available),
+      gap: person.accounts - person.available - unpaid,
+    };
   });
-  const sum = (key) => rows.reduce((total, row) => total + row[key], 0);
-  return {
-    rows,
-    total: {
-      cash: sum("cash"), owed: sum("owed"), accounts: sum("accounts"),
-      available: sum("available"), assigned: sum("assigned"), gap: sum("gap"),
-    },
-  };
 }
 
 /**

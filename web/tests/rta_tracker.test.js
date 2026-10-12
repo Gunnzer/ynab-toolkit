@@ -378,45 +378,102 @@ describe("rta tracker", () => {
     return rta.byPerson({
       settings: people,
       accounts: [
-        account("(A) Alex Checking", "checking", 1000000),
-        account("(A) Alex Visa", "creditCard", -200000),
-        account("(S) Sam Checking", "checking", 300000),
-        account("Joint Savings", "savings", 500000),
+        account("(A) Alex Checking", "checking", 800000),
+        account("(A) Alex Savings", "savings", 200000),
+        account("(A) Alex Visa", "creditCard", -300000),
+        account("(S) Sam Checking", "checking", 500000),
+        account("Joint Chequing", "checking", 900000),
         account("(S) Old", "checking", 999000, { closed: true }),
         account("(S) Brokerage", "otherAsset", 777000, { on_budget: false }),
       ],
       categories: [
         cat("rta", "Inflow: Ready to Assign", 0, 400000, "Internal Master Category"),
-        { ...cat("a1", "Alex Fun", 50000, 600000, "Alex Spending") },
-        { ...cat("s1", "Sam Fun", 80000, 450000, "Sam Spending") },
-        { ...cat("cc", "(A) Alex Visa", 0, 200000, "Credit Card Payments") },
-        { ...cat("j1", "Rent", 100000, 500000, "Bills") },
+        cat("a1", "Alex Fun", 0, 900000, "Alex Spending"),
+        cat("a2", "Alex Gifts", 0, 300000, "Alex Spending"),
+        cat("s1", "Sam Fun", 0, 450000, "Sam Spending"),
+        cat("cc", "(A) Alex Visa", 0, 300000, "Credit Card Payments"),
+        cat("rent", "Rent", 0, 500000, "Bills"),
       ],
     });
   }
 
-  test("byPerson splits accounts and categories by owner", () => {
-    const { rows } = split();
-    const [alex, sam, shared] = rows;
-    assert.deepEqual([alex.cash, alex.owed, alex.accounts], [1000000, -200000, 800000]);
-    assert.equal(sam.accounts, 300000);
-    assert.equal(shared.accounts, 500000);
-    assert.equal(alex.available, 800000);
-    assert.equal(sam.available, 450000);
-    assert.equal(shared.available, 500000);
-    assert.deepEqual(rows.map((r) => r.assigned), [50000, 80000, 100000]);
+  test("byPerson compares own non-debt accounts with own categories", () => {
+    const [alex, sam] = split();
+    assert.deepEqual([alex.accounts, alex.available, alex.gap], [1000000, 1200000, -200000]);
+    assert.deepEqual([sam.accounts, sam.available, sam.gap], [500000, 450000, 50000]);
   });
 
-  test("byPerson follows a credit card payment category to its card's owner", () => {
-    const [alex] = split().rows;
-    assert.ok(alex.categoryList.some((c) => c.name === "(A) Alex Visa"));
+  test("byPerson leaves out credit, shared, closed and off-budget", () => {
+    const [alex, sam] = split();
+    assert.deepEqual(alex.accountList.map((a) => a.name), ["(A) Alex Checking", "(A) Alex Savings"]);
+    assert.deepEqual(sam.accountList.map((a) => a.name), ["(S) Sam Checking"]);
+    assert.equal(alex.categoryList.some((c) => c.group === "Credit Card Payments"), false);
+    assert.equal(split().length, 2);
   });
 
-  test("byPerson gap shows whose categories hold money their accounts lack", () => {
-    const { rows, total } = split();
-    assert.deepEqual(rows.map((r) => r.gap), [0, -150000, 0]);
-    assert.equal(total.gap, -150000);
-    assert.equal(total.accounts - total.available, total.gap);
+  test("byPerson counts unpaid card spending, so a card purchase does not look like spare money", () => {
+    const base = [
+      { ...account("(A) Alex Checking", "checking", 1000000), id: "a-chq" },
+      { ...account("(B) Sam Checking", "checking", 1000000), id: "s-chq" },
+      { ...account("Joint Visa", "creditCard", -50000), id: "visa" },
+    ];
+    const settings = { ...people, person2AccountTag: "B" };
+    const categories = [
+      cat("food", "Alex Food", 0, 150000, "Alex Spending"),
+      cat("visa-pay", "Joint Visa", 0, 50000, "Credit Card Payments"),
+      cat("s1", "Sam Fun", 0, 800000, "Sam Spending"),
+    ];
+    // Alex had 200 in Food and spent 50 of it on the shared card.
+    const spent = [{ account_id: "visa", category_id: "food", amount: -50000 }];
+    const [alex] = rta.byPerson({ accounts: base, categories, transactions: spent, settings });
+    assert.deepEqual([alex.available, alex.unpaid, alex.gap], [150000, 50000, 800000]);
+
+    // Paid off from Alex's own chequing: still the same gap.
+    const paidByAlex = rta.byPerson({
+      accounts: base.map((a) => (a.id === "a-chq" ? { ...a, balance: 950000 } : a)),
+      categories,
+      settings,
+      transactions: [...spent,
+        { account_id: "a-chq", transfer_account_id: "visa", amount: -50000 },
+        { account_id: "visa", transfer_account_id: "a-chq", amount: 50000 }],
+    })[0];
+    assert.deepEqual([paidByAlex.unpaid, paidByAlex.gap], [0, 800000]);
+
+    // Paid off from Sam's chequing instead: Sam's gap does not move either.
+    const [alex2, sam2] = rta.byPerson({
+      accounts: base.map((a) => (a.id === "s-chq" ? { ...a, balance: 950000 } : a)),
+      categories,
+      settings,
+      transactions: [...spent,
+        { account_id: "s-chq", transfer_account_id: "visa", amount: -50000 }],
+    });
+    assert.deepEqual([alex2.gap, sam2.unpaid, sam2.gap], [800000, -50000, 200000]);
+  });
+
+  test("byPerson: paying the other person back for the card leaves both gaps alone", () => {
+    const settings = { ...people, person2AccountTag: "B" };
+    const categories = [
+      cat("food", "Alex Food", 0, 150000, "Alex Spending"),
+      cat("s1", "Sam Fun", 0, 800000, "Sam Spending"),
+    ];
+    const run = (alexCash, samCash, transactions) => rta.byPerson({
+      settings, categories, transactions,
+      accounts: [
+        { ...account("(A) Alex Checking", "checking", alexCash), id: "a-chq" },
+        { ...account("(B) Sam Checking", "checking", samCash), id: "s-chq" },
+        { ...account("Joint Visa", "creditCard", 0), id: "visa" },
+      ],
+    }).map((p) => p.gap);
+
+    const bought = { account_id: "visa", category_id: "food", amount: -50000 };
+    const samPays = { account_id: "s-chq", transfer_account_id: "visa", amount: -50000 };
+    const before = run(1000000, 1000000, [bought]);
+    // Sam pays the card, then Alex sends Sam 50 (both sides of the transfer).
+    const after = run(950000, 1000000, [bought, samPays,
+      { account_id: "a-chq", transfer_account_id: "s-chq", amount: -50000 },
+      { account_id: "s-chq", transfer_account_id: "a-chq", amount: 50000 }]);
+    assert.deepEqual(before, [800000, 200000]);
+    assert.deepEqual(after, before);
   });
 
   // ---------- money movement history ----------

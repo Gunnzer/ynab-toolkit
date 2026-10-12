@@ -543,17 +543,18 @@ export function rtaTrackerPage(app) {
     if (!state.peopleNamed) {
       peopleCard.append(hint(
         "Name both people on the Setup page (with their category group " +
-        "prefix and account tag) to split accounts and categories by person."));
+        "prefix and account tag) to compare each person's accounts with " +
+        "their categories."));
       return;
     }
 
-    const thisMonth = rta.currentMonthString();
-    let result;
+    let people;
     try {
-      const month = await state.month(thisMonth);
-      result = rta.byPerson({
+      const month = await state.month(rta.currentMonthString());
+      people = rta.byPerson({
         accounts: state.accounts,
         categories: withGroupNames(month.data.categories),
+        transactions: (await state.loadAllTransactions()).list,
         settings: {
           ...state.withPeople({}),
           accountOwners: store.get("splitSheet.accountOwners", {}) || {},
@@ -566,97 +567,91 @@ export function rtaTrackerPage(app) {
     }
 
     peopleCard.append(hint(
-      "Money in each person's budget accounts against what is sitting in their " +
-      "categories right now. The gap is their share of Ready to Assign: below " +
-      "zero means their categories hold money their own accounts do not have."));
+      "What is in each person's own accounts (not credit cards - credit is " +
+      "shared) against what is sitting in their categories right now. Card " +
+      "spending they have not paid off yet is counted too, since it has " +
+      "already left their categories but not their accounts. Below zero " +
+      "means their categories hold more than their accounts have, so some " +
+      "of it is the other person's money."));
 
     const peopleTable = table([
       { key: "who", label: "Person" },
-      { key: "cash", label: "In accounts", className: "num" },
-      { key: "owed", label: "Credit owed", className: "num" },
-      { key: "available", label: "In categories", className: "num" },
-      { key: "assigned", label: "Assigned this month", className: "num" },
-      { key: "gap", label: "Gap", className: "num" },
+      { key: "accounts", label: "In their accounts", className: "num" },
+      { key: "available", label: "In their categories", className: "num" },
+      { key: "unpaid", label: "Unpaid card spending", className: "num" },
+      { key: "gap", label: "Difference", className: "num" },
     ]);
-    for (const row of result.rows) {
-      if (row.who === "shared" && !row.accountList.length && !row.categoryList.length) continue;
-      const link = button(personLabel(row.who), { small: true, onClick: () => showPerson(row) });
+    for (const person of people) {
+      const link = button(personLabel(person.who), { small: true, onClick: () => showPerson(person) });
       link.classList.add("btn-link");
       peopleTable.tbody.append(el("tr", {},
         el("td", {}, link),
-        el("td", { class: "num", text: fmt(row.cash) }),
-        el("td", { class: "num", text: row.owed ? fmt(row.owed) : "-" }),
-        el("td", { class: "num", text: fmt(row.available) }),
-        el("td", { class: "num", text: fmt(row.assigned) }),
+        el("td", { class: "num", text: fmt(person.accounts) }),
+        el("td", { class: "num", text: fmt(person.available) }),
+        el("td", { class: "num", text: fmt(person.unpaid) }),
         el("td", { class: "num" },
-          pill(signed(row.gap), row.gap < -9 ? "error" : row.gap > 9 ? "ok" : "muted"))));
+          pill(signed(person.gap), person.gap < -9 ? "error" : person.gap > 9 ? "ok" : "muted"))));
     }
-    peopleTable.tbody.append(el("tr", { class: "total-row" },
-      el("td", { text: "Total" }),
-      el("td", { class: "num", text: fmt(result.total.cash) }),
-      el("td", { class: "num", text: fmt(result.total.owed) }),
-      el("td", { class: "num", text: fmt(result.total.available) }),
-      el("td", { class: "num", text: fmt(result.total.assigned) }),
-      el("td", { class: "num", text: signed(result.total.gap) })));
     peopleCard.append(peopleTable);
 
-    const now = rebuilt.rows.find((row) => row.month === thisMonth);
-    if (now) {
-      const off = result.total.gap - now.ynab;
-      peopleCard.append(hint(
-        `The gaps add up to ${fmt(result.total.gap)}; YNAB's Ready to Assign ` +
-        `this month is ${fmt(now.ynab)}.` +
-        (Math.abs(off) >= 10
-          ? ` The ${fmt(Math.abs(off))} difference is usually money already ` +
-            "assigned in a future month, which has left the accounts' total " +
-            "but is not in this month's categories."
-          : "")));
-    }
-
-    const short = result.rows.filter((row) => row.who !== "shared" && row.gap < -9);
-    for (const row of short) {
+    for (const person of people) {
+      if (person.gap >= -9) continue;
+      const other = people.find((p) => p.who !== person.who);
+      // Only the part the other person actually has spare can be theirs;
+      // anything beyond that is money neither person's accounts hold.
+      const borrowed = other.gap > 9 ? Math.min(-person.gap, other.gap) : 0;
+      const missing = -person.gap - borrowed;
       peopleCard.append(el("p", { class: "status-line is-error" },
-        `${personLabel(row.who)}'s categories hold ${fmt(-row.gap)} more than ` +
-        "their accounts have."));
+        `${personLabel(person.who)} has ${fmt(person.accounts)} but ` +
+        `${fmt(person.available)} sitting in their categories` +
+        (Math.abs(person.unpaid) > 9 ? ` and ${fmt(person.unpaid)} of card spending to pay off.` : ".") +
+        (borrowed
+          ? ` ${personLabel(person.who)} is using ${fmt(borrowed)} of ` +
+            `${personLabel(other.who)}'s money.`
+          : "") +
+        (missing > 9
+          ? ` ${fmt(missing)} is not in either person's accounts at all.`
+          : "")));
     }
   }
 
-  function showPerson(row) {
-    customDialog(personLabel(row.who), (body) => {
+  function showPerson(person) {
+    customDialog(personLabel(person.who), (body) => {
       body.append(hint(
-        `In accounts ${fmt(row.accounts)} (after ${fmt(row.owed)} credit owed), ` +
-        `in categories ${fmt(row.available)}, gap ${signed(row.gap)}.` +
-        (row.who === "shared"
-          ? " Anything here matched neither person's tag, name or group " +
-            "prefix - give it one on Setup if it actually belongs to someone."
-          : "")));
+        `${fmt(person.accounts)} in their accounts, ${fmt(person.available)} in ` +
+        `their categories. Card spending in their categories: ` +
+        `${fmt(person.cardSpending)}, card payments from their accounts ` +
+        `(counting money sent to or received from the other person as paying ` +
+        `them back): ` +
+        `${fmt(person.cardPayments)}, so ${fmt(person.unpaid)} still to pay. ` +
+        `Difference ${signed(person.gap)}. Anything that ` +
+        "should be here but is not needs its tag, name or group prefix " +
+        "set on Setup."));
 
-      body.append(sectionTitle(`Accounts (${row.accountList.length})`));
+      body.append(sectionTitle(`Accounts (${person.accountList.length})`));
       const accountTable = table([
         { key: "name", label: "Account" },
         { key: "balance", label: "Balance", className: "num" },
       ]);
-      if (!row.accountList.length) emptyRow(accountTable, "No accounts.");
-      for (const account of row.accountList) {
+      if (!person.accountList.length) emptyRow(accountTable, "No accounts matched.");
+      for (const account of person.accountList) {
         accountTable.tbody.append(el("tr", {},
           el("td", { text: account.name }),
           el("td", { class: "num", text: fmt(account.balance) })));
       }
       body.append(accountTable);
 
-      body.append(sectionTitle(`Categories (${row.categoryList.length})`));
+      body.append(sectionTitle(`Categories with money in them (${person.categoryList.length})`));
       const categoryTable = table([
         { key: "name", label: "Category" },
-        { key: "assigned", label: "Assigned this month", className: "num" },
         { key: "available", label: "Available", className: "num" },
       ]);
       categoryTable.classList.add("scroll-table");
-      if (!row.categoryList.length) emptyRow(categoryTable, "No categories.");
-      for (const category of row.categoryList) {
+      if (!person.categoryList.length) emptyRow(categoryTable, "No categories matched.");
+      for (const category of person.categoryList) {
         categoryTable.tbody.append(el("tr", {},
           el("td", {}, el("div", { text: category.name }),
             el("div", { class: "rta-ledger-detail", text: category.group })),
-          el("td", { class: "num", text: fmt(category.assigned) }),
           el("td", {
             class: `num ${category.available < 0 ? "is-error" : ""}`,
             text: fmt(category.available),

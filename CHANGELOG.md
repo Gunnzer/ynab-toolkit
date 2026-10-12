@@ -9,6 +9,14 @@ Maintained going forward: add a new dated entry for each push, in this same
 style (feature/fix name and files, then bullets on what changed and why),
 before or as part of the push itself.
 
+## 2026-10-12 (later)
+
+**RTA Tracker: "By person" compares each person's accounts with their categories** (`pages/rtatracker.js`, `tools/rta_tracker.js`, `tests/rta_tracker.test.js`, `CLAUDE.md`)
+* For each person: what is in their own accounts against what is sitting in their categories right now. If someone has $1,000 in their accounts but $1,200 in their categories, it says $200 of that is the other person's money.
+* Credit cards and credit card payment categories are left out, since credit is shared. Each person's card spending that has not been paid off yet is counted back in, though - buying on the card lowers the category right away but the account only drops when the card is paid, so without it a fresh card purchase looked like spare money. Money one person sends the other counts as paying them back for the card, so "B pays the card, A sends B their share" leaves both differences where they were. Anything that belongs to neither person is ignored, so there is no Shared row.
+* When one person is short and the other has spare, it says so by name: "A is using $200.00 of B's money". Anything beyond what the other person has spare is called out as money in neither person's accounts.
+* Click a person to see exactly which accounts and categories were counted.
+
 ## 2026-10-12
 
 **RTA Tracker: who assigned what, and exactly when** (`pages/rtatracker.js`, `tools/rta_tracker.js`, `api.js`, `app.css`, `tests/rta_tracker.test.js`, `CLAUDE.md`)
