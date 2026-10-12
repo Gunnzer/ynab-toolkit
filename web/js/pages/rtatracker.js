@@ -591,10 +591,21 @@ export function rtaTrackerPage(app) {
 
     for (const person of people) {
       if (person.gap >= -9) continue;
+      const other = people.find((p) => p.who !== person.who);
+      // Only the part the other person actually has spare can be theirs;
+      // anything beyond that is money neither person's accounts hold.
+      const borrowed = other.gap > 9 ? Math.min(-person.gap, other.gap) : 0;
+      const missing = -person.gap - borrowed;
       peopleCard.append(el("p", { class: "status-line is-error" },
         `${personLabel(person.who)} has ${fmt(person.accounts)} but ` +
-        `${fmt(person.available)} sitting in their categories - ` +
-        `${fmt(-person.gap)} of it is the other person's money.`));
+        `${fmt(person.available)} sitting in their categories.` +
+        (borrowed
+          ? ` ${personLabel(person.who)} is using ${fmt(borrowed)} of ` +
+            `${personLabel(other.who)}'s money.`
+          : "") +
+        (missing > 9
+          ? ` ${fmt(missing)} is not in either person's accounts at all.`
+          : "")));
     }
   }
 
