@@ -554,6 +554,7 @@ export function rtaTrackerPage(app) {
       people = rta.byPerson({
         accounts: state.accounts,
         categories: withGroupNames(month.data.categories),
+        transactions: (await state.loadAllTransactions()).list,
         settings: {
           ...state.withPeople({}),
           accountOwners: store.get("splitSheet.accountOwners", {}) || {},
@@ -567,14 +568,17 @@ export function rtaTrackerPage(app) {
 
     peopleCard.append(hint(
       "What is in each person's own accounts (not credit cards - credit is " +
-      "shared) against what is sitting in their categories right now. Below " +
-      "zero means their categories hold more than their accounts have, so " +
-      "some of it is the other person's money."));
+      "shared) against what is sitting in their categories right now. Card " +
+      "spending they have not paid off yet is counted too, since it has " +
+      "already left their categories but not their accounts. Below zero " +
+      "means their categories hold more than their accounts have, so some " +
+      "of it is the other person's money."));
 
     const peopleTable = table([
       { key: "who", label: "Person" },
       { key: "accounts", label: "In their accounts", className: "num" },
       { key: "available", label: "In their categories", className: "num" },
+      { key: "unpaid", label: "Unpaid card spending", className: "num" },
       { key: "gap", label: "Difference", className: "num" },
     ]);
     for (const person of people) {
@@ -584,6 +588,7 @@ export function rtaTrackerPage(app) {
         el("td", {}, link),
         el("td", { class: "num", text: fmt(person.accounts) }),
         el("td", { class: "num", text: fmt(person.available) }),
+        el("td", { class: "num", text: fmt(person.unpaid) }),
         el("td", { class: "num" },
           pill(signed(person.gap), person.gap < -9 ? "error" : person.gap > 9 ? "ok" : "muted"))));
     }
@@ -598,7 +603,8 @@ export function rtaTrackerPage(app) {
       const missing = -person.gap - borrowed;
       peopleCard.append(el("p", { class: "status-line is-error" },
         `${personLabel(person.who)} has ${fmt(person.accounts)} but ` +
-        `${fmt(person.available)} sitting in their categories.` +
+        `${fmt(person.available)} sitting in their categories` +
+        (Math.abs(person.unpaid) > 9 ? ` and ${fmt(person.unpaid)} of card spending to pay off.` : ".") +
         (borrowed
           ? ` ${personLabel(person.who)} is using ${fmt(borrowed)} of ` +
             `${personLabel(other.who)}'s money.`
@@ -613,7 +619,10 @@ export function rtaTrackerPage(app) {
     customDialog(personLabel(person.who), (body) => {
       body.append(hint(
         `${fmt(person.accounts)} in their accounts, ${fmt(person.available)} in ` +
-        `their categories, difference ${signed(person.gap)}. Anything that ` +
+        `their categories. Card spending in their categories: ` +
+        `${fmt(person.cardSpending)}, card payments from their accounts: ` +
+        `${fmt(person.cardPayments)}, so ${fmt(person.unpaid)} still to pay. ` +
+        `Difference ${signed(person.gap)}. Anything that ` +
         "should be here but is not needs its tag, name or group prefix " +
         "set on Setup."));
 

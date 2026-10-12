@@ -722,22 +722,32 @@ const DEBT_TYPES = new Set([
  *
  * Only each person's own non-debt accounts (open, on budget) and the
  * Available in categories they own count. Credit is shared in this
- * household, so every debt account and the "Credit Card Payments" group
- * are left out, and anything that belongs to neither person is ignored
- * (it rarely holds much). Two earlier versions were replaced at explicit
- * request: one also counted credit owed against each person, the other
- * compared income against assigned over the budget's whole history and
- * split shared categories by ratio.
+ * household, so debt accounts and the "Credit Card Payments" group are
+ * not counted as anyone's, and anything that belongs to neither person
+ * is ignored (it rarely holds much).
+ *
+ * Card spending still has to be counted back in, though (reported
+ * live): buying on a card lowers the category straight away, but the
+ * person's own account only drops once the card is paid, so in between
+ * they would look ahead by exactly what they spent. `unpaid` is each
+ * person's card spending in their own categories, minus card payments
+ * made from their own accounts, over all of history - so a purchase
+ * and its payment cancel out wherever the money comes from, and only
+ * assigning money they do not have moves the gap.
  *
  * Accounts are owned via payerOf(), categories via ownerOf() on the
  * group name, same as every other tool. `categories` are one month's
  * (YNAB's month detail, group names filled in); Available is `balance`.
  */
-export function byPerson({ accounts, categories, settings }) {
+export function byPerson({ accounts, categories, transactions = [], settings }) {
   const people = ["p1", "p2"].map((who) => ({
-    who, accounts: 0, available: 0, accountList: [], categoryList: [],
+    who, accounts: 0, available: 0, cardSpending: 0, cardPayments: 0,
+    accountList: [], categoryList: [],
   }));
   const entry = (who) => people.find((p) => p.who === who);
+  const accountById = new Map((accounts || []).map((a) => [a.id, a]));
+  const isDebt = (id) => DEBT_TYPES.has(accountById.get(id)?.type);
+  const accountPerson = (id) => entry(payerOf(accountById.get(id)?.name || "", settings));
 
   for (const account of accounts || []) {
     if (account.deleted || account.closed || !account.on_budget) continue;
@@ -748,8 +758,10 @@ export function byPerson({ accounts, categories, settings }) {
     person.accountList.push({ name: account.name, balance: account.balance || 0 });
   }
 
+  const categoryGroup = new Map();
   for (const category of assignable(categories)) {
     const group = category.category_group_name || "";
+    categoryGroup.set(category.id, group);
     if (group === "Credit Card Payments") continue;
     if (!category.balance) continue;
     const person = entry(ownerOf(group, "", settings));
@@ -758,12 +770,33 @@ export function byPerson({ accounts, categories, settings }) {
     person.categoryList.push({ name: category.name, group, available: category.balance });
   }
 
-  return people.map((person) => ({
-    ...person,
-    accountList: person.accountList.sort((a, b) => b.balance - a.balance),
-    categoryList: person.categoryList.sort((a, b) => b.available - a.available),
-    gap: person.accounts - person.available,
-  }));
+  for (const t of transactions || []) {
+    if (t.deleted) continue;
+    if (isDebt(t.account_id) && !t.transfer_account_id) {
+      const legs = (t.subtransactions || []).filter((leg) => !leg.deleted);
+      for (const leg of legs.length ? legs : [t]) {
+        if (!categoryGroup.has(leg.category_id)) continue;
+        const person = entry(ownerOf(categoryGroup.get(leg.category_id), "", settings));
+        if (person) person.cardSpending -= leg.amount;
+      }
+    } else if (!isDebt(t.account_id) && t.transfer_account_id && isDebt(t.transfer_account_id)) {
+      // Read from the paying account's side only - the card's own copy of
+      // the same transfer would count it twice.
+      const person = accountPerson(t.account_id);
+      if (person) person.cardPayments -= t.amount;
+    }
+  }
+
+  return people.map((person) => {
+    const unpaid = person.cardSpending - person.cardPayments;
+    return {
+      ...person,
+      unpaid,
+      accountList: person.accountList.sort((a, b) => b.balance - a.balance),
+      categoryList: person.categoryList.sort((a, b) => b.available - a.available),
+      gap: person.accounts - person.available - unpaid,
+    };
+  });
 }
 
 /**

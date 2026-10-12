@@ -411,6 +411,45 @@ describe("rta tracker", () => {
     assert.equal(split().length, 2);
   });
 
+  test("byPerson counts unpaid card spending, so a card purchase does not look like spare money", () => {
+    const base = [
+      { ...account("(A) Alex Checking", "checking", 1000000), id: "a-chq" },
+      { ...account("(B) Sam Checking", "checking", 1000000), id: "s-chq" },
+      { ...account("Joint Visa", "creditCard", -50000), id: "visa" },
+    ];
+    const settings = { ...people, person2AccountTag: "B" };
+    const categories = [
+      cat("food", "Alex Food", 0, 150000, "Alex Spending"),
+      cat("visa-pay", "Joint Visa", 0, 50000, "Credit Card Payments"),
+      cat("s1", "Sam Fun", 0, 800000, "Sam Spending"),
+    ];
+    // Alex had 200 in Food and spent 50 of it on the shared card.
+    const spent = [{ account_id: "visa", category_id: "food", amount: -50000 }];
+    const [alex] = rta.byPerson({ accounts: base, categories, transactions: spent, settings });
+    assert.deepEqual([alex.available, alex.unpaid, alex.gap], [150000, 50000, 800000]);
+
+    // Paid off from Alex's own chequing: still the same gap.
+    const paidByAlex = rta.byPerson({
+      accounts: base.map((a) => (a.id === "a-chq" ? { ...a, balance: 950000 } : a)),
+      categories,
+      settings,
+      transactions: [...spent,
+        { account_id: "a-chq", transfer_account_id: "visa", amount: -50000 },
+        { account_id: "visa", transfer_account_id: "a-chq", amount: 50000 }],
+    })[0];
+    assert.deepEqual([paidByAlex.unpaid, paidByAlex.gap], [0, 800000]);
+
+    // Paid off from Sam's chequing instead: Sam's gap does not move either.
+    const [alex2, sam2] = rta.byPerson({
+      accounts: base.map((a) => (a.id === "s-chq" ? { ...a, balance: 950000 } : a)),
+      categories,
+      settings,
+      transactions: [...spent,
+        { account_id: "s-chq", transfer_account_id: "visa", amount: -50000 }],
+    });
+    assert.deepEqual([alex2.gap, sam2.unpaid, sam2.gap], [800000, -50000, 200000]);
+  });
+
   // ---------- money movement history ----------
 
   const rawMovements = [
