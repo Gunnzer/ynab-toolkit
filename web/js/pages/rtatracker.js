@@ -114,6 +114,8 @@ export function rtaTrackerPage(app) {
     "Rebuilds Ready to Assign month by month from income and assigned " +
     "amounts, checks it against YNAB's own figure, and finds the month it " +
     "went negative.");
+  const causesCard = card();
+  causesCard.hidden = true;
   const findingsCard = card();
   findingsCard.hidden = true;
   let reconTable = buildReconTable(false);
@@ -126,6 +128,7 @@ export function rtaTrackerPage(app) {
         el("span", { class: "spacer" }), problemsToggle),
       reconNote),
     reconStats,
+    causesCard,
     findingsCard,
     reconTableSlot);
   emptyRow(reconTable, "Press \"Rebuild from history\" to start.");
@@ -262,13 +265,100 @@ export function rtaTrackerPage(app) {
     }
   }
 
-  function showMonth(row) {
-    const inflows = rebuilt.inflows.filter((i) => rta.monthKey(i.date) === row.month);
-    const uncategorized = rebuilt.uncategorized
-      .filter((t) => rta.monthKey(t.date) === row.month);
+  // YNAB's month detail does not reliably carry each category's group
+  // name, which explainMonth() needs to leave out the internal Ready to
+  // Assign category - filled in here from the already-loaded groups.
+  function withGroupNames(categories) {
+    const groupById = new Map((state.categoryGroups || []).map((g) => [g.id, g.name]));
+    return (categories || []).map((c) => ({
+      ...c,
+      category_group_name: c.category_group_name || groupById.get(c.category_group_id) || "",
+    }));
+  }
+
+  function inMonth(list, month) {
+    return list.filter((item) => rta.monthKey(item.date) === month);
+  }
+
+  /** Costs up to two month-detail requests, both cached by state.month(). */
+  async function explain(row) {
+    const index = rebuilt.rows.indexOf(row);
+    const previous = index > 0 ? rebuilt.rows[index - 1] : null;
+    const [current, before] = await Promise.all([
+      state.month(row.month),
+      previous ? state.month(previous.month) : null,
+    ]);
+    return rta.explainMonth({
+      row,
+      previous,
+      deductsLater: rebuilt.deductsLater,
+      categories: withGroupNames(current.data.categories),
+      previousCategories: withGroupNames(before?.data.categories),
+      inflows: inMonth(rebuilt.inflows, row.month),
+      previousInflows: previous ? inMonth(rebuilt.inflows, previous.month) : [],
+      uncategorized: inMonth(rebuilt.uncategorized, row.month),
+    });
+  }
+
+  function causeList(explanation) {
+    const labels = {
+      income: ["Less income", "warn"],
+      assigned: ["Assigned", "error"],
+      later: ["Assigned later", "caution"],
+      other: ["Overspending", "caution"],
+      carried: ["Carried in", "warn"],
+      uncategorized: ["Uncategorized", "info"],
+    };
+    const list = el("div", { class: "rta-findings" });
+    if (!explanation.causes.length) {
+      list.append(hint("Nothing specific stood out compared with the month before."));
+    }
+    for (const cause of explanation.causes) {
+      const [label, kind] = labels[cause.kind];
+      list.append(el("div", { class: "rta-cause" }, pill(label, kind),
+        el("span", { text: cause.text })));
+    }
+    return list;
+  }
+
+  async function renderCauses() {
+    clear(causesCard);
+    // Most recent first, and only a few: each one costs month-detail
+    // requests, and the oldest stretches are rarely the one being chased.
+    const targets = rebuilt.rows.filter((row) => row.wentNegative).reverse().slice(0, 3);
+    causesCard.hidden = !targets.length;
+    if (!targets.length) return;
+    causesCard.append(sectionTitle("Why it went negative"));
+    for (const row of targets) {
+      const slot = el("div", { class: "rta-cause-month" },
+        el("div", { class: "rta-finding-month", text: monthLabel(row.month) }),
+        hint("Working it out..."));
+      causesCard.append(slot);
+      try {
+        const explanation = await explain(row);
+        slot.replaceChildren(
+          el("div", { class: "rta-finding-month", text: monthLabel(row.month) }),
+          hint(explanation.headline),
+          causeList(explanation));
+      } catch (error) {
+        slot.replaceChildren(
+          el("div", { class: "rta-finding-month", text: monthLabel(row.month) }),
+          hint(`Could not load the month's details: ${error.shortMessage || error.message}`));
+      }
+    }
+  }
+
+  async function showMonth(row) {
+    const inflows = inMonth(rebuilt.inflows, row.month);
+    const uncategorized = inMonth(rebuilt.uncategorized, row.month);
     const previous = rebuilt.rows[rebuilt.rows.indexOf(row) - 1];
+    const explanation = await app.run(() => explain(row), { log });
 
     customDialog(monthLabel(row.month), (body) => {
+      if (explanation) {
+        body.append(sectionTitle("What moved it"), hint(explanation.headline),
+          causeList(explanation));
+      }
       const lines = [
         ["Left over from last month", previous ? fmt(previous.ynab) : "-"],
         ["Income (YNAB)", fmt(row.income)],
@@ -354,6 +444,7 @@ export function rtaTrackerPage(app) {
     rebuilt = result;
     csvButton.disabled = false;
     renderReconstruction();
+    renderCauses();
     log.write(
       rebuilt.firstNegative
         ? `First went negative in ${monthLabel(rebuilt.firstNegative.month)}.`

@@ -350,6 +350,178 @@ export function summarise(rows) {
   };
 }
 
+// ---------- why it went negative ----------
+
+const TOP = 5;
+
+/** "2026-07" -> "July 2026". Plain English, like the rest of this file's text. */
+export function monthName(key) {
+  const [year, month] = String(key).split("-").map(Number);
+  const names = ["January", "February", "March", "April", "May", "June", "July",
+    "August", "September", "October", "November", "December"];
+  return names[month - 1] ? `${names[month - 1]} ${year}` : String(key);
+}
+
+function byPayee(entries) {
+  const out = new Map();
+  for (const entry of entries || []) {
+    const payee = entry.payee || entry.payee_name || "(no payee)";
+    out.set(payee, (out.get(payee) || 0) + (entry.amount || 0));
+  }
+  return out;
+}
+
+function assignable(categories) {
+  return (categories || []).filter((c) =>
+    !c.deleted && c.category_group_name !== "Internal Master Category" &&
+    !/^(inflow:|to be budgeted|uncategorized)/i.test(c.name || ""));
+}
+
+/**
+ * The concrete causes behind one month's move in Ready to Assign, worked
+ * out by comparing it with the month before. The move always splits
+ * exactly into income in, assigned out (net of anything already counted
+ * against an earlier month - see deductsLater), and "other"; each part
+ * that pulled it down is then broken out into the specific categories or
+ * payees behind it.
+ *
+ * `categories`/`previousCategories` are the per-category lists from
+ * YNAB's month detail for this month and the one before (the latter is
+ * where last month's overspending shows up, as a negative balance - cash
+ * and credit overspending look the same there, so it is offered as the
+ * likely source of "other", not as proof).
+ */
+export function explainMonth({
+  row, previous, deductsLater = false, categories, previousCategories,
+  inflows, previousInflows, uncategorized,
+}) {
+  const assignedEffect = previous && deductsLater
+    ? -(row.assigned + (row.assignedLater - previous.assignedLater))
+    : -row.assigned;
+  const leftOver = previous ? previous.ynab : 0;
+
+  const before = new Map(assignable(previousCategories).map((c) => [c.id, c.budgeted || 0]));
+  const current = assignable(categories);
+  const assignedIncreases = current
+    .map((c) => ({
+      id: c.id, name: c.name, group: c.category_group_name || "",
+      budgeted: c.budgeted || 0, previousBudgeted: before.get(c.id) || 0,
+    }))
+    .map((c) => ({ ...c, change: c.budgeted - c.previousBudgeted }))
+    .filter((c) => c.change > 0)
+    .sort((a, b) => b.change - a.change);
+  const assignedTop = current
+    .filter((c) => (c.budgeted || 0) > 0)
+    .map((c) => ({ id: c.id, name: c.name, group: c.category_group_name || "", budgeted: c.budgeted }))
+    .sort((a, b) => b.budgeted - a.budgeted);
+
+  const nowByPayee = byPayee(inflows);
+  const thenByPayee = byPayee(previousInflows);
+  const incomeDrops = [...new Set([...thenByPayee.keys(), ...nowByPayee.keys()])]
+    .map((payee) => ({
+      payee, previous: thenByPayee.get(payee) || 0, current: nowByPayee.get(payee) || 0,
+    }))
+    .map((p) => ({ ...p, change: p.current - p.previous }))
+    .filter((p) => p.change < 0)
+    .sort((a, b) => a.change - b.change);
+
+  const overspent = assignable(previousCategories)
+    .filter((c) => (c.balance || 0) < 0)
+    .map((c) => ({ id: c.id, name: c.name, group: c.category_group_name || "", balance: c.balance }))
+    .sort((a, b) => a.balance - b.balance);
+  const overspentSum = overspent.reduce((sum, c) => sum + c.balance, 0);
+
+  const uncategorizedInflows = (uncategorized || [])
+    .filter((t) => t.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
+  const uncategorizedInflowSum = uncategorizedInflows.reduce((sum, t) => sum + t.amount, 0);
+
+  const list = (items, label) => items.slice(0, TOP).map(label).join(", ") +
+    (items.length > TOP ? `, and ${items.length - TOP} more` : "");
+
+  const causes = [];
+  const incomeChange = previous ? row.income - previous.income : null;
+
+  if (previous && incomeChange < -9) {
+    causes.push({
+      kind: "income", amount: incomeChange,
+      text: `${money(-incomeChange)} less income than ${monthName(previous.month)}: ` +
+        `${money(row.income)} came in, against ${money(previous.income)} the month before.` +
+        (incomeDrops.length ? ` Lower or missing: ${list(incomeDrops, (p) =>
+          `${p.payee} (${money(p.current)}, was ${money(p.previous)})`)}.` : ""),
+    });
+  }
+
+  if (assignedEffect < -9) {
+    const assignedChange = previous ? row.assigned - previous.assigned : null;
+    causes.push({
+      kind: "assigned", amount: assignedEffect,
+      text: `${money(row.assigned)} assigned this month` +
+        (assignedChange > 9 ? `, ${money(assignedChange)} more than ${monthName(previous.month)}` : "") +
+        `, against ${money(row.income)} income and ${money(leftOver)} left over.` +
+        (previous && assignedIncreases.length
+          ? ` Biggest increases: ${list(assignedIncreases, (c) =>
+            `${c.name} +${money(c.change)}`)}.`
+          : assignedTop.length
+            ? ` Largest amounts: ${list(assignedTop, (c) => `${c.name} ${money(c.budgeted)}`)}.`
+            : ""),
+    });
+  }
+
+  if (deductsLater && row.assignedLater > 9) {
+    causes.push({
+      kind: "later", amount: -row.assignedLater,
+      text: `${money(row.assignedLater)} is already assigned in later months, ` +
+        "and counts against this month's Ready to Assign too.",
+    });
+  }
+
+  if (row.other < -9) {
+    causes.push({
+      kind: "other", amount: row.other,
+      text: `${money(-row.other)} taken out that is not income or an assigned amount.` +
+        (overspent.length
+          ? ` Most likely last month's overspending (${money(overspentSum)} in all): ` +
+            `${list(overspent, (c) => `${c.name} ${money(c.balance)}`)}.`
+          : " Nothing was overspent last month, so this may be a change YNAB " +
+            "made to an earlier month."),
+    });
+  }
+
+  if (previous && leftOver < 0) {
+    causes.push({
+      kind: "carried", amount: leftOver,
+      text: `Already ${money(leftOver)} going into this month - it was negative before.`,
+    });
+  }
+
+  if (uncategorizedInflowSum > 0) {
+    const covers = row.ynab < 0 && uncategorizedInflowSum >= -row.ynab;
+    causes.push({
+      kind: "uncategorized", amount: uncategorizedInflowSum,
+      text: `${money(uncategorizedInflowSum)} came in this month but is uncategorized, so ` +
+        `it never reached Ready to Assign` + (covers ? " - enough to cover the gap on its own" : "") +
+        `: ${list(uncategorizedInflows, (t) => `${t.payee_name || "(no payee)"} ${money(t.amount)}`)}.`,
+    });
+  }
+
+  causes.sort((a, b) => {
+    if (a.kind === "uncategorized") return 1;
+    if (b.kind === "uncategorized") return -1;
+    return a.amount - b.amount;
+  });
+
+  const headline = previous
+    ? `Ready to Assign went from ${money(previous.ynab)} to ${money(row.ynab)} ` +
+      `(${row.change < 0 ? "" : "+"}${money(row.change)}).`
+    : `Ready to Assign started at ${money(row.ynab)}.`;
+
+  return {
+    headline, causes, assignedIncreases, assignedTop, incomeDrops,
+    overspent, overspentSum, uncategorizedInflows, uncategorizedInflowSum,
+  };
+}
+
 /**
  * Earliest recorded snapshot showing a negative Ready to Assign, if any.
  * The month view can only say which month went negative (assigned amounts

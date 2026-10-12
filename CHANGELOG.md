@@ -11,6 +11,14 @@ before or as part of the push itself.
 
 ## 2026-10-12
 
+**RTA Tracker: what made Ready to Assign go negative** (`pages/rtatracker.js`, `tools/rta_tracker.js`, `app.css`, `tests/rta_tracker.test.js`, `CLAUDE.md`)
+* The reconstruction only said *that* Ready to Assign went negative. A new "Why it went negative" card now names the causes for each month it happened (the three most recent automatically, any month from its Details dialog), compared with the month before:
+  * which categories were assigned more,
+  * which income was lower or stopped coming in, by payee,
+  * which categories were overspent the month before (the usual source of money taken out that is neither income nor assigned),
+  * whether it was already negative going in,
+  * and any uncategorized money that month that would have covered the gap.
+
 **RTA Tracker: Ready to Assign reconstruction and audit** (`pages/rtatracker.js`, `tools/rta_tracker.js`, `api.js`, `app.css`, `tests/rta_tracker.test.js`, `CLAUDE.md`)
 * New "Reconstruction" section: rebuilds Ready to Assign month by month from income and assigned amounts using YNAB's own month figures (one API request for the whole history), and shows when it first went negative, the lowest point, and every negative stretch.
 * An audit list flags the month it went negative (with what moved it), months where YNAB's income figure does not match the transactions categorized to Ready to Assign, money that moved RTA but is not income or an assigned amount (usually cash overspending), and uncategorized transactions that never reached RTA at all.

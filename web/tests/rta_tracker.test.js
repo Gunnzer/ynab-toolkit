@@ -228,4 +228,81 @@ describe("rta tracker", () => {
     assert.equal(lines.length, 5);
     assert.equal(lines[3], "2026-03,1.00,1.00,2.00,0.00,-0.50,0.00,-0.50,-1.00,1,0.70");
   });
+
+  // ---------- why it went negative ----------
+
+  const july = { month: "2026-07", income: 500000, assigned: 400000, assignedLater: 0, other: 0, ynab: 100000, change: null };
+  const august = { month: "2026-08", income: 300000, assigned: 420000, assignedLater: 0, other: -30000, ynab: -50000, change: -150000 };
+  const cat = (id, name, budgeted, balance = 0, group = "Bills") =>
+    ({ id, name, budgeted, balance, category_group_name: group });
+
+  function explainAugust(extra = {}) {
+    return rta.explainMonth({
+      row: august,
+      previous: july,
+      categories: [
+        cat("rta", "Inflow: Ready to Assign", 0, 0, "Internal Master Category"),
+        cat("rent", "Rent", 200000), cat("food", "Groceries", 150000),
+        cat("fun", "Fun", 70000),
+      ],
+      previousCategories: [
+        cat("rta", "Inflow: Ready to Assign", 0, 0, "Internal Master Category"),
+        cat("rent", "Rent", 200000), cat("food", "Groceries", 100000, -30000),
+        cat("fun", "Fun", 100000),
+      ],
+      inflows: [{ payee: "Acme Payroll", amount: 300000 }],
+      previousInflows: [
+        { payee: "Acme Payroll", amount: 300000 }, { payee: "Side Gig", amount: 200000 },
+      ],
+      uncategorized: [
+        { payee_name: "Side Gig", amount: 200000 }, { payee_name: "Shop", amount: -5000 },
+      ],
+      ...extra,
+    });
+  }
+
+  test("explainMonth names the payee that stopped paying in", () => {
+    const income = explainAugust().causes.find((c) => c.kind === "income");
+    assert.equal(income.amount, -200000);
+    assert.match(income.text, /Side Gig \(\$0\.00, was \$200\.00\)/);
+  });
+
+  test("explainMonth names the categories assigned more, not less", () => {
+    const result = explainAugust();
+    assert.deepEqual(result.assignedIncreases.map((c) => [c.name, c.change]), [["Groceries", 50000]]);
+    const assigned = result.causes.find((c) => c.kind === "assigned");
+    assert.match(assigned.text, /\$20\.00 more than July 2026/);
+    assert.match(assigned.text, /Groceries \+\$50\.00/);
+    assert.doesNotMatch(assigned.text, /Inflow/);
+  });
+
+  test("explainMonth ties other to last month's overspending", () => {
+    const result = explainAugust();
+    assert.equal(result.overspentSum, -30000);
+    const other = result.causes.find((c) => c.kind === "other");
+    assert.match(other.text, /Groceries -\$30\.00/);
+  });
+
+  test("explainMonth points out uncategorized income that would cover the gap", () => {
+    const result = explainAugust();
+    assert.equal(result.uncategorizedInflowSum, 200000);
+    const last = result.causes[result.causes.length - 1];
+    assert.equal(last.kind, "uncategorized");
+    assert.match(last.text, /enough to cover the gap/);
+  });
+
+  test("explainMonth ranks the biggest pull first and has an exact headline", () => {
+    const result = explainAugust();
+    assert.deepEqual(result.causes.map((c) => c.kind),
+      ["assigned", "income", "other", "uncategorized"]);
+    assert.equal(result.headline,
+      "Ready to Assign went from $100.00 to -$50.00 (-$150.00).");
+  });
+
+  test("explainMonth with no previous month lists the largest assigned amounts", () => {
+    const result = explainAugust({ previous: null, previousCategories: [], previousInflows: [] });
+    const assigned = result.causes.find((c) => c.kind === "assigned");
+    assert.match(assigned.text, /Largest amounts: Rent \$200\.00, Groceries \$150\.00/);
+    assert.equal(result.causes.some((c) => c.kind === "income"), false);
+  });
 });
