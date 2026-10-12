@@ -9,6 +9,14 @@ Maintained going forward: add a new dated entry for each push, in this same
 style (feature/fix name and files, then bullets on what changed and why),
 before or as part of the push itself.
 
+## 2026-10-12
+
+**RTA Tracker: Ready to Assign reconstruction and audit** (`pages/rtatracker.js`, `tools/rta_tracker.js`, `api.js`, `app.css`, `tests/rta_tracker.test.js`, `CLAUDE.md`)
+* New "Reconstruction" section: rebuilds Ready to Assign month by month from income and assigned amounts using YNAB's own month figures (one API request for the whole history), and shows when it first went negative, the lowest point, and every negative stretch.
+* An audit list flags the month it went negative (with what moved it), months where YNAB's income figure does not match the transactions categorized to Ready to Assign, money that moved RTA but is not income or an assigned amount (usually cash overspending), and uncategorized transactions that never reached RTA at all.
+* Each month has a Details breakdown (left over, income, assigned, other, the income transactions themselves and anything uncategorized), an "only months with something to check" filter, and a CSV export for an outside audit trail.
+* Whether a month's figure also deducts amounts already assigned in later months is worked out from the budget's own numbers rather than assumed.
+
 ## 2026-09-12
 
 **Fixed: Shared Expenses' Undo dialog defaulted to "restore everything"** (`pages/shared.js`, `CLAUDE.md`)
