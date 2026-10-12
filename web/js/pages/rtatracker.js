@@ -116,6 +116,8 @@ export function rtaTrackerPage(app) {
     "went negative.");
   const causesCard = card();
   causesCard.hidden = true;
+  const peopleCard = card();
+  peopleCard.hidden = true;
   const findingsCard = card();
   findingsCard.hidden = true;
   let reconTable = buildReconTable(false);
@@ -129,6 +131,7 @@ export function rtaTrackerPage(app) {
       reconNote),
     reconStats,
     causesCard,
+    peopleCard,
     findingsCard,
     reconTableSlot);
   emptyRow(reconTable, "Press \"Rebuild from history\" to start.");
@@ -400,6 +403,143 @@ export function rtaTrackerPage(app) {
     }
   }
 
+  // ---------- by person ----------
+
+  function personLabel(who) {
+    return who === "p1" ? state.personName(1) : who === "p2" ? state.personName(2) : "Shared";
+  }
+
+  async function renderPeople() {
+    clear(peopleCard);
+    peopleCard.hidden = false;
+    peopleCard.append(sectionTitle("By person"));
+    if (!state.peopleNamed) {
+      peopleCard.append(hint(
+        "Name both people on the Setup page (with their category group " +
+        "prefix and account tag) to split accounts and categories by person."));
+      return;
+    }
+
+    const thisMonth = rta.currentMonthString();
+    let result;
+    try {
+      const month = await state.month(thisMonth);
+      result = rta.byPerson({
+        accounts: state.accounts,
+        categories: withGroupNames(month.data.categories),
+        settings: {
+          ...state.withPeople({}),
+          accountOwners: store.get("splitSheet.accountOwners", {}) || {},
+        },
+      });
+    } catch (error) {
+      peopleCard.append(hint(
+        `Could not load this month's categories: ${error.shortMessage || error.message}`));
+      return;
+    }
+
+    peopleCard.append(hint(
+      "Money in each person's budget accounts against what is sitting in their " +
+      "categories right now. The gap is their share of Ready to Assign: below " +
+      "zero means their categories hold money their own accounts do not have."));
+
+    const peopleTable = table([
+      { key: "who", label: "Person" },
+      { key: "cash", label: "In accounts", className: "num" },
+      { key: "owed", label: "Credit owed", className: "num" },
+      { key: "available", label: "In categories", className: "num" },
+      { key: "assigned", label: "Assigned this month", className: "num" },
+      { key: "gap", label: "Gap", className: "num" },
+    ]);
+    for (const row of result.rows) {
+      if (row.who === "shared" && !row.accountList.length && !row.categoryList.length) continue;
+      const link = button(personLabel(row.who), { small: true, onClick: () => showPerson(row) });
+      link.classList.add("btn-link");
+      peopleTable.tbody.append(el("tr", {},
+        el("td", {}, link),
+        el("td", { class: "num", text: fmt(row.cash) }),
+        el("td", { class: "num", text: row.owed ? fmt(row.owed) : "-" }),
+        el("td", { class: "num", text: fmt(row.available) }),
+        el("td", { class: "num", text: fmt(row.assigned) }),
+        el("td", { class: "num" },
+          pill(signed(row.gap), row.gap < -9 ? "error" : row.gap > 9 ? "ok" : "muted"))));
+    }
+    peopleTable.tbody.append(el("tr", { class: "total-row" },
+      el("td", { text: "Total" }),
+      el("td", { class: "num", text: fmt(result.total.cash) }),
+      el("td", { class: "num", text: fmt(result.total.owed) }),
+      el("td", { class: "num", text: fmt(result.total.available) }),
+      el("td", { class: "num", text: fmt(result.total.assigned) }),
+      el("td", { class: "num", text: signed(result.total.gap) })));
+    peopleCard.append(peopleTable);
+
+    const now = rebuilt.rows.find((row) => row.month === thisMonth);
+    if (now) {
+      const off = result.total.gap - now.ynab;
+      peopleCard.append(hint(
+        `The gaps add up to ${fmt(result.total.gap)}; YNAB's Ready to Assign ` +
+        `this month is ${fmt(now.ynab)}.` +
+        (Math.abs(off) >= 10
+          ? ` The ${fmt(Math.abs(off))} difference is usually money already ` +
+            "assigned in a future month, which has left the accounts' total " +
+            "but is not in this month's categories."
+          : "")));
+    }
+
+    const short = result.rows.filter((row) => row.who !== "shared" && row.gap < -9);
+    for (const row of short) {
+      peopleCard.append(el("p", { class: "status-line is-error" },
+        `${personLabel(row.who)}'s categories hold ${fmt(-row.gap)} more than ` +
+        "their accounts have."));
+    }
+  }
+
+  function showPerson(row) {
+    customDialog(personLabel(row.who), (body) => {
+      body.append(hint(
+        `In accounts ${fmt(row.accounts)} (after ${fmt(row.owed)} credit owed), ` +
+        `in categories ${fmt(row.available)}, gap ${signed(row.gap)}.` +
+        (row.who === "shared"
+          ? " Anything here matched neither person's tag, name or group " +
+            "prefix - give it one on Setup if it actually belongs to someone."
+          : "")));
+
+      body.append(sectionTitle(`Accounts (${row.accountList.length})`));
+      const accountTable = table([
+        { key: "name", label: "Account" },
+        { key: "balance", label: "Balance", className: "num" },
+      ]);
+      if (!row.accountList.length) emptyRow(accountTable, "No accounts.");
+      for (const account of row.accountList) {
+        accountTable.tbody.append(el("tr", {},
+          el("td", { text: account.name }),
+          el("td", { class: "num", text: fmt(account.balance) })));
+      }
+      body.append(accountTable);
+
+      body.append(sectionTitle(`Categories (${row.categoryList.length})`));
+      const categoryTable = table([
+        { key: "name", label: "Category" },
+        { key: "assigned", label: "Assigned this month", className: "num" },
+        { key: "available", label: "Available", className: "num" },
+      ]);
+      categoryTable.classList.add("scroll-table");
+      if (!row.categoryList.length) emptyRow(categoryTable, "No categories.");
+      for (const category of row.categoryList) {
+        categoryTable.tbody.append(el("tr", {},
+          el("td", {}, el("div", { text: category.name }),
+            el("div", { class: "rta-ledger-detail", text: category.group })),
+          el("td", { class: "num", text: fmt(category.assigned) }),
+          el("td", {
+            class: `num ${category.available < 0 ? "is-error" : ""}`,
+            text: fmt(category.available),
+          })));
+      }
+      body.append(categoryTable);
+      return { value: () => true };
+    }, { confirmText: "Done", cancelText: "", hideCancel: true, wide: true });
+  }
+
   async function showMonth(row) {
     const uncategorized = inMonth(rebuilt.uncategorized, row.month);
     const explanation = await app.run(() => explain(row), { log });
@@ -475,6 +615,7 @@ export function rtaTrackerPage(app) {
     csvButton.disabled = false;
     renderReconstruction();
     renderCauses();
+    renderPeople();
     log.write(
       rebuilt.firstNegative
         ? `First went negative in ${monthLabel(rebuilt.firstNegative.month)}.`

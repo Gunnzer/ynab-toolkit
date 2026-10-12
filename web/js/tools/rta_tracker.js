@@ -10,6 +10,7 @@
 // up if you only look at the current month's own activity.
 
 import { fmt as money } from "../money.js";
+import { ownerOf, payerOf } from "./split_sheet.js";
 
 /** "YYYY-MM" for today, in the browser's local time. */
 export function currentMonthString(now = new Date()) {
@@ -616,6 +617,79 @@ export function buildLedger({
   }
 
   return { lines, endBalance: balance, matches: Math.abs(row.ynab - balance) < 10 };
+}
+
+// ---------- by person ----------
+
+const LIABILITY_TYPES = new Set(["creditCard", "lineOfCredit"]);
+const PEOPLE = ["p1", "p2", "shared"];
+
+/**
+ * Each person's money in accounts against what is sitting in their
+ * categories. Across a whole budget, every on-budget account balance adds
+ * up to every category's Available plus Ready to Assign - so split by
+ * person, each one's gap (accounts minus Available) is their share of
+ * Ready to Assign, and a negative gap means their categories are holding
+ * money their own accounts do not have. That is what makes this useful
+ * next to the reconstruction: it says whose side is short.
+ *
+ * Accounts are owned via payerOf() (explicit mapping, then tag, then the
+ * person's name; anything else is shared), categories via ownerOf() on
+ * their group name, the same rules every other tool uses. A credit card
+ * payment category has no person prefix on its group, so it follows the
+ * card it pays off instead (same name as the account). `categories` are
+ * one month's categories (YNAB's month detail, group names filled in);
+ * Available is `balance`, Assigned is `budgeted`.
+ */
+export function byPerson({ accounts, categories, settings }) {
+  const totals = Object.fromEntries(PEOPLE.map((who) => [who, {
+    who, cash: 0, owed: 0, accounts: 0, available: 0, assigned: 0,
+    accountList: [], categoryList: [],
+  }]));
+  const owners = new Map();
+
+  for (const account of accounts || []) {
+    if (account.deleted || account.closed || !account.on_budget) continue;
+    const owner = payerOf(account.name, settings);
+    const who = owner === "joint" ? "shared" : owner;
+    owners.set(account.name, who);
+    const entry = totals[who];
+    const balance = account.balance || 0;
+    if (LIABILITY_TYPES.has(account.type)) entry.owed += balance;
+    else entry.cash += balance;
+    entry.accounts += balance;
+    entry.accountList.push({ name: account.name, type: account.type, balance });
+  }
+
+  for (const category of assignable(categories)) {
+    if (category.hidden && !category.balance && !category.budgeted) continue;
+    const group = category.category_group_name || "";
+    const who = group === "Credit Card Payments" && owners.has(category.name)
+      ? owners.get(category.name)
+      : ownerOf(group, "", settings);
+    const entry = totals[who];
+    entry.available += category.balance || 0;
+    entry.assigned += category.budgeted || 0;
+    entry.categoryList.push({
+      name: category.name, group,
+      available: category.balance || 0, assigned: category.budgeted || 0,
+    });
+  }
+
+  const rows = PEOPLE.map((who) => {
+    const entry = totals[who];
+    entry.accountList.sort((a, b) => b.balance - a.balance);
+    entry.categoryList.sort((a, b) => b.available - a.available);
+    return { ...entry, gap: entry.accounts - entry.available };
+  });
+  const sum = (key) => rows.reduce((total, row) => total + row[key], 0);
+  return {
+    rows,
+    total: {
+      cash: sum("cash"), owed: sum("owed"), accounts: sum("accounts"),
+      available: sum("available"), assigned: sum("assigned"), gap: sum("gap"),
+    },
+  };
 }
 
 /**

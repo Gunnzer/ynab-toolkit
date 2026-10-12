@@ -363,4 +363,59 @@ describe("rta tracker", () => {
     assert.equal(lines.some((l) => l.kind === "reconcile"), false);
     assert.equal(lines.find((l) => l.recovered).kind, "later");
   });
+
+  // ---------- by person ----------
+
+  const people = {
+    person1Name: "Alex", person2Name: "Sam",
+    person1GroupPrefix: "Alex", person2GroupPrefix: "Sam",
+    person1AccountTag: "A", person2AccountTag: "S",
+  };
+  const account = (name, type, balance, extra = {}) =>
+    ({ name, type, balance, on_budget: true, closed: false, deleted: false, ...extra });
+
+  function split() {
+    return rta.byPerson({
+      settings: people,
+      accounts: [
+        account("(A) Alex Checking", "checking", 1000000),
+        account("(A) Alex Visa", "creditCard", -200000),
+        account("(S) Sam Checking", "checking", 300000),
+        account("Joint Savings", "savings", 500000),
+        account("(S) Old", "checking", 999000, { closed: true }),
+        account("(S) Brokerage", "otherAsset", 777000, { on_budget: false }),
+      ],
+      categories: [
+        cat("rta", "Inflow: Ready to Assign", 0, 400000, "Internal Master Category"),
+        { ...cat("a1", "Alex Fun", 50000, 600000, "Alex Spending") },
+        { ...cat("s1", "Sam Fun", 80000, 450000, "Sam Spending") },
+        { ...cat("cc", "(A) Alex Visa", 0, 200000, "Credit Card Payments") },
+        { ...cat("j1", "Rent", 100000, 500000, "Bills") },
+      ],
+    });
+  }
+
+  test("byPerson splits accounts and categories by owner", () => {
+    const { rows } = split();
+    const [alex, sam, shared] = rows;
+    assert.deepEqual([alex.cash, alex.owed, alex.accounts], [1000000, -200000, 800000]);
+    assert.equal(sam.accounts, 300000);
+    assert.equal(shared.accounts, 500000);
+    assert.equal(alex.available, 800000);
+    assert.equal(sam.available, 450000);
+    assert.equal(shared.available, 500000);
+    assert.deepEqual(rows.map((r) => r.assigned), [50000, 80000, 100000]);
+  });
+
+  test("byPerson follows a credit card payment category to its card's owner", () => {
+    const [alex] = split().rows;
+    assert.ok(alex.categoryList.some((c) => c.name === "(A) Alex Visa"));
+  });
+
+  test("byPerson gap shows whose categories hold money their accounts lack", () => {
+    const { rows, total } = split();
+    assert.deepEqual(rows.map((r) => r.gap), [0, -150000, 0]);
+    assert.equal(total.gap, -150000);
+    assert.equal(total.accounts - total.available, total.gap);
+  });
 });
