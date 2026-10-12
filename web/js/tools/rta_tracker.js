@@ -10,7 +10,7 @@
 // up if you only look at the current month's own activity.
 
 import { fmt as money } from "../money.js";
-import { ownerOf, payerOf } from "./split_sheet.js";
+import { ownerOf, payerOf, sharedRatio } from "./split_sheet.js";
 
 /** "YYYY-MM" for today, in the browser's local time. */
 export function currentMonthString(now = new Date()) {
@@ -710,75 +710,132 @@ export function buildLedger({
 
 // ---------- by person ----------
 
-const LIABILITY_TYPES = new Set(["creditCard", "lineOfCredit"]);
+const DEBT_TYPES = new Set([
+  "creditCard", "lineOfCredit", "otherLiability", "mortgage", "autoLoan",
+  "studentLoan", "personalLoan", "medicalDebt", "otherDebt",
+]);
 const PEOPLE = ["p1", "p2", "shared"];
 
 /**
- * Each person's money in accounts against what is sitting in their
- * categories. Across a whole budget, every on-budget account balance adds
- * up to every category's Available plus Ready to Assign - so split by
- * person, each one's gap (accounts minus Available) is their share of
- * Ready to Assign, and a negative gap means their categories are holding
- * money their own accounts do not have. That is what makes this useful
- * next to the reconstruction: it says whose side is short.
+ * Whether anyone has assigned money that never came into their own
+ * accounts. For each person, month by month: income to Ready to Assign
+ * that landed in one of their non-debt accounts, against what was
+ * assigned to the categories they own, with a running total. A running
+ * total below zero means they have assigned more than ever came in for
+ * them - the rest was someone else's money.
  *
- * Accounts are owned via payerOf() (explicit mapping, then tag, then the
- * person's name; anything else is shared), categories via ownerOf() on
- * their group name, the same rules every other tool uses. A credit card
- * payment category has no person prefix on its group, so it follows the
- * card it pays off instead (same name as the account). `categories` are
- * one month's categories (YNAB's month detail, group names filled in);
- * Available is `balance`, Assigned is `budgeted`.
+ * Account balances and category Available are deliberately not used
+ * (an earlier version compared those, replaced at explicit request):
+ * both move with spending, and credit card debt moves with spending on
+ * the card, so neither can tell "assigned the other person's money"
+ * apart from "spent their own". Income and Assigned are the only two
+ * figures that only move when money arrives or is given a job.
+ *
+ * Accounts are owned via payerOf(), categories via ownerOf() on the
+ * group name, same as every other tool. A credit card payment category
+ * has no person prefix on its group, so it follows its card (same name).
+ * Shared categories are funded by both people and joint accounts belong
+ * to both, so left on their own, "shared" always looks short and each
+ * person always looks ahead - hiding exactly the imbalance this is for.
+ * Each person therefore also carries their share (Setup's split ratio,
+ * person1Ratio) of shared income and shared assigned amounts, and the
+ * per-person running total is what decides who went short.
+ *
+ * `months` is [{ month: "YYYY-MM", categories }] from YNAB's month
+ * detail (group names filled in), oldest first; `inflows` comes from
+ * readyToAssignInflows().
  */
-export function byPerson({ accounts, categories, settings }) {
-  const totals = Object.fromEntries(PEOPLE.map((who) => [who, {
-    who, cash: 0, owed: 0, accounts: 0, available: 0, assigned: 0,
-    accountList: [], categoryList: [],
-  }]));
-  const owners = new Map();
-
-  for (const account of accounts || []) {
-    if (account.deleted || account.closed || !account.on_budget) continue;
-    const owner = payerOf(account.name, settings);
-    const who = owner === "joint" ? "shared" : owner;
-    owners.set(account.name, who);
-    const entry = totals[who];
-    const balance = account.balance || 0;
-    if (LIABILITY_TYPES.has(account.type)) entry.owed += balance;
-    else entry.cash += balance;
-    entry.accounts += balance;
-    entry.accountList.push({ name: account.name, type: account.type, balance });
-  }
-
-  for (const category of assignable(categories)) {
-    if (category.hidden && !category.balance && !category.budgeted) continue;
-    const group = category.category_group_name || "";
-    const who = group === "Credit Card Payments" && owners.has(category.name)
-      ? owners.get(category.name)
-      : ownerOf(group, "", settings);
-    const entry = totals[who];
-    entry.available += category.balance || 0;
-    entry.assigned += category.budgeted || 0;
-    entry.categoryList.push({
-      name: category.name, group,
-      available: category.balance || 0, assigned: category.budgeted || 0,
-    });
-  }
-
-  const rows = PEOPLE.map((who) => {
-    const entry = totals[who];
-    entry.accountList.sort((a, b) => b.balance - a.balance);
-    entry.categoryList.sort((a, b) => b.available - a.available);
-    return { ...entry, gap: entry.accounts - entry.available };
-  });
-  const sum = (key) => rows.reduce((total, row) => total + row[key], 0);
-  return {
-    rows,
-    total: {
-      cash: sum("cash"), owed: sum("owed"), accounts: sum("accounts"),
-      available: sum("available"), assigned: sum("assigned"), gap: sum("gap"),
-    },
+export function assignedVsIncome({ months, inflows, accounts, settings }) {
+  const accountById = new Map((accounts || []).map((a) => [a.id, a]));
+  const accountOwner = (account) => {
+    const owner = payerOf(account?.name || "", settings);
+    return owner === "joint" ? "shared" : owner;
   };
+  const cardOwners = new Map((accounts || [])
+    .filter((a) => !a.deleted && DEBT_TYPES.has(a.type))
+    .map((a) => [a.name, accountOwner(a)]));
+
+  const incomeByMonth = new Map();
+  const skippedDebtIncome = [];
+  for (const inflow of inflows || []) {
+    const account = accountById.get(inflow.accountId);
+    if (account && DEBT_TYPES.has(account.type)) {
+      skippedDebtIncome.push(inflow);
+      continue;
+    }
+    const key = monthKey(inflow.date);
+    const who = accountOwner(account);
+    const entry = incomeByMonth.get(key) || { p1: 0, p2: 0, shared: 0 };
+    entry[who] += inflow.amount;
+    incomeByMonth.set(key, entry);
+  }
+
+  const ratio = sharedRatio(settings);
+  const split = (amount) => {
+    const first = Math.round(amount * ratio);
+    return { p1: first, p2: amount - first };
+  };
+  const running = { p1: 0, p2: 0, shared: 0 };
+  const rows = [];
+  const seen = new Set();
+  for (const { month, categories } of months || []) {
+    const key = monthKey(month);
+    seen.add(key);
+    const income = incomeByMonth.get(key) || { p1: 0, p2: 0, shared: 0 };
+    const assigned = { p1: 0, p2: 0, shared: 0 };
+    const assignedList = { p1: [], p2: [], shared: [] };
+    for (const category of assignable(categories)) {
+      if (!category.budgeted) continue;
+      const group = category.category_group_name || "";
+      const who = group === "Credit Card Payments" && cardOwners.has(category.name)
+        ? cardOwners.get(category.name)
+        : ownerOf(group, "", settings);
+      assigned[who] += category.budgeted;
+      assignedList[who].push({ name: category.name, group, assigned: category.budgeted });
+    }
+    const row = { month: key, people: {} };
+    const sharedIncome = split(income.shared);
+    const sharedAssigned = split(assigned.shared);
+    for (const who of PEOPLE) {
+      const shareIn = who === "shared" ? 0 : sharedIncome[who];
+      const shareOut = who === "shared" ? 0 : sharedAssigned[who];
+      const net = income[who] + shareIn - assigned[who] - shareOut;
+      const before = running[who];
+      running[who] += net;
+      row.people[who] = {
+        income: income[who],
+        sharedIncome: shareIn,
+        assigned: assigned[who],
+        sharedAssigned: shareOut,
+        net,
+        running: running[who],
+        wentShort: before >= 0 && running[who] < 0,
+        assignedList: assignedList[who].sort((a, b) => b.assigned - a.assigned),
+      };
+    }
+    rows.push(row);
+  }
+
+  // Income dated in a month with no month detail (outside the budget's
+  // own month range) would otherwise vanish without a trace.
+  const unplacedIncome = [...incomeByMonth.keys()].filter((key) => !seen.has(key));
+
+  const people = PEOPLE.map((who) => {
+    const shortRow = rows.find((row) => row.people[who].wentShort) || null;
+    const total = (field) => rows.reduce((sum, row) => sum + row.people[who][field], 0);
+    return {
+      who,
+      income: total("income"),
+      sharedIncome: total("sharedIncome"),
+      assigned: total("assigned"),
+      sharedAssigned: total("sharedAssigned"),
+      running: running[who],
+      firstShort: shortRow ? shortRow.month : null,
+      lowest: rows.reduce((low, row) => Math.min(low, row.people[who].running), 0),
+    };
+  });
+
+  return { rows, people, ratio, skippedDebtIncome, unplacedIncome };
 }
 
 /**

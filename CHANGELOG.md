@@ -9,6 +9,14 @@ Maintained going forward: add a new dated entry for each push, in this same
 style (feature/fix name and files, then bullets on what changed and why),
 before or as part of the push itself.
 
+## 2026-10-12 (later)
+
+**RTA Tracker: "By person" now shows who assigned whose money** (`pages/rtatracker.js`, `tools/rta_tracker.js`, `tests/rta_tracker.test.js`, `CLAUDE.md`)
+* Replaces the account-balance comparison, which mixed spending and credit card debt in and so could not show whether someone had assigned the other person's money.
+* Now compares, for each person, income into their own non-debt accounts against what was assigned to their categories, month by month since the budget started, with a running total. Below zero means they assigned more than came in for them, and it shows the month that started.
+* Shared categories and joint-account income are split between the two people by the share set on Setup, so shared bills count against each person fairly instead of making "Shared" always look short.
+* Click a person for their month-by-month breakdown, with the month they went short highlighted.
+
 ## 2026-10-12
 
 **RTA Tracker: who assigned what, and exactly when** (`pages/rtatracker.js`, `tools/rta_tracker.js`, `api.js`, `app.css`, `tests/rta_tracker.test.js`, `CLAUDE.md`)

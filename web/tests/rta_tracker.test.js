@@ -371,52 +371,97 @@ describe("rta tracker", () => {
     person1GroupPrefix: "Alex", person2GroupPrefix: "Sam",
     person1AccountTag: "A", person2AccountTag: "S",
   };
-  const account = (name, type, balance, extra = {}) =>
-    ({ name, type, balance, on_budget: true, closed: false, deleted: false, ...extra });
+  const accounts = [
+    { id: "a-chq", name: "(A) Alex Checking", type: "checking" },
+    { id: "a-visa", name: "(A) Alex Visa", type: "creditCard" },
+    { id: "s-chq", name: "(S) Sam Checking", type: "checking" },
+    { id: "j-sav", name: "Joint Savings", type: "savings" },
+  ];
 
-  function split() {
-    return rta.byPerson({
+  function vsIncome() {
+    return rta.assignedVsIncome({
       settings: people,
-      accounts: [
-        account("(A) Alex Checking", "checking", 1000000),
-        account("(A) Alex Visa", "creditCard", -200000),
-        account("(S) Sam Checking", "checking", 300000),
-        account("Joint Savings", "savings", 500000),
-        account("(S) Old", "checking", 999000, { closed: true }),
-        account("(S) Brokerage", "otherAsset", 777000, { on_budget: false }),
+      accounts,
+      inflows: [
+        { date: "2026-07-01", accountId: "a-chq", amount: 300000 },
+        { date: "2026-07-01", accountId: "s-chq", amount: 200000 },
+        { date: "2026-08-01", accountId: "a-chq", amount: 300000 },
+        { date: "2026-08-01", accountId: "s-chq", amount: 200000 },
+        // Landed on a credit card: left out, and reported.
+        { date: "2026-08-05", accountId: "a-visa", amount: 50000 },
+        { date: "2026-08-10", accountId: "j-sav", amount: 10000 },
       ],
-      categories: [
-        cat("rta", "Inflow: Ready to Assign", 0, 400000, "Internal Master Category"),
-        { ...cat("a1", "Alex Fun", 50000, 600000, "Alex Spending") },
-        { ...cat("s1", "Sam Fun", 80000, 450000, "Sam Spending") },
-        { ...cat("cc", "(A) Alex Visa", 0, 200000, "Credit Card Payments") },
-        { ...cat("j1", "Rent", 100000, 500000, "Bills") },
+      months: [
+        {
+          month: "2026-07",
+          categories: [
+            cat("rta", "Inflow: Ready to Assign", 0, 0, "Internal Master Category"),
+            cat("a1", "Alex Fun", 250000, 0, "Alex Spending"),
+            cat("s1", "Sam Fun", 150000, 0, "Sam Spending"),
+          ],
+        },
+        {
+          month: "2026-08",
+          categories: [
+            cat("a1", "Alex Fun", 250000, 0, "Alex Spending"),
+            cat("s1", "Sam Fun", 320000, 0, "Sam Spending"),
+            cat("cc", "(A) Alex Visa", 40000, 0, "Credit Card Payments"),
+            cat("rent", "Rent", 10000, 0, "Bills"),
+          ],
+        },
       ],
     });
   }
 
-  test("byPerson splits accounts and categories by owner", () => {
-    const { rows } = split();
-    const [alex, sam, shared] = rows;
-    assert.deepEqual([alex.cash, alex.owed, alex.accounts], [1000000, -200000, 800000]);
-    assert.equal(sam.accounts, 300000);
-    assert.equal(shared.accounts, 500000);
-    assert.equal(alex.available, 800000);
-    assert.equal(sam.available, 450000);
-    assert.equal(shared.available, 500000);
-    assert.deepEqual(rows.map((r) => r.assigned), [50000, 80000, 100000]);
+  test("assignedVsIncome compares each person's income against what they assigned", () => {
+    const { people: totals } = vsIncome();
+    assert.deepEqual(totals.map((p) => [p.who, p.income, p.assigned, p.running]), [
+      ["p1", 600000, 540000, 60000],
+      ["p2", 400000, 470000, -70000],
+      ["shared", 10000, 10000, 0],
+    ]);
   });
 
-  test("byPerson follows a credit card payment category to its card's owner", () => {
-    const [alex] = split().rows;
-    assert.ok(alex.categoryList.some((c) => c.name === "(A) Alex Visa"));
+  test("assignedVsIncome finds the month someone started assigning another's money", () => {
+    const result = vsIncome();
+    const sam = result.people.find((p) => p.who === "p2");
+    assert.equal(sam.firstShort, "2026-08");
+    assert.deepEqual(result.rows.map((r) => r.people.p2.running), [50000, -70000]);
+    assert.equal(result.rows[1].people.p2.wentShort, true);
+    assert.equal(result.rows[1].people.p2.assignedList[0].name, "Sam Fun");
   });
 
-  test("byPerson gap shows whose categories hold money their accounts lack", () => {
-    const { rows, total } = split();
-    assert.deepEqual(rows.map((r) => r.gap), [0, -150000, 0]);
-    assert.equal(total.gap, -150000);
-    assert.equal(total.accounts - total.available, total.gap);
+  test("assignedVsIncome leaves out debt accounts and follows a card payment to its owner", () => {
+    const result = vsIncome();
+    assert.equal(result.skippedDebtIncome.length, 1);
+    assert.equal(result.rows[1].people.p1.assigned, 290000);
+    assert.deepEqual(result.unplacedIncome, []);
+  });
+
+  test("assignedVsIncome charges each person their split of shared categories", () => {
+    const result = rta.assignedVsIncome({
+      settings: { ...people, person1Ratio: 0.65 },
+      accounts,
+      inflows: [
+        { date: "2026-08-01", accountId: "a-chq", amount: 1000000 },
+        { date: "2026-08-01", accountId: "s-chq", amount: 400000 },
+      ],
+      months: [{
+        month: "2026-08",
+        categories: [
+          cat("rent", "Rent", 1000000, 0, "Bills"),
+          cat("a1", "Alex Fun", 300000, 0, "Alex Spending"),
+          cat("s1", "Sam Fun", 100000, 0, "Sam Spending"),
+        ],
+      }],
+    });
+    const [alex, sam] = result.people;
+    assert.deepEqual([alex.sharedAssigned, sam.sharedAssigned], [650000, 350000]);
+    // Alex: 1000 - 300 - 650 = 50. Sam: 400 - 100 - 350 = -50, so Sam
+    // used 50 of Alex's money.
+    assert.deepEqual([alex.running, sam.running], [50000, -50000]);
+    assert.equal(sam.firstShort, "2026-08");
+    assert.equal(result.ratio, 0.65);
   });
 
   // ---------- money movement history ----------
