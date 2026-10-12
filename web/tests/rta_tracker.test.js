@@ -450,6 +450,32 @@ describe("rta tracker", () => {
     assert.deepEqual([alex2.gap, sam2.unpaid, sam2.gap], [800000, -50000, 200000]);
   });
 
+  test("byPerson: paying the other person back for the card leaves both gaps alone", () => {
+    const settings = { ...people, person2AccountTag: "B" };
+    const categories = [
+      cat("food", "Alex Food", 0, 150000, "Alex Spending"),
+      cat("s1", "Sam Fun", 0, 800000, "Sam Spending"),
+    ];
+    const run = (alexCash, samCash, transactions) => rta.byPerson({
+      settings, categories, transactions,
+      accounts: [
+        { ...account("(A) Alex Checking", "checking", alexCash), id: "a-chq" },
+        { ...account("(B) Sam Checking", "checking", samCash), id: "s-chq" },
+        { ...account("Joint Visa", "creditCard", 0), id: "visa" },
+      ],
+    }).map((p) => p.gap);
+
+    const bought = { account_id: "visa", category_id: "food", amount: -50000 };
+    const samPays = { account_id: "s-chq", transfer_account_id: "visa", amount: -50000 };
+    const before = run(1000000, 1000000, [bought]);
+    // Sam pays the card, then Alex sends Sam 50 (both sides of the transfer).
+    const after = run(950000, 1000000, [bought, samPays,
+      { account_id: "a-chq", transfer_account_id: "s-chq", amount: -50000 },
+      { account_id: "s-chq", transfer_account_id: "a-chq", amount: 50000 }]);
+    assert.deepEqual(before, [800000, 200000]);
+    assert.deepEqual(after, before);
+  });
+
   // ---------- money movement history ----------
 
   const rawMovements = [

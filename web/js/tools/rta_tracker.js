@@ -733,7 +733,9 @@ const DEBT_TYPES = new Set([
  * person's card spending in their own categories, minus card payments
  * made from their own accounts, over all of history - so a purchase
  * and its payment cancel out wherever the money comes from, and only
- * assigning money they do not have moves the gap.
+ * assigning money they do not have moves the gap. Money one person
+ * sends the other counts as paying back their share of the card, so a
+ * settle-up transfer leaves both gaps where they were.
  *
  * Accounts are owned via payerOf(), categories via ownerOf() on the
  * group name, same as every other tool. `categories` are one month's
@@ -784,6 +786,20 @@ export function byPerson({ accounts, categories, transactions = [], settings }) 
       // the same transfer would count it twice.
       const person = accountPerson(t.account_id);
       if (person) person.cardPayments -= t.amount;
+    } else if (t.transfer_account_id && t.amount < 0 &&
+      !isDebt(t.account_id) && !isDebt(t.transfer_account_id)) {
+      // One person sending the other money is them paying back their
+      // share of a card the other one paid (reported live), so it moves
+      // that much of the card from one to the other: without this the
+      // sender would look short and the receiver ahead by the transfer.
+      // Read from the sending side only (amount below zero), so the
+      // receiving account's copy is not counted twice.
+      const from = accountPerson(t.account_id);
+      const to = accountPerson(t.transfer_account_id);
+      if (from && to && from !== to) {
+        from.cardPayments -= t.amount;
+        to.cardPayments += t.amount;
+      }
     }
   }
 

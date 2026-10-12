@@ -620,7 +620,9 @@ export function rtaTrackerPage(app) {
       body.append(hint(
         `${fmt(person.accounts)} in their accounts, ${fmt(person.available)} in ` +
         `their categories. Card spending in their categories: ` +
-        `${fmt(person.cardSpending)}, card payments from their accounts: ` +
+        `${fmt(person.cardSpending)}, card payments from their accounts ` +
+        `(counting money sent to or received from the other person as paying ` +
+        `them back): ` +
         `${fmt(person.cardPayments)}, so ${fmt(person.unpaid)} still to pay. ` +
         `Difference ${signed(person.gap)}. Anything that ` +
         "should be here but is not needs its tag, name or group prefix " +
