@@ -124,6 +124,24 @@ export class YnabClient {
     return (await this.request("GET", `/budgets/${budgetId}/months`)).months;
   }
 
+  /** The signed-in user. Only an id - YNAB does not expose names. */
+  async user() {
+    return (await this.request("GET", "/user")).user;
+  }
+
+  /**
+   * Every assignment and category-to-category move in one budget month,
+   * each with when it happened (moved_at) and who did it
+   * (performed_by_user_id). Added to YNAB's API in 2026 under the newer
+   * "plans" naming - the id is the same budget id used everywhere else.
+   * Months from before YNAB started keeping this history come back empty.
+   */
+  async moneyMovements(budgetId, month) {
+    const value = month.length === 7 ? `${month}-01` : month;
+    return (await this.request("GET", `/plans/${budgetId}/months/${value}/money_movements`))
+      .money_movements;
+  }
+
   async transactions(budgetId, sinceDate) {
     const params = sinceDate ? { since_date: sinceDate } : undefined;
     return (

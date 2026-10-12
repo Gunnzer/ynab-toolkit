@@ -506,10 +506,33 @@ h1, h2, h3 { margin: 0; font-weight: 600; line-height: 1.3; }
 }
 .rta-finding-month { color: var(--muted); font-weight: 600; }
 .rta-finding .pill { justify-self: start; }
+.rta-cause-month { display: flex; flex-direction: column; gap: 6px; }
+.rta-cause-month + .rta-cause-month {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+  margin-top: 6px;
+}
+.rta-cause {
+  display: grid;
+  grid-template-columns: 9em 1fr;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.rta-cause .pill { justify-self: start; }
+.rta-ledger-what { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rta-ledger-detail { color: var(--faint); font-size: 12px; }
+tr.rta-cross td { background: var(--error-soft); }
+.rta-who { color: var(--muted); font-weight: 600; }
+.rta-whos-who { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; }
+/* Beats tr.group-row's own zero padding, meant for Budget's collapsible rows. */
+table tr.group-row.rta-ledger-group td:first-child { padding: 8px 14px; }
 
 @media (max-width: 560px) {
   .rta-finding { grid-template-columns: auto 1fr; }
   .rta-finding > :last-child { grid-column: 1 / -1; }
+  .rta-cause { grid-template-columns: 1fr; gap: 4px; }
 }
 
 /* ---------- shared expenses split ---------- */

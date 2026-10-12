@@ -11,6 +11,29 @@ before or as part of the push itself.
 
 ## 2026-10-12
 
+**RTA Tracker: who assigned what, and exactly when** (`pages/rtatracker.js`, `tools/rta_tracker.js`, `api.js`, `app.css`, `tests/rta_tracker.test.js`, `CLAUDE.md`)
+* Uses YNAB's new assignment history (money movements, added to its API in April 2026): the line-by-line ledger now runs in the order things actually happened - income by date, each assignment at its exact time and tagged with who made it - so "Went negative here" is a real moment, e.g. "14 Aug at 7:12 PM, when Sam assigned $130.00 to Electric".
+* "What moved it" gains a "Who" line: how much each person assigned that month.
+* YNAB only gives a user id, never a name, so it shows "You" and "Other member" until you match them to your two people once ("Who's who", remembered).
+* Months from before YNAB kept this history still work, listing assignments in budget order as before, and say so.
+
+**RTA Tracker: accounts vs categories, by person** (`pages/rtatracker.js`, `tools/rta_tracker.js`, `tests/rta_tracker.test.js`, `CLAUDE.md`)
+* New "By person" section: for each person (and Shared), the money in their budget accounts, credit owed, what is sitting in their categories, and what they assigned this month.
+* The gap between accounts and categories is that person's share of Ready to Assign - a negative gap says whose categories are holding money their own accounts do not have, which is exactly whose side to look at when Ready to Assign goes negative.
+* Uses the same person setup as every other tool (group prefixes, account tags, names); credit card payment categories follow their card's owner. Click a person to see exactly which accounts and categories were counted for them.
+
+**RTA Tracker: month-by-month ledger, line by line** (`pages/rtatracker.js`, `tools/rta_tracker.js`, `app.css`, `tests/rta_tracker.test.js`, `CLAUDE.md`)
+* Click any month in the reconstruction (or "See it line by line" on the causes card) to see it as a running ledger: left over, overspending, each income transaction by date, then each category's assigned amount, with Ready to Assign after every line and the exact line where it went negative highlighted.
+* YNAB does not record when money was assigned, so assignments are listed after the month's income in budget order - the highlighted line is the assignment that no longer fit. The ledger always ends on YNAB's own figure, with a labelled line for anything that does not otherwise add up.
+
+**RTA Tracker: what made Ready to Assign go negative** (`pages/rtatracker.js`, `tools/rta_tracker.js`, `app.css`, `tests/rta_tracker.test.js`, `CLAUDE.md`)
+* The reconstruction only said *that* Ready to Assign went negative. A new "Why it went negative" card now names the causes for each month it happened (the three most recent automatically, any month from its Details dialog), compared with the month before:
+  * which categories were assigned more,
+  * which income was lower or stopped coming in, by payee,
+  * which categories were overspent the month before (the usual source of money taken out that is neither income nor assigned),
+  * whether it was already negative going in,
+  * and any uncategorized money that month that would have covered the gap.
+
 **RTA Tracker: Ready to Assign reconstruction and audit** (`pages/rtatracker.js`, `tools/rta_tracker.js`, `api.js`, `app.css`, `tests/rta_tracker.test.js`, `CLAUDE.md`)
 * New "Reconstruction" section: rebuilds Ready to Assign month by month from income and assigned amounts using YNAB's own month figures (one API request for the whole history), and shows when it first went negative, the lowest point, and every negative stretch.
 * An audit list flags the month it went negative (with what moved it), months where YNAB's income figure does not match the transactions categorized to Ready to Assign, money that moved RTA but is not income or an assigned amount (usually cash overspending), and uncategorized transactions that never reached RTA at all.
