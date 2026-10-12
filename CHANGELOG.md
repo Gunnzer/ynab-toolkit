@@ -11,6 +11,12 @@ before or as part of the push itself.
 
 ## 2026-10-12
 
+**RTA Tracker: who assigned what, and exactly when** (`pages/rtatracker.js`, `tools/rta_tracker.js`, `api.js`, `app.css`, `tests/rta_tracker.test.js`, `CLAUDE.md`)
+* Uses YNAB's new assignment history (money movements, added to its API in April 2026): the line-by-line ledger now runs in the order things actually happened - income by date, each assignment at its exact time and tagged with who made it - so "Went negative here" is a real moment, e.g. "14 Aug at 7:12 PM, when Sam assigned $130.00 to Electric".
+* "What moved it" gains a "Who" line: how much each person assigned that month.
+* YNAB only gives a user id, never a name, so it shows "You" and "Other member" until you match them to your two people once ("Who's who", remembered).
+* Months from before YNAB kept this history still work, listing assignments in budget order as before, and say so.
+
 **RTA Tracker: accounts vs categories, by person** (`pages/rtatracker.js`, `tools/rta_tracker.js`, `tests/rta_tracker.test.js`, `CLAUDE.md`)
 * New "By person" section: for each person (and Shared), the money in their budget accounts, credit owed, what is sitting in their categories, and what they assigned this month.
 * The gap between accounts and categories is that person's share of Ready to Assign - a negative gap says whose categories are holding money their own accounts do not have, which is exactly whose side to look at when Ready to Assign goes negative.

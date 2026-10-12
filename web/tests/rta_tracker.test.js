@@ -418,4 +418,97 @@ describe("rta tracker", () => {
     assert.equal(total.gap, -150000);
     assert.equal(total.accounts - total.available, total.gap);
   });
+
+  // ---------- money movement history ----------
+
+  const rawMovements = [
+    { id: "m1", month: "2026-08-01", moved_at: "2026-08-14T15:12:00Z", performed_by_user_id: "u-sam",
+      from_category_id: null, to_category_id: "fun", amount: 30000 },
+    { id: "m2", month: "2026-08-01", moved_at: "2026-08-01T09:00:00Z", performed_by_user_id: "u-alex",
+      from_category_id: null, to_category_id: "rent", amount: 200000 },
+    { id: "m3", month: "2026-08-01", moved_at: "2026-08-02T09:00:00Z", performed_by_user_id: "u-alex",
+      from_category_id: "rta", to_category_id: "food", amount: 150000 },
+    // Between two ordinary categories: Ready to Assign does not move.
+    { id: "m4", month: "2026-08-01", moved_at: "2026-08-03T09:00:00Z", performed_by_user_id: "u-sam",
+      from_category_id: "food", to_category_id: "fun", amount: 5000 },
+    // Moved back into Ready to Assign.
+    { id: "m5", month: "2026-08-01", moved_at: "2026-08-20T09:00:00Z", performed_by_user_id: "u-sam",
+      from_category_id: "fun", to_category_id: null, amount: 10000 },
+  ];
+  const names = { fun: "Fun", rent: "Rent", food: "Groceries" };
+  const mapped = () => rta.readyToAssignMovements(rawMovements, {
+    rtaIds: new Set(["rta"]),
+    categoryName: (id) => names[id],
+    whoName: (id) => (id === "u-alex" ? "You" : "Other member"),
+  });
+
+  test("readyToAssignMovements keeps only moves in or out of Ready to Assign, in time order", () => {
+    assert.deepEqual(mapped().map((m) => [m.category, m.effect, m.who]), [
+      ["Rent", -200000, "You"],
+      ["Groceries", -150000, "You"],
+      ["Fun", -30000, "Other member"],
+      ["Fun", 10000, "Other member"],
+    ]);
+  });
+
+  test("assignedByWho totals each person's net assigning", () => {
+    assert.deepEqual(rta.assignedByWho(mapped()).map((w) => [w.who, w.assigned, w.count]),
+      [["You", 350000, 2], ["Other member", 20000, 2]]);
+  });
+
+  test("buildLedger with history interleaves income and assignments by time", () => {
+    const { lines, timed, matches } = rta.buildLedger({
+      // 30.00 more assigned than the history records: shown, not hidden.
+      row: { income: 300000, assigned: 400000, other: 0, ynab: -100000 },
+      previous: { ynab: 0 },
+      categories: [],
+      inflows: [
+        { date: "2026-08-15", payee: "Payroll", amount: 150000 },
+        { date: "2026-08-01", payee: "Payroll", amount: 150000 },
+      ],
+      movements: mapped(),
+    });
+    assert.equal(timed, true);
+    assert.equal(matches, true);
+    assert.deepEqual(lines.map((l) => [l.kind, l.label, l.balance]), [
+      ["start", "Left over from last month", 0],
+      ["reconcile", "Assigned with no record (before YNAB kept history, or since undone)", -30000],
+      ["income", "Payroll", 120000],
+      ["movement", "Rent", -80000],
+      ["movement", "Groceries", -230000],
+      ["movement", "Fun", -260000],
+      ["income", "Payroll", -110000],
+      ["movement", "Fun", -100000],
+    ]);
+  });
+
+  test("buildLedger marks the exact assignment, and who made it, that took it negative", () => {
+    const { lines, matches } = rta.buildLedger({
+      row: { income: 300000, assigned: 370000, other: 0, ynab: -70000 },
+      previous: { ynab: 0 },
+      categories: [],
+      inflows: [{ date: "2026-08-01", payee: "Payroll", amount: 300000 }],
+      movements: mapped(),
+    });
+    assert.equal(matches, true);
+    assert.deepEqual(lines.map((l) => [l.kind, l.label, l.balance]), [
+      ["start", "Left over from last month", 0],
+      ["income", "Payroll", 300000],
+      ["movement", "Rent", 100000],
+      ["movement", "Groceries", -50000],
+      ["movement", "Fun", -80000],
+      ["movement", "Fun", -70000],
+    ]);
+    const crossing = lines.find((l) => l.wentNegative);
+    assert.deepEqual([crossing.label, crossing.who, crossing.at],
+      ["Groceries", "You", "2026-08-02T09:00:00Z"]);
+  });
+
+  test("explainMonth says who assigned what", () => {
+    const result = explainAugust({ movements: mapped() });
+    const kinds = result.causes.map((c) => c.kind);
+    assert.equal(kinds[kinds.indexOf("assigned") + 1], "who");
+    assert.match(result.causes.find((c) => c.kind === "who").text,
+      /You \$350\.00 \(2 moves\), Other member \$20\.00 \(2 moves\)/);
+  });
 });

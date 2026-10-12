@@ -290,13 +290,69 @@ export function rtaTrackerPage(app) {
     return list.filter((item) => rta.monthKey(item.date) === month);
   }
 
-  /** Costs up to two month-detail requests, both cached by state.month(). */
+  // ---------- who did it ----------
+  //
+  // YNAB's money movement history says who assigned something only as a
+  // user id - the API has no way to look up anyone's name, only "who am
+  // I" (GET /user). So the signed-in user shows as "You", anyone else as
+  // "Other member", and either can be matched to Person 1/2 once, in the
+  // line-by-line dialog, saved in settings.userPeople.
+
+  let myUserId;
+  const movementCache = new Map();
+
+  async function currentUserId() {
+    if (myUserId === undefined) {
+      try {
+        myUserId = (await state.requireClient().user()).id;
+      } catch {
+        myUserId = null;
+      }
+    }
+    return myUserId;
+  }
+
+  function whoName(userId) {
+    const mapped = (settings.userPeople || {})[userId];
+    const name = mapped === "p1" ? state.personName(1) : mapped === "p2" ? state.personName(2) : "";
+    if (userId && userId === myUserId) return name ? `${name} (you)` : "You";
+    if (!userId) return "Unknown";
+    return name || "Other member";
+  }
+
+  /** null when the history could not be loaded at all (not the same as empty). */
+  async function movementsFor(month) {
+    const key = `${state.budgetId}|${month}`;
+    if (!movementCache.has(key)) {
+      try {
+        movementCache.set(key, await state.requireClient().moneyMovements(state.budgetId, month));
+      } catch {
+        movementCache.set(key, null);
+      }
+    }
+    const raw = movementCache.get(key);
+    if (!raw) return { list: [], loaded: false };
+    return {
+      loaded: true,
+      list: rta.readyToAssignMovements(raw, {
+        rtaIds: rta.readyToAssignCategoryIds(state.categoryGroups),
+        categoryName: (id) => state.categoryName(id, "(deleted category)"),
+        whoName,
+      }),
+    };
+  }
+
+  /**
+   * Up to two month-detail requests (cached by state.month()), plus one
+   * for the month's money movement history and one, once, for who "you" is.
+   */
   async function explain(row) {
     const index = rebuilt.rows.indexOf(row);
     const previous = index > 0 ? rebuilt.rows[index - 1] : null;
-    const [current, before] = await Promise.all([
+    const [current, before, history] = await Promise.all([
       state.month(row.month),
       previous ? state.month(previous.month) : null,
+      currentUserId().then(() => movementsFor(row.month)),
     ]);
     const categories = withGroupNames(current.data.categories);
     const inflows = inMonth(rebuilt.inflows, row.month);
@@ -309,12 +365,68 @@ export function rtaTrackerPage(app) {
       inflows,
       previousInflows: previous ? inMonth(rebuilt.inflows, previous.month) : [],
       uncategorized: inMonth(rebuilt.uncategorized, row.month),
+      movements: history.list,
     });
     explanation.ledger = rta.buildLedger({
       row, previous, deductsLater: rebuilt.deductsLater, categories, inflows,
-      overspent: explanation.overspent,
+      overspent: explanation.overspent, movements: history.list,
     });
+    explanation.historyLoaded = history.loaded;
     return explanation;
+  }
+
+  function timeLabel(iso) {
+    const when = new Date(iso);
+    return Number.isNaN(when.getTime())
+      ? "" : when.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
+
+  function crossingText(ledger) {
+    const crossing = ledger.lines.find((line) => line.wentNegative);
+    if (!crossing) {
+      return ledger.lines[0]?.balance < 0
+        ? "Already negative going into this month."
+        : "Never drops below zero within this month.";
+    }
+    if (crossing.kind === "movement") {
+      return `Went negative on ${dateLabel(crossing.date)} at ${timeLabel(crossing.at)}, ` +
+        `when ${crossing.who} assigned ${fmt(-crossing.amount)} to ${crossing.label} - ` +
+        `Ready to Assign dropped to ${fmt(crossing.balance)}.`;
+    }
+    if (crossing.kind === "reconcile" && ledger.timed) {
+      return `Went negative on money assigned before YNAB's history covers ` +
+        `(${fmt(-crossing.amount)}), so there is no exact moment for it - the ` +
+        "timeline below starts from there.";
+    }
+    return `Ran out at "${crossing.label}" - the running total drops to ` +
+      `${fmt(crossing.balance)} on that line.`;
+  }
+
+  /** Match each user id seen this month to a person, once; saved for next time. */
+  function whosWho(ledger, body) {
+    const ids = [...new Set(ledger.lines
+      .filter((line) => line.kind === "movement" && line.userId).map((line) => line.userId))];
+    if (!ids.length) return null;
+    const people = settings.userPeople || (settings.userPeople = {});
+    const row = el("div", { class: "card-row" }, el("span", { class: "hint", text: "Who's who:" }));
+    ids.forEach((id, index) => {
+      const label = id === myUserId ? "You are" : `Other member${ids.length > 2 ? ` ${index}` : ""} is`;
+      const choice = el("select", {},
+        el("option", { value: "", text: "Not set" }),
+        el("option", { value: "p1", text: state.personName(1) }),
+        el("option", { value: "p2", text: state.personName(2) }));
+      choice.value = people[id] || "";
+      choice.addEventListener("change", () => {
+        if (choice.value) people[id] = choice.value;
+        else delete people[id];
+        store.save();
+        for (const span of body.querySelectorAll(".rta-who")) {
+          if (span.dataset.user === id) span.textContent = whoName(id);
+        }
+      });
+      row.append(el("label", { class: "rta-whos-who" }, el("span", { text: label }), choice));
+    });
+    return row;
   }
 
   function ledgerTable(ledger) {
@@ -326,25 +438,38 @@ export function rtaTrackerPage(app) {
     ]);
     wrap.classList.add("scroll-table");
     let section = null;
-    const headings = {
-      income: "Income, by date",
-      assigned: "Assigned, in budget order (YNAB does not record when)",
-    };
+    const headings = ledger.timed
+      ? {
+        income: "In the order it happened (income by date, assignments by exact time)",
+        movement: "In the order it happened (income by date, assignments by exact time)",
+      }
+      : {
+        income: "Income, by date",
+        assigned: "Assigned, in budget order (no history recorded for this month)",
+      };
     for (const line of ledger.lines) {
-      if (headings[line.kind] && section !== line.kind) {
-        section = line.kind;
+      if (headings[line.kind] && section !== headings[line.kind]) {
+        section = headings[line.kind];
         wrap.tbody.append(el("tr", { class: "group-row rta-ledger-group" },
           el("td", { colspan: "4", text: headings[line.kind] })));
       }
+      const who = line.kind === "movement"
+        ? el("span", { class: "rta-who", "data-user": line.userId || "", text: line.who })
+        : null;
       const detail = [line.detail, line.accountId ? state.accountName(line.accountId) : ""]
         .filter(Boolean).join(" · ");
       const flag = line.wentNegative ? pill("Went negative here", "error")
         : line.recovered ? pill("Back above zero", "ok") : null;
       wrap.tbody.append(el("tr", { class: line.wentNegative ? "rta-cross" : "" },
-        el("td", { text: line.date ? dateLabel(line.date) : "" }),
+        el("td", {},
+          el("div", { text: line.date ? dateLabel(line.date) : "" }),
+          line.at ? el("div", { class: "rta-ledger-detail", text: timeLabel(line.at) }) : null),
         el("td", {},
           el("div", { class: "rta-ledger-what" }, el("span", { text: line.label }), flag),
-          detail ? el("div", { class: "rta-ledger-detail", text: detail }) : null),
+          who || detail
+            ? el("div", { class: "rta-ledger-detail" },
+              who ? "by " : "", who, who && detail ? " · " : "", detail)
+            : null),
         el("td", { class: "num", text: signed(line.amount) }),
         el("td", { class: `num ${line.balance < 0 ? "is-error" : ""}`, text: fmt(line.balance) })));
     }
@@ -358,6 +483,7 @@ export function rtaTrackerPage(app) {
       later: ["Assigned later", "caution"],
       other: ["Overspending", "caution"],
       carried: ["Carried in", "warn"],
+      who: ["Who", "info"],
       uncategorized: ["Uncategorized", "info"],
     };
     const list = el("div", { class: "rta-findings" });
@@ -394,6 +520,7 @@ export function rtaTrackerPage(app) {
             el("span", { class: "rta-finding-month", text: monthLabel(row.month) }),
             lineByLine),
           hint(explanation.headline),
+          explanation.ledger.timed ? hint(crossingText(explanation.ledger)) : null,
           causeList(explanation));
       } catch (error) {
         slot.replaceChildren(
@@ -551,16 +678,20 @@ export function rtaTrackerPage(app) {
       }
       if (explanation) {
         const ledger = explanation.ledger;
-        const crossing = ledger.lines.find((line) => line.wentNegative);
         body.append(
           sectionTitle("Line by line"),
-          hint(crossing
-            ? `Ran out at "${crossing.label}" - the running total drops to ` +
-              `${fmt(crossing.balance)} on that line.`
-            : ledger.lines[0]?.balance < 0
-              ? "Already negative going into this month."
-              : "Never drops below zero within this month."),
-          ledgerTable(ledger));
+          hint(crossingText(ledger)));
+        if (!ledger.timed) {
+          body.append(hint(explanation.historyLoaded
+            ? "YNAB has no record of when or by whom money was assigned this " +
+              "month (it only started keeping that history in 2026), so " +
+              "assignments are listed after income, in budget order."
+            : "Could not load YNAB's assignment history for this month, so " +
+              "assignments are listed after income, in budget order."));
+        }
+        const people = whosWho(ledger, body);
+        if (people) body.append(people);
+        body.append(ledgerTable(ledger));
       } else {
         body.append(hint(`Ready to Assign: ${fmt(row.ynab)}. ` +
           "The month's details could not be loaded, so there is no line-by-line view."));
