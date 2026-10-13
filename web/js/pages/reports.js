@@ -3,6 +3,7 @@
 import { fmt } from "../money.js";
 import * as reports from "../tools/reports.js";
 import { ownerOf } from "../tools/split_sheet.js";
+import { mountReportTabs } from "./report_tabs.js";
 import {
   button, card, checkbox, clear, confirmDialog, customDialog, el, emptyRow,
   field, hint, logPane, monthLabel as monthLabelLong, monthOptions, monthsAgo,
@@ -89,8 +90,13 @@ export function reportsPage(app) {
 
   root.append(pageHeading(
     "Reports",
-    "Where the money went, month by month. Filter to one person and save " +
-    "the filter so the same report is one click next time."));
+    "Where the money went, and what to do about it. Spending & saving: " +
+    "monthly totals by category and payee, with filters you can save. " +
+    "Budget vs actual: which categories usually need more (or less) than " +
+    "they get, and what is on pace to run out this month. Trends: each " +
+    "category over 12 months and what has changed. Recurring: subscriptions " +
+    "and bills, with price increases. Cash flow: income against spending " +
+    "and your savings rate."));
 
   // ---------- period ----------
   //
@@ -805,6 +811,14 @@ export function reportsPage(app) {
   renderSaved();
   render();
   reload();
+
+  // Everything above is the "Spending & saving" tab; the other reports
+  // live alongside it (report_tabs.js).
+  mountReportTabs(app, root, {
+    spendingNodes: [...root.children].slice(1),
+    settings,
+    store,
+  });
 
   return root;
 }

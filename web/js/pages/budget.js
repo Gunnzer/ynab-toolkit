@@ -6,6 +6,7 @@
 
 import { fmt } from "../money.js";
 import { ownerOf, payerOf } from "../tools/split_sheet.js";
+import { categoryLink as historyLink } from "./category_history_dialog.js";
 import {
   button, card, checkbox, clear, download, el, emptyRow, field, hint,
   logPane, monthOptions, pageActions, pageHeading, pill, sectionTitle,
@@ -163,9 +164,11 @@ export function budgetPage(app) {
       el("span", { class: "spacer" }),
       button("Collapse all", { small: true, onClick: () => setAllCollapsed(true) }),
       button("Expand all", { small: true, onClick: () => setAllCollapsed(false) })),
-    hint("The same list the tools pick from. Click a group to roll it up; " +
-      "which groups are rolled up is remembered. Copy ID gives you the id " +
-      "the YNAB API uses, which is worth having when something goes wrong."),
+    hint("The same list the tools pick from. Click a category to see " +
+      "everything that has gone through it, month by month. Click a group " +
+      "to roll it up; which groups are rolled up is remembered. Copy ID " +
+      "gives you the id the YNAB API uses, which is worth having when " +
+      "something goes wrong."),
     field("Filter", search),
     el("div", { class: "card-row" }, hiddenBox),
     categoryTable,
@@ -304,14 +307,14 @@ export function budgetPage(app) {
     for (const category of overspent) {
       list.tbody.append(el("tr", {},
         el("td", {}, pill("Overspent", "error")),
-        el("td", { text: category.name }),
+        el("td", {}, categoryLink(category)),
         el("td", { class: "hint", text: groupName.get(category.id) || "" }),
         el("td", { class: "num is-error", text: fmt(category.balance) })));
     }
     for (const category of underfunded) {
       list.tbody.append(el("tr", {},
         el("td", {}, pill("Underfunded", "warn")),
-        el("td", { text: category.name }),
+        el("td", {}, categoryLink(category)),
         el("td", { class: "hint", text: groupName.get(category.id) || "" }),
         el("td", { class: "num is-warn", text: fmt(category.goal_under_funded) })));
     }
@@ -440,8 +443,8 @@ export function budgetPage(app) {
         const progress = targetProgress(category);
 
         categoryTable.tbody.append(el("tr", {},
-          el("td", { class: "indent",
-            text: base.name + (base.hidden ? "  (hidden)" : "") }),
+          el("td", { class: "indent" }, categoryLink(base,
+            base.name + (base.hidden ? "  (hidden)" : ""))),
           el("td", { class: "num" }, progress === null
             ? el("span", { class: "hint", text: "none" })
             : el("div", { class: "target-cell" },
@@ -470,6 +473,13 @@ export function budgetPage(app) {
       `${groupCount} group(s), ${categoryCount} categor(ies) in ` +
       `'${state.budgetName}'` +
       (monthKey ? `, showing ${monthKey} figures.` : ".");
+  }
+
+  // ---------- category history ----------
+
+  /** A category name that opens its history (see category_history_dialog.js). */
+  function categoryLink(category, text = category.name) {
+    return historyLink(app, category, { text, focusMonth: monthKey || undefined, log });
   }
 
   async function copyId(category) {

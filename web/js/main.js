@@ -45,8 +45,8 @@ export const PAGES = [
   {
     id: "reports", title: "Reports", icon: "trend", key: "reports",
     build: reportsPage,
-    blurb: "Monthly spending from your history, filtered to one person and " +
-      "saved so the same report is one click.",
+    blurb: "Spending by category and payee, budget vs actual, 12-month " +
+      "trends, recurring charges and cash flow.",
     group: "info", groupLabel: "YNAB Info & Reporting",
   },
   {

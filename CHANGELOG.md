@@ -9,6 +9,18 @@ Maintained going forward: add a new dated entry for each push, in this same
 style (feature/fix name and files, then bullets on what changed and why),
 before or as part of the push itself.
 
+## 2026-10-12 (night)
+
+**Reports: four new tabs** (`pages/reports.js`, `pages/report_tabs.js`, `pages/report_budget_actual.js`, `pages/report_trends.js`, `pages/report_recurring.js`, `pages/report_cash_flow.js`, `pages/report_kit.js`, `tools/budget_actual.js`, `tools/trends.js`, `tools/recurring.js`, `tools/cash_flow.js`, `main.js`, `app.css`, tests, `CLAUDE.md`)
+* The original report is now the first tab, "Spending & saving", unchanged. Four more sit beside it.
+* Budget vs actual: which categories usually need more than they get (with a suggested amount), which usually get more than they need, which are saving up on purpose, over the last 3, 6 or 12 months. Plus "this month so far": anything on pace to run out, compared with what you had usually spent by the same day of the month.
+* Trends: every category's last 12 months as a small bar chart, and the biggest changes - the last 3 months against the 9 before them.
+* Recurring: subscriptions and bills found from your history, with how often, yearly cost, next expected date, and flags for a price increase, a new one, or one that seems to have stopped.
+* Cash flow: income against spending each month, what was left over, and the savings rate. Money moved to investments counts as saved, not spent.
+
+**YNAB Budget: a category's full history** (`pages/budget.js`, `pages/category_history_dialog.js`, `tools/category_history.js`, `app.css`, tests, `CLAUDE.md`)
+* Click any category name (in the table or "Needs attention") to see every transaction in it, grouped by month, newest first: each month's total with a bar against your biggest month, this month's figure, a 12-month average, your biggest month, and a search on payee or memo. Split transactions count only their part in that category. The same view opens from Budget vs actual and Trends.
+
 ## 2026-10-12 (evening)
 
 **Bill Splitting: see whether each settle up was paid** (`pages/splitsheet.js`, `tools/split_sheet.js`, `store.js`, `app.css`, `tests/splitsheet.test.js`, `CLAUDE.md`)

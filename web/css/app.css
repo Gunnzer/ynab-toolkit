@@ -560,6 +560,56 @@ table tr.group-row.rta-ledger-group td:first-child { padding: 8px 14px; }
 
 .applied-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 
+/* ---------- report tabs ---------- */
+
+/* One row of tabs under the page heading; wraps on a narrow screen rather
+   than scrolling, since there are only a handful. */
+.tab-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  background: var(--sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.tab {
+  flex: 0 0 auto;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tab:hover { color: var(--text); background: var(--card); }
+.tab.is-active { background: var(--card); color: var(--accent); box-shadow: var(--shadow-sm); }
+.tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* Trends: a small bar chart per category, the last month in accent. */
+.sparkline { display: block; }
+.spark-bar { fill: var(--border-strong); }
+.spark-bar.is-last { fill: var(--accent); }
+
+/* Cash flow: income and spending as two thin bars on one scale. */
+.cash-flow-bars { width: 28%; min-width: 120px; }
+.cash-bar { height: 7px; border-radius: 4px; background: var(--sunken); overflow: hidden; }
+.cash-bar + .cash-bar { margin-top: 3px; }
+.cash-bar span { display: block; height: 100%; border-radius: 4px; }
+.cash-bar.is-income span, .swatch.is-income { background: var(--accent); }
+.cash-bar.is-spending span, .swatch.is-spending { background: var(--warn); }
+.cash-flow-legend { gap: 18px; font-size: 13px; color: var(--muted); }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: -1px; }
+tr.is-current td { background: var(--accent-soft); }
+
+/* Recurring: ones that seem to have stopped sit quietly at the bottom. */
+tr.is-faded td { opacity: .6; }
+.bva-group-title { display: block; padding: 9px 14px; font-size: 12.5px; font-weight: 600; }
+.bva-group-title .count { color: var(--faint); font-weight: 400; }
+
 /* ---------- saved filter list ---------- */
 
 .saved-filter-list {
@@ -1254,6 +1304,32 @@ tr.group-row td:first-child { padding: 0; }
   font-weight: 400;
   font-variant-numeric: tabular-nums;
 }
+
+/* YNAB Budget: a category name opens its history. Reads as the plain
+   name it always was until hovered, so the table does not turn into a
+   wall of links. */
+.category-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.category-link:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.category-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+
+/* The history dialog: month headers carry a name, a count and a bar
+   against the biggest month; the month being looked at on the page is
+   tinted so it is easy to find again after scrolling. */
+.history-table { max-height: 48vh; }
+.history-month .history-month-name { min-width: 120px; font-size: 13.5px; }
+.history-month .month-bar { max-width: 220px; height: 6px; }
+.history-month.is-focus td { background: var(--accent-soft); }
+.history-month.is-focus:hover td { background: var(--accent-soft); }
+.history-month td.num { font-weight: 600; }
+.history-payee { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 td.indent { padding-left: 30px; }
