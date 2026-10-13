@@ -613,3 +613,129 @@ describe("output", () => {
     assert.deepEqual(rows.map((row) => row.Description), ["B", "A"]);
   });
 });
+
+describe("settle up payments", () => {
+  // Sam owes Alex $40 for the March cycle (calendar months).
+  const cycle = (overrides = {}) => ({
+    key: "2026-03-01",
+    start: new Date(2026, 2, 1),
+    end: new Date(2026, 2, 31),
+    net: 40,
+    settleFrom: 2,
+    settleAmount: 40,
+    ...overrides,
+  });
+  const accounts = { a1: "(A) Chequing", s1: "(S) Chequing", j1: "Joint Savings" };
+  const accountNameOf = (id) => accounts[id] || "";
+  const tx = (id, date, amount, extra = {}) => ({
+    id, date, amount, account_name: "(S) Chequing", payee_name: "", ...extra,
+  });
+  const TODAY = "2026-06-01";
+
+  test("an exact transfer from the payer to the receiver counts as paid", () => {
+    const transfer = tx("t1", "2026-04-03", -40000,
+      { transfer_account_id: "a1", payee_name: "Transfer : (A) Chequing" });
+    const matches = sheet.matchSettlements([cycle()], [transfer], SETTINGS,
+      { accountNameOf, today: TODAY });
+    const match = matches.get("2026-03-01");
+    assert.equal(match.status, "paid");
+    assert.equal(match.payment.transactionId, "t1");
+    assert.equal(match.payment.via, "transfer");
+    assert.equal(match.payment.difference, 0);
+  });
+
+  test("a transfer the wrong way, to a joint account, or outside the window does not", () => {
+    const wrongWay = tx("t1", "2026-04-03", -40000,
+      { account_name: "(A) Chequing", transfer_account_id: "s1" });
+    const toJoint = tx("t2", "2026-04-03", -40000, { transfer_account_id: "j1" });
+    const tooEarly = tx("t3", "2026-03-20", -40000, { transfer_account_id: "a1" });
+    const tooLate = tx("t4", "2026-06-01", -40000, { transfer_account_id: "a1" });
+    const matches = sheet.matchSettlements([cycle()],
+      [wrongWay, toJoint, tooEarly, tooLate], SETTINGS, { accountNameOf, today: TODAY });
+    assert.equal(matches.get("2026-03-01").status, "unpaid");
+  });
+
+  test("an e-transfer naming the other person counts too, from either side", () => {
+    const sent = tx("t1", "2026-04-02", -40000, { payee_name: "E-Transfer to Alex" });
+    const received = tx("t2", "2026-04-02", 40000,
+      { account_name: "(A) Chequing", payee_name: "E-Transfer from Sam" });
+    for (const t of [sent, received]) {
+      const match = sheet.matchSettlements([cycle()], [t], SETTINGS,
+        { accountNameOf, today: TODAY }).get("2026-03-01");
+      assert.equal(match.status, "paid");
+      assert.equal(match.payment.via, "payee");
+    }
+  });
+
+  test("a payment between them for a different amount is only a possible match", () => {
+    const short = tx("t1", "2026-04-03", -35000, { transfer_account_id: "a1" });
+    const match = sheet.matchSettlements([cycle()], [short], SETTINGS,
+      { accountNameOf, today: TODAY }).get("2026-03-01");
+    assert.equal(match.status, "possible");
+    assert.equal(match.payment.difference, -5);
+  });
+
+  test("a cycle that has not closed yet is open, not unpaid", () => {
+    const match = sheet.matchSettlements([cycle()], [], SETTINGS,
+      { accountNameOf, today: "2026-03-15" }).get("2026-03-01");
+    assert.equal(match.status, "open");
+  });
+
+  test("one payment cannot settle two cycles", () => {
+    const april = cycle({ key: "2026-04-01", start: new Date(2026, 3, 1), end: new Date(2026, 3, 30) });
+    const transfer = tx("t1", "2026-05-02", -40000, { transfer_account_id: "a1" });
+    const matches = sheet.matchSettlements([april, cycle()], [transfer], SETTINGS,
+      { accountNameOf, today: TODAY });
+    assert.equal(matches.get("2026-03-01").status, "paid");
+    assert.notEqual(matches.get("2026-04-01").status, "paid");
+  });
+
+  test("a hand-picked match wins, keeps its difference, and is not reused", () => {
+    const short = tx("t1", "2026-04-03", -35000, { transfer_account_id: "a1" });
+    const april = cycle({ key: "2026-04-01", start: new Date(2026, 3, 1),
+      end: new Date(2026, 3, 30), settleAmount: 35, net: 35 });
+    const matches = sheet.matchSettlements([cycle(), april], [short], SETTINGS, {
+      accountNameOf, today: TODAY,
+      manual: { "2026-03-01": { transactionId: "t1", via: "transfer" } },
+    });
+    const march = matches.get("2026-03-01");
+    assert.equal(march.status, "paid");
+    assert.equal(march.payment.manual, true);
+    assert.equal(march.payment.difference, -5);
+    assert.equal(matches.get("2026-04-01").status, "unpaid");
+  });
+
+  test("paid another way, with no transaction at all", () => {
+    const match = sheet.matchSettlements([cycle()], [], SETTINGS, {
+      accountNameOf, today: TODAY,
+      manual: { "2026-03-01": { via: "other", amount: 40, date: "2026-04-05" } },
+    }).get("2026-03-01");
+    assert.equal(match.status, "paid");
+    assert.equal(match.payment.difference, 0);
+  });
+
+  test("marking a cycle not paid overrides an automatic match", () => {
+    const transfer = tx("t1", "2026-04-03", -40000, { transfer_account_id: "a1" });
+    const match = sheet.matchSettlements([cycle()], [transfer], SETTINGS, {
+      accountNameOf, today: TODAY, manual: { "2026-03-01": { none: true } },
+    }).get("2026-03-01");
+    assert.equal(match.status, "unpaid");
+  });
+
+  test("an even cycle needs no payment", () => {
+    const match = sheet.matchSettlements([cycle({ settleFrom: 0, settleAmount: 0, net: 0 })],
+      [], SETTINGS, { accountNameOf, today: TODAY }).get("2026-03-01");
+    assert.equal(match.status, "even");
+  });
+
+  test("outstanding takes paid amounts off, including a short payment", () => {
+    const march = cycle();
+    const april = cycle({ key: "2026-04-01", net: -10, settleFrom: 1, settleAmount: 10 });
+    const matches = new Map([
+      ["2026-03-01", { status: "paid", payment: { amount: 35 } }],
+      ["2026-04-01", { status: "unpaid", payment: null }],
+    ]);
+    // Sam still owes $5 for March; Alex owes $10 for April.
+    assert.equal(sheet.outstandingNet([march, april], matches), -5);
+  });
+});

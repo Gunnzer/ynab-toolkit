@@ -4,9 +4,9 @@ import { fmt } from "../money.js";
 import { parseDelimited } from "../tools/bank_convert.js";
 import * as sheet from "../tools/split_sheet.js";
 import {
-  button, card, clear, confirmDialog, customDialog, download, el,
-  emptyRow, field, hint, icon, logPane, monthOptions, pageHeading, pickFile,
-  radioGroup, sectionTitle, select, table, textInput,
+  button, card, checkbox, clear, confirmDialog, customDialog, dateLabel,
+  download, el, emptyRow, field, hint, icon, logPane, monthOptions,
+  pageHeading, pickFile, radioGroup, sectionTitle, select, table, textInput,
 } from "../ui.js";
 
 const LOG_EMPTY =
@@ -145,10 +145,18 @@ export function splitSheetPage(app) {
   // Month pickers, not raw dates: since a cycle is already set up under
   // "Cycle and accounts", picking "March" should mean that whole cycle,
   // not the 1st to the 31st.
-  const thisMonthStr = new Date().toISOString().slice(0, 7);
+  // Local date, not toISOString(): late in the evening west of UTC that
+  // already reads as next month.
+  const today = new Date();
+  const thisMonthStr =
+    `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
   const monthOpts = monthOptions(state.firstBudgetMonth);
   if (!settings.sinceMonth) settings.sinceMonth = thisMonthStr;
-  if (!settings.toMonth) settings.toMonth = thisMonthStr;
+  // To always starts on the current month whenever the page is opened or
+  // refreshed - a To month remembered from last time quietly hides
+  // everything since. From is still remembered.
+  settings.toMonth = thisMonthStr;
+  if (settings.sinceMonth > settings.toMonth) settings.sinceMonth = settings.toMonth;
 
   // From and To name the start-month and end-month of ONE cycle (most
   // cycles span two calendar months), not two separate cycles to add
@@ -422,6 +430,233 @@ export function splitSheetPage(app) {
     }, { confirmText: "Close", cancelText: "" , hideCancel: true });
   }
 
+  // ---------- settle up payments ----------
+  //
+  // Whether each cycle's settle up has actually been paid, looked for in
+  // the budget's own transactions (see matchSettlements). Read from the
+  // shared cache whatever loaded it - Convert, or any other page. If
+  // nothing is cached yet the history is loaded once in the background and
+  // the summary redraws when it lands; Convert never waits on it.
+
+  let settleLoad = null;
+
+  function settleTransactions() {
+    if (!state.token || !state.budgetId) return null;
+    const cache = state.txCache;
+    if (cache && cache.budgetId === state.budgetId) return cache.list;
+    if (!settleLoad) {
+      settleLoad = state.loadAllTransactions()
+        .then(() => { if (rows?.length) showSummary(); })
+        .catch(() => {})
+        .finally(() => { settleLoad = null; });
+    }
+    return null;
+  }
+
+  function accountNameOf(id) {
+    return state.accountName(id);
+  }
+
+  function settleMatches() {
+    return settings.settleMatches || (settings.settleMatches = {});
+  }
+
+  function describeWho(cycle) {
+    return `${state.personName(cycle.settleFrom)} pays ` +
+      `${state.personName(cycle.settleFrom === 1 ? 2 : 1)} ` +
+      `${fmt(cycle.settleAmount * 1000)}`;
+  }
+
+  function differenceText(difference) {
+    if (Math.abs(difference) < 0.005) return "";
+    return difference < 0
+      ? `${fmt(-difference * 1000)} short`
+      : `${fmt(difference * 1000)} over`;
+  }
+
+  function paymentLine(payment) {
+    if (!payment) return "";
+    if (payment.via === "other" && !payment.transactionId) {
+      return `Paid another way, ${fmt(payment.amount * 1000)}` +
+        (payment.date ? ` on ${dateLabel(payment.date)}` : "") + ".";
+    }
+    const where = [payment.account, payment.payee].filter(Boolean).join(" -> ");
+    return `${fmt(payment.amount * 1000)} on ${dateLabel(payment.date)}` +
+      (where ? `, ${where}` : "") + ".";
+  }
+
+  /** The status shown after the settle up text, clickable to change it. */
+  function settleStatus(cycle, match) {
+    if (!match || match.status === "even") return null;
+    const open = () => matchPayment(cycle, match);
+    const pillButton = (text, kind, label) => el("button", {
+      type: "button", class: `pill pill-${kind} pill-button`,
+      title: label, "aria-label": label, text, onClick: open,
+    });
+
+    if (match.status === "paid") {
+      const short = differenceText(match.payment.difference);
+      return el("span", { class: "settle-status" },
+        pillButton("Paid", "ok",
+          `Paid: ${paymentLine(match.payment)} Click to see or change the match.`),
+        short ? el("span", { class: "hint is-warn", text: short }) : null);
+    }
+    if (match.status === "possible") {
+      return pillButton(`Check ${fmt(match.payment.amount * 1000)}`, "caution",
+        `A payment between you for ${fmt(match.payment.amount * 1000)} ` +
+        `(${differenceText(match.payment.difference)}). Click to confirm it ` +
+        "or pick another.");
+    }
+    if (match.status === "open") {
+      return el("button", {
+        type: "button", class: "settle-link is-muted", text: "Cycle open",
+        title: "This cycle has not closed yet. Click to match a payment anyway.",
+        onClick: open,
+      });
+    }
+    return el("button", {
+      type: "button", class: "settle-link", text: "Match payment",
+      title: "No payment found yet. Click to pick one.", onClick: open,
+    });
+  }
+
+  /**
+   * See a cycle's settle up payment, or pick it by hand: one of the
+   * transactions in the window, a payment made outside YNAB, or "not paid
+   * yet" to throw out an automatic match that was really something else.
+   */
+  async function matchPayment(cycle, match) {
+    const list = settleTransactions() || [];
+    const window = sheet.settleWindow(cycle);
+    const current = settleMatches()[cycle.key] || null;
+    const candidateIds = new Set(match.candidates.map((c) => c.transactionId));
+
+    const choice = await customDialog(`Settle up: ${cycle.label}`, (body) => {
+      body.append(el("p", { text: `${describeWho(cycle)}.` }));
+      if (match.payment) {
+        const how = match.payment.manual ? "Matched by hand" : "Found automatically";
+        const short = differenceText(match.payment.difference);
+        body.append(el("p", {
+          class: match.status === "paid" ? "hint is-ok" : "hint is-warn",
+          text: `${match.status === "paid" ? how : "Possible match"}: ` +
+            `${paymentLine(match.payment)}${short ? ` ${short}.` : ""}`,
+        }));
+      }
+      body.append(hint(`Looking between ${dateLabel(window.from)} and ` +
+        `${dateLabel(window.to)} for a payment between the two of you.`));
+
+      const name = `settle-${cycle.key}`;
+      const radios = [];
+      const option = (value, ...cells) => {
+        const input = el("input", { type: "radio", name });
+        input.value = value;
+        radios.push(input);
+        return { input, row: el("tr", {}, el("td", { class: "check" }, input), ...cells) };
+      };
+
+      const picks = table([
+        { key: "pick", label: "", className: "check" },
+        { key: "date", label: "Date" },
+        { key: "account", label: "Account" },
+        { key: "payee", label: "Payee" },
+        { key: "amount", label: "Amount", className: "num" },
+        { key: "diff", label: "Difference", className: "num" },
+      ]);
+      picks.classList.add("scroll-table");
+
+      const others = list
+        .filter((t) => !t.deleted && t.date >= window.from && t.date <= window.to &&
+          !candidateIds.has(t.id))
+        .map((t) => sheet.describePayment(t, cycle, "manual"))
+        .sort((a, b) => Math.abs(a.difference) - Math.abs(b.difference));
+      // A hand-picked payment that was not between the two of you only
+      // shows up in the full list, so start there or it would look unset.
+      let showAll = Boolean(current?.transactionId && !candidateIds.has(current.transactionId));
+
+      const drawPicks = () => {
+        const kept = radios.find((r) => r.checked)?.value;
+        radios.length = 0;
+        clear(picks.tbody);
+        const shown = showAll ? [...match.candidates, ...others] : match.candidates;
+        if (!shown.length) {
+          emptyRow(picks, showAll
+            ? "No transactions at all in that window."
+            : "Nothing between the two of you in that window. Tick below to see every transaction.");
+        }
+        for (const payment of shown) {
+          const { input, row } = option(payment.transactionId,
+            el("td", { text: dateLabel(payment.date) }),
+            el("td", { text: payment.account }),
+            el("td", { text: payment.payee || "(no payee)" }),
+            el("td", { class: "num", text: fmt(payment.amount * 1000) }),
+            el("td", { class: "num", text: differenceText(payment.difference) || "exact" }));
+          input.dataset.via = payment.via;
+          picks.tbody.append(row);
+        }
+        extras.forEach((extra) => radios.push(extra));
+        // Opened from "Check": the possible match is preselected, so Save
+        // confirms it. Anything else starts on whatever is in force now.
+        const target = kept || current?.transactionId ||
+          (current?.none ? "none" : current?.via === "other" ? "other"
+            : match.status === "possible" ? match.payment.transactionId : "auto");
+        const hit = radios.find((r) => r.value === target);
+        if (hit) hit.checked = true;
+      };
+
+      const radioLabel = (value, text, ...rest) => {
+        const input = el("input", { type: "radio", name });
+        input.value = value;
+        return { input, label: el("label", { class: "checkbox" }, input, el("span", { text }), ...rest) };
+      };
+      const auto = radioLabel("auto", "Work it out automatically");
+      const otherAmount = textInput(String(current?.via === "other"
+        ? current.amount : cycle.settleAmount), { type: "number", width: "120px" });
+      otherAmount.step = "0.01";
+      const other = radioLabel("other", "Paid another way, outside YNAB:", otherAmount);
+      const none = radioLabel("none", "Not paid yet");
+      const extras = [auto.input, other.input, none.input];
+      otherAmount.addEventListener("focus", () => { other.input.checked = true; });
+
+      const allToggle = checkbox("Show every transaction in that window", showAll, (value) => {
+        showAll = value;
+        drawPicks();
+      });
+
+      body.append(picks, allToggle, auto.label, other.label, none.label);
+      drawPicks();
+
+      return {
+        value: () => {
+          const picked = radios.find((r) => r.checked);
+          if (!picked) return null;
+          if (picked.value === "auto") return { auto: true };
+          if (picked.value === "none") return { none: true };
+          if (picked.value === "other") {
+            return {
+              via: "other",
+              amount: Math.round((Number(otherAmount.value) || 0) * 100) / 100,
+              date: localToday(),
+            };
+          }
+          const t = list.find((item) => item.id === picked.value);
+          return t ? { ...sheet.describePayment(t, cycle, picked.dataset.via) } : null;
+        },
+      };
+    }, { confirmText: "Save", wide: true });
+
+    if (!choice) return;
+    if (choice.auto) delete settleMatches()[cycle.key];
+    else settleMatches()[cycle.key] = choice;
+    store.save();
+    showSummary();
+  }
+
+  function localToday() {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  }
+
   function showSummary() {
     clear(summaryHost).append(summaryTable);
     if (!rows || !rows.length) {
@@ -442,12 +677,15 @@ export function splitSheetPage(app) {
     heads[1].textContent = state.personName(1);
     heads[2].textContent = state.personName(2);
 
+    const transactions = settleTransactions();
+    const matches = transactions
+      ? sheet.matchSettlements(cycles, transactions, active(), {
+        accountNameOf, manual: settleMatches(),
+      })
+      : null;
+
     for (const cycle of cycles) {
-      const settle = cycle.settleFrom === 0
-        ? "Even"
-        : `${state.personName(cycle.settleFrom)} pays ` +
-          `${state.personName(cycle.settleFrom === 1 ? 2 : 1)} ` +
-          `${fmt(cycle.settleAmount * 1000)}`;
+      const settle = cycle.settleFrom === 0 ? "Even" : describeWho(cycle);
 
       summaryTable.tbody.append(el("tr", {},
         el("td", { text: cycle.label }),
@@ -463,7 +701,8 @@ export function splitSheetPage(app) {
               "aria-label": `How the settle up for ${cycle.label} was worked out`,
               title: "How this was worked out",
               onClick: () => explainSettle(cycle),
-            }, icon("info", { size: 15 }))))));
+            }, icon("info", { size: 15 })),
+            settleStatus(cycle, matches?.get(cycle.key))))));
 
       // The cards behind that cycle, so a surprising total can be traced.
       if (cycle.byCard.length > 1) {
@@ -481,14 +720,18 @@ export function splitSheetPage(app) {
       const share1 = cycles.reduce((sum, cycle) => sum + cycle.share1, 0);
       const share2 = cycles.reduce((sum, cycle) => sum + cycle.share2, 0);
       const total = cycles.reduce((sum, cycle) => sum + cycle.total, 0);
-      // Net across every cycle, as if nothing had been settled up along the
-      // way - the same owedToP1-minus-owedToP2 idea monthlySummary() uses
-      // per cycle, just added across all of them.
-      const net = cycles.reduce((sum, cycle) => sum + cycle.net, 0);
+      // Net across every cycle - the same owedToP1-minus-owedToP2 idea
+      // monthlySummary() uses per cycle, added across all of them. Once
+      // payments are known, what has been paid comes off, so this is what
+      // is still owed rather than what was owed before anyone settled up.
+      const net = matches
+        ? sheet.outstandingNet(cycles, matches)
+        : cycles.reduce((sum, cycle) => sum + cycle.net, 0);
       const settleFrom = net > 0 ? 2 : net < 0 ? 1 : 0;
       const settleAmount = Math.abs(Math.round(net * 100) / 100);
-      const settle = settleFrom === 0 ? "Even"
-        : `${state.personName(settleFrom)} pays ` +
+      const settle = settleFrom === 0
+        ? (matches ? "All settled up" : "Even")
+        : `${state.personName(settleFrom)} ${matches ? "still owes" : "pays"} ` +
           `${state.personName(settleFrom === 1 ? 2 : 1)} ` +
           `${fmt(settleAmount * 1000)}`;
 

@@ -9,6 +9,27 @@ Maintained going forward: add a new dated entry for each push, in this same
 style (feature/fix name and files, then bullets on what changed and why),
 before or as part of the push itself.
 
+## 2026-10-12 (evening)
+
+**Bill Splitting: see whether each settle up was paid** (`pages/splitsheet.js`, `tools/split_sheet.js`, `store.js`, `app.css`, `tests/splitsheet.test.js`, `CLAUDE.md`)
+* Each cycle's settle up now shows its status. "Paid" (green) when there is a payment between the two of you for exactly the settle up amount, within 45 days after the cycle closes - a transfer from the payer's own account to the other person's, or an e-transfer naming them. "Check $X" (amber) when there is a payment between you for a different amount. "Cycle open" or "Match payment" otherwise.
+* Click any status to pick the payment yourself, mark it paid outside YNAB with an amount, mark it not paid yet (overrules a wrong automatic match), or go back to automatic. A payment that differs from the settle up shows "$X short" or "$X over".
+* The total row shows what is still owed once payments are taken off, or "All settled up".
+* The To month always opens on the current month.
+
+**RTA Tracker: fixes** (`pages/rtatracker.js`, `tools/rta_tracker.js`, `tests/rta_tracker.test.js`, `CLAUDE.md`)
+* Rebuild from history stops at the current month instead of also rebuilding and auditing months that have not happened yet. Money already assigned to future months still counts against this month's Ready to Assign, as YNAB counts it.
+* Assignment dates in the line-by-line view were a day ahead for anything assigned in the evening - they were read in UTC. Now local time, which also fixes their order against income.
+
+**RTA Tracker: additions** (`pages/rtatracker.js`, `tools/rta_tracker.js`, `tests/rta_tracker.test.js`, `CLAUDE.md`)
+* Income that is still unapproved and dated 3 or more days back is flagged "Likely backdated", in "What moved it" and on its line. It stays on its own date - YNAB does not say when a transaction actually arrived.
+* Money moved back out of a category reads "Moved back to Ready to Assign from <category>" instead of just the category name.
+* The Audit card only lists months where Ready to Assign went negative, and is hidden if it never did.
+
+**RTA Tracker: snapshots and "By person" removed** (`pages/rtatracker.js`, `tools/rta_tracker.js`, `state.js`, `api.js`, `main.js`, `tests/rta_tracker.test.js`, `CLAUDE.md`)
+* Gone: "Snapshot now", the latest-snapshot card, the History table, the automatic snapshot on every Refresh, and the By person card added earlier today. The page is now the month-by-month rebuild and its line-by-line view.
+* Old snapshot data is removed from saved settings the next time the app loads.
+
 ## 2026-10-12 (later)
 
 **RTA Tracker: "By person" compares each person's accounts with their categories** (`pages/rtatracker.js`, `tools/rta_tracker.js`, `tests/rta_tracker.test.js`, `CLAUDE.md`)

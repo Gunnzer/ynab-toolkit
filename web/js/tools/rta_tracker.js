@@ -1,5 +1,5 @@
-// RTA Tracker: history of Ready to Assign over time, and a best-effort
-// explanation for why it moved between two snapshots.
+// RTA Tracker: Ready to Assign rebuilt month by month from YNAB's own
+// figures, and a line-by-line explanation of each month.
 //
 // Ready to Assign is not scoped to the current month - it is a running
 // total of every unbudgeted inflow since the budget started, carried
@@ -10,118 +10,12 @@
 // up if you only look at the current month's own activity.
 
 import { fmt as money } from "../money.js";
-import { ownerOf, payerOf } from "./split_sheet.js";
 
 /** "YYYY-MM" for today, in the browser's local time. */
 export function currentMonthString(now = new Date()) {
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, "0");
   return `${year}-${month}`;
-}
-
-/** "YYYY-MM" -> "YYYY-MM-01", the first day of that month. */
-export function monthStartIso(monthString) {
-  return `${String(monthString).slice(0, 7)}-01`;
-}
-
-/**
- * Transactions dated before the current month that are still true
- * uncategorized inflows (or outflows) rather than something already
- * accounted for elsewhere - these are what could plausibly have shifted
- * Ready to Assign since the last snapshot.
- *
- * category_id: null also appears on a split transaction's own parent
- * record (the category lives on each subtransaction instead - see
- * shared_expenses.js's gotcha for the same trap in a different tool), so
- * a transaction with subtransactions is not flagged even though its own
- * category_id reads null. Transfers carry category_id: null too but never
- * touch Ready to Assign on their own, so those are excluded as well.
- */
-export function findFlaggedTransactions(transactions, currentMonthStart) {
-  return (transactions || []).filter((transaction) => {
-    if (transaction.deleted) return false;
-    if (transaction.transfer_account_id) return false;
-    if (transaction.category_id !== null) return false;
-    if (transaction.subtransactions?.length) return false;
-    return transaction.date < currentMonthStart;
-  });
-}
-
-/** Sum of milliunit amounts, e.g. for a flagged-transaction list. */
-export function sumAmount(transactions) {
-  return (transactions || []).reduce((sum, t) => sum + (t.amount || 0), 0);
-}
-
-/**
- * A plain-language explanation for an RTA move of deltaMilli, given
- * whichever flagged transactions were found in the same delta-synced
- * batch. `flaggedSum` is compared back against the actual delta as a
- * sanity check - if they don't match, something outside this batch (a
- * budgeted-amount edit, a category move, a transaction outside the delta
- * window) also played a part, and the summary says so rather than
- * pretending the flagged list is the whole story.
- */
-export function buildAttribution(deltaMilli, flagged) {
-  const flaggedSum = sumAmount(flagged);
-  const lines = [...(flagged || [])]
-    .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
-    .map((t) => ({
-      id: t.id,
-      date: t.date,
-      payee: t.payee_name || "(no payee)",
-      amount: t.amount,
-    }));
-
-  const explained = Math.abs(flaggedSum - deltaMilli) < 10; // within a cent
-  let summary;
-  if (!deltaMilli) {
-    summary = flagged?.length
-      ? "Ready to Assign did not change, but backdated transaction(s) were " +
-        "found anyway - they may have offset each other."
-      : "Ready to Assign did not change since the last snapshot.";
-  } else if (!flagged?.length) {
-    summary = "Ready to Assign moved, but no backdated or uncategorized " +
-      "transactions were found to explain it - check for a budgeted-amount " +
-      "change instead.";
-  } else if (explained) {
-    summary = `Fully explained by ${flagged.length} backdated/uncategorized ` +
-      `transaction(s) dated before this month.`;
-  } else {
-    summary = `${flagged.length} backdated/uncategorized transaction(s) ` +
-      `found, totalling $${(flaggedSum / 1000).toFixed(2)}, which does not ` +
-      `fully account for the $${(deltaMilli / 1000).toFixed(2)} shift - ` +
-      "something else (a budgeted amount edit, most likely) also moved it.";
-  }
-
-  return { summary, lines, flaggedSum, explained };
-}
-
-/**
- * One run's worth of work: compare the just-fetched RTA to the previous
- * snapshot, find what changed transaction-wise since the last delta sync,
- * and build the attribution. Pure and network-free - the caller does the
- * actual fetching and passes in what came back.
- */
-export function buildSnapshot({
-  month, toBeBudgeted, previousSnapshot, deltaTransactions, serverKnowledge,
-}) {
-  const currentMonthStart = monthStartIso(month);
-  const flagged = findFlaggedTransactions(deltaTransactions, currentMonthStart);
-  const delta = previousSnapshot
-    ? toBeBudgeted - previousSnapshot.toBeBudgeted : null;
-  const attribution = delta === null ? null : buildAttribution(delta, flagged);
-
-  return {
-    timestamp: Date.now(),
-    month,
-    toBeBudgeted,
-    delta,
-    flagged: attribution?.lines || [],
-    flaggedSum: attribution?.flaggedSum ?? 0,
-    summary: attribution?.summary ||
-      "First snapshot - nothing to compare against yet.",
-    serverKnowledge,
-  };
 }
 
 // ---------- reconstruction ----------
@@ -173,12 +67,14 @@ export function readyToAssignInflows(transactions, rtaIds) {
         out.push({
           id: t.id, date: t.date, payee: leg.payee_name || t.payee_name || "",
           accountId: t.account_id, amount: leg.amount, splitLeg: true,
+          approved: t.approved !== false,
         });
       }
     } else if (rtaIds.has(t.category_id)) {
       out.push({
         id: t.id, date: t.date, payee: t.payee_name || "",
         accountId: t.account_id, amount: t.amount, splitLeg: false,
+        approved: t.approved !== false,
       });
     }
   }
@@ -211,15 +107,23 @@ function sumByMonth(entries) {
  * are only used to cross-check YNAB's own income figure and to flag
  * uncategorized money. Returns rows oldest first, plus the audit findings.
  */
-export function reconstruct({ months, transactions, rtaIds }) {
-  const list = (months || [])
+export function reconstruct({ months, transactions, rtaIds, currentMonth = currentMonthString() }) {
+  const all = (months || [])
     .filter((m) => !m.deleted)
     .map((m) => ({ ...m, key: monthKey(m.month) }))
     .sort((a, b) => a.key.localeCompare(b.key));
 
-  const inflows = readyToAssignInflows(transactions, rtaIds);
+  // Money already assigned into a future month still comes out of this
+  // month's Ready to Assign, so it stays in totalAssigned below - but the
+  // future months themselves are not rebuilt, shown or audited. YNAB
+  // returns months well past today, and auditing them only produced
+  // findings about months that have not happened yet.
+  const list = all.filter((m) => m.key <= currentMonth);
+  const notFuture = (t) => monthKey(t.date) <= currentMonth;
+
+  const inflows = readyToAssignInflows(transactions, rtaIds).filter(notFuture);
   const txIncome = sumByMonth(inflows);
-  const uncategorized = uncategorizedTransactions(transactions);
+  const uncategorized = uncategorizedTransactions(transactions).filter(notFuture);
   const uncategorizedSum = sumByMonth(uncategorized);
   const uncategorizedCount = new Map();
   for (const t of uncategorized) {
@@ -227,7 +131,7 @@ export function reconstruct({ months, transactions, rtaIds }) {
     uncategorizedCount.set(key, (uncategorizedCount.get(key) || 0) + 1);
   }
 
-  const totalAssigned = list.reduce((sum, m) => sum + (m.budgeted || 0), 0);
+  const totalAssigned = all.reduce((sum, m) => sum + (m.budgeted || 0), 0);
 
   // Whether YNAB's per-month figure also subtracts money already assigned
   // in later months is decided from the budget's own numbers, not assumed:
@@ -304,8 +208,12 @@ export function summarise(rows) {
   const lowest = rows.reduce(
     (low, row) => (!low || row.ynab < low.ynab ? row : low), null);
 
+  // Only months where Ready to Assign was below zero, at explicit user
+  // request: an income mismatch or uncategorized transaction in a month
+  // that stayed positive is noise next to finding why it went negative.
   const findings = [];
   for (const row of rows) {
+    if (!row.negative) continue;
     if (row.wentNegative) {
       findings.push({
         month: row.month, kind: "negative",
@@ -394,7 +302,7 @@ function assignable(categories) {
  */
 export function explainMonth({
   row, previous, deductsLater = false, categories, previousCategories,
-  inflows, previousInflows, uncategorized, movements = [],
+  inflows, previousInflows, uncategorized, movements = [], today = localToday(),
 }) {
   const assignedEffect = previous && deductsLater
     ? -(row.assigned + (row.assignedLater - previous.assignedLater))
@@ -515,9 +423,25 @@ export function explainMonth({
     });
   }
 
+  const backdatedInflows = (inflows || [])
+    .map((inflow) => ({ inflow, flag: likelyBackdated(inflow, today) }))
+    .filter((item) => item.flag);
+  if (backdatedInflows.length) {
+    const sum = backdatedInflows.reduce((total, item) => total + item.inflow.amount, 0);
+    const oldest = Math.max(...backdatedInflows.map((item) => item.flag.days));
+    causes.push({
+      kind: "backdated", amount: sum,
+      text: `${money(sum)} of this month's income is not approved yet but is dated up to ` +
+        `${oldest} days ago - most likely imported late and backdated. YNAB counts it ` +
+        "from its date, so until it actually came in, Ready to Assign was that much " +
+        `lower than this shows: ${list(backdatedInflows,
+          (item) => `${item.inflow.payee || "(no payee)"} ${money(item.inflow.amount)}`)}.`,
+    });
+  }
+
   // "who" sits right after the assigned line it breaks down; the
-  // uncategorized one goes last, as a fix rather than a cause.
-  const rank = (c) => (c.kind === "uncategorized" ? 2 : 0);
+  // uncategorized and backdated ones go last, as warnings rather than causes.
+  const rank = (c) => (c.kind === "uncategorized" || c.kind === "backdated" ? 2 : 0);
   causes.sort((a, b) => rank(a) - rank(b) || a.amount - b.amount);
   const whoIndex = causes.findIndex((c) => c.kind === "who");
   const assignedIndex = causes.findIndex((c) => c.kind === "assigned");
@@ -547,6 +471,51 @@ export function explainMonth({
  * either is accepted, since the API docs do not pin down which.
  * `categoryName`/`whoName` are lookups supplied by the caller.
  */
+/**
+ * A UTC timestamp as local "YYYY-MM-DDTHH:MM:SS". A money movement's
+ * moved_at is UTC, so its first ten characters are the UTC date - an
+ * evening assignment west of UTC read as the next day. The local form
+ * also sorts correctly against a transaction's date, which is local.
+ */
+export function localStamp(iso) {
+  const when = new Date(iso);
+  if (!iso || Number.isNaN(when.getTime())) return String(iso || "");
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}` +
+    `T${pad(when.getHours())}:${pad(when.getMinutes())}:${pad(when.getSeconds())}`;
+}
+
+// ---------- backdated income ----------
+//
+// YNAB's API has no "entered at" time for a transaction - only the date it
+// carries - so income imported today but dated ten days ago looks, to
+// Ready to Assign, as if it had been there all along. Nothing here moves
+// it (there is no arrival time to move it to); it is only flagged. The one
+// signal left in the data is approval: a fresh import sits unapproved until
+// someone approves it, so unapproved income dated a few days back most
+// likely only just arrived.
+
+export const BACKDATED_MIN_DAYS = 3;
+
+function localToday() {
+  return localStamp(new Date().toISOString()).slice(0, 10);
+}
+
+function daysBetween(fromIso, toIso) {
+  const utc = (iso) => {
+    const [y, m, d] = iso.split("-").map(Number);
+    return Date.UTC(y, m - 1, d);
+  };
+  return Math.round((utc(toIso) - utc(fromIso)) / 86400000);
+}
+
+/** `{ days }` (how far back it is dated) if an inflow looks backdated, else null. */
+export function likelyBackdated(inflow, today = localToday()) {
+  if (!inflow || inflow.approved !== false || !inflow.date) return null;
+  const days = daysBetween(inflow.date, today);
+  return days >= BACKDATED_MIN_DAYS ? { days } : null;
+}
+
 export function readyToAssignMovements(movements, { rtaIds = new Set(), categoryName, whoName }) {
   const isRta = (id) => !id || rtaIds.has(id);
   const out = [];
@@ -595,7 +564,7 @@ export function assignedByWho(movements) {
  */
 export function buildLedger({
   row, previous, deductsLater = false, categories, inflows, overspent = [],
-  movements = [],
+  movements = [], today = localToday(),
 }) {
   const lines = [];
   let balance = 0;
@@ -638,6 +607,7 @@ export function buildLedger({
     label: inflow.payee || "(no payee)",
     detail: inflow.splitLeg ? "Part of a split" : "",
     amount: inflow.amount,
+    backdated: likelyBackdated(inflow, today),
   });
   const incomeGap = Math.abs(row.income - incomeSeen) >= 10 ? {
     kind: "reconcile",
@@ -663,10 +633,14 @@ export function buildLedger({
     const events = [
       ...sortedInflows.map((inflow) => ({ key: `${inflow.date}T00:00`, line: incomeLine(inflow) })),
       ...movements.map((m) => ({
-        key: m.at,
+        key: localStamp(m.at),
         line: {
-          kind: "movement", at: m.at, date: m.at.slice(0, 10),
-          label: m.category, who: m.who, userId: m.userId,
+          kind: "movement", at: m.at, date: localStamp(m.at).slice(0, 10),
+          // Money taken back out of a category reads the same as an
+          // assignment apart from its sign, so it says what it is.
+          label: m.effect > 0 ? `Moved back to Ready to Assign from ${m.category}` : m.category,
+          movedBack: m.effect > 0,
+          who: m.who, userId: m.userId,
           detail: m.note, amount: m.effect,
         },
       })),
@@ -706,122 +680,6 @@ export function buildLedger({
   }
 
   return { lines, timed, endBalance: balance, matches: Math.abs(row.ynab - balance) < 10 };
-}
-
-// ---------- by person ----------
-
-const DEBT_TYPES = new Set([
-  "creditCard", "lineOfCredit", "otherLiability", "mortgage", "autoLoan",
-  "studentLoan", "personalLoan", "medicalDebt", "otherDebt",
-]);
-
-/**
- * Whether each person's categories hold more than their own accounts
- * actually have - e.g. $1,000 in their accounts but $1,200 sitting in
- * their categories means $200 of it is the other person's money.
- *
- * Only each person's own non-debt accounts (open, on budget) and the
- * Available in categories they own count. Credit is shared in this
- * household, so debt accounts and the "Credit Card Payments" group are
- * not counted as anyone's, and anything that belongs to neither person
- * is ignored (it rarely holds much).
- *
- * Card spending still has to be counted back in, though (reported
- * live): buying on a card lowers the category straight away, but the
- * person's own account only drops once the card is paid, so in between
- * they would look ahead by exactly what they spent. `unpaid` is each
- * person's card spending in their own categories, minus card payments
- * made from their own accounts, over all of history - so a purchase
- * and its payment cancel out wherever the money comes from, and only
- * assigning money they do not have moves the gap. Money one person
- * sends the other counts as paying back their share of the card, so a
- * settle-up transfer leaves both gaps where they were.
- *
- * Accounts are owned via payerOf(), categories via ownerOf() on the
- * group name, same as every other tool. `categories` are one month's
- * (YNAB's month detail, group names filled in); Available is `balance`.
- */
-export function byPerson({ accounts, categories, transactions = [], settings }) {
-  const people = ["p1", "p2"].map((who) => ({
-    who, accounts: 0, available: 0, cardSpending: 0, cardPayments: 0,
-    accountList: [], categoryList: [],
-  }));
-  const entry = (who) => people.find((p) => p.who === who);
-  const accountById = new Map((accounts || []).map((a) => [a.id, a]));
-  const isDebt = (id) => DEBT_TYPES.has(accountById.get(id)?.type);
-  const accountPerson = (id) => entry(payerOf(accountById.get(id)?.name || "", settings));
-
-  for (const account of accounts || []) {
-    if (account.deleted || account.closed || !account.on_budget) continue;
-    if (DEBT_TYPES.has(account.type)) continue;
-    const person = entry(payerOf(account.name, settings));
-    if (!person) continue;
-    person.accounts += account.balance || 0;
-    person.accountList.push({ name: account.name, balance: account.balance || 0 });
-  }
-
-  const categoryGroup = new Map();
-  for (const category of assignable(categories)) {
-    const group = category.category_group_name || "";
-    categoryGroup.set(category.id, group);
-    if (group === "Credit Card Payments") continue;
-    if (!category.balance) continue;
-    const person = entry(ownerOf(group, "", settings));
-    if (!person) continue;
-    person.available += category.balance;
-    person.categoryList.push({ name: category.name, group, available: category.balance });
-  }
-
-  for (const t of transactions || []) {
-    if (t.deleted) continue;
-    if (isDebt(t.account_id) && !t.transfer_account_id) {
-      const legs = (t.subtransactions || []).filter((leg) => !leg.deleted);
-      for (const leg of legs.length ? legs : [t]) {
-        if (!categoryGroup.has(leg.category_id)) continue;
-        const person = entry(ownerOf(categoryGroup.get(leg.category_id), "", settings));
-        if (person) person.cardSpending -= leg.amount;
-      }
-    } else if (!isDebt(t.account_id) && t.transfer_account_id && isDebt(t.transfer_account_id)) {
-      // Read from the paying account's side only - the card's own copy of
-      // the same transfer would count it twice.
-      const person = accountPerson(t.account_id);
-      if (person) person.cardPayments -= t.amount;
-    } else if (t.transfer_account_id && t.amount < 0 &&
-      !isDebt(t.account_id) && !isDebt(t.transfer_account_id)) {
-      // One person sending the other money is them paying back their
-      // share of a card the other one paid (reported live), so it moves
-      // that much of the card from one to the other: without this the
-      // sender would look short and the receiver ahead by the transfer.
-      // Read from the sending side only (amount below zero), so the
-      // receiving account's copy is not counted twice.
-      const from = accountPerson(t.account_id);
-      const to = accountPerson(t.transfer_account_id);
-      if (from && to && from !== to) {
-        from.cardPayments -= t.amount;
-        to.cardPayments += t.amount;
-      }
-    }
-  }
-
-  return people.map((person) => {
-    const unpaid = person.cardSpending - person.cardPayments;
-    return {
-      ...person,
-      unpaid,
-      accountList: person.accountList.sort((a, b) => b.balance - a.balance),
-      categoryList: person.categoryList.sort((a, b) => b.available - a.available),
-      gap: person.accounts - person.available - unpaid,
-    };
-  });
-}
-
-/**
- * Earliest recorded snapshot showing a negative Ready to Assign, if any.
- * The month view can only say which month went negative (assigned amounts
- * carry no date), so a snapshot is the closest thing to an actual moment.
- */
-export function firstNegativeSnapshot(snapshots) {
-  return (snapshots || []).find((s) => s.toBeBudgeted < 0) || null;
 }
 
 /** Rows as CSV, oldest first, for an external audit trail. */

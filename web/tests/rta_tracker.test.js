@@ -9,109 +9,6 @@ describe("rta tracker", () => {
     assert.equal(rta.currentMonthString(new Date(2026, 10, 1)), "2026-11");
   });
 
-  test("monthStartIso", () => {
-    assert.equal(rta.monthStartIso("2026-08"), "2026-08-01");
-  });
-
-  test("findFlaggedTransactions: backdated, no category, not a split, not a transfer", () => {
-    const currentMonthStart = "2026-08-01";
-    const transactions = [
-      // Flagged: backdated, uncategorized, ordinary transaction.
-      { id: "t1", date: "2026-07-28", category_id: null, amount: 250000 },
-      // Not flagged: dated in the current month.
-      { id: "t2", date: "2026-08-10", category_id: null, amount: 5000 },
-      // Not flagged: has a real category.
-      { id: "t3", date: "2026-07-01", category_id: "cat-1", amount: -4500 },
-      // Not flagged: a split's parent record - category_id is null but the
-      // category actually lives on each subtransaction (same trap
-      // shared_expenses.js documents).
-      {
-        id: "t4", date: "2026-07-15", category_id: null, amount: 10000,
-        subtransactions: [{ category_id: "cat-1", amount: 5000 }],
-      },
-      // Not flagged: a transfer, never touches Ready to Assign on its own.
-      {
-        id: "t5", date: "2026-07-20", category_id: null, amount: 20000,
-        transfer_account_id: "acct-2",
-      },
-      // Not flagged: deleted.
-      { id: "t6", date: "2026-07-01", category_id: null, amount: 1000, deleted: true },
-    ];
-
-    const flagged = rta.findFlaggedTransactions(transactions, currentMonthStart);
-    assert.deepEqual(flagged.map((t) => t.id), ["t1"]);
-  });
-
-  test("sumAmount", () => {
-    assert.equal(rta.sumAmount([{ amount: 100 }, { amount: -30 }, { amount: 5 }]), 75);
-    assert.equal(rta.sumAmount([]), 0);
-    assert.equal(rta.sumAmount(undefined), 0);
-  });
-
-  test("buildAttribution: fully explained", () => {
-    const flagged = [
-      { id: "t1", date: "2026-07-28", payee_name: "Employer Inc", amount: 250000 },
-    ];
-    const result = rta.buildAttribution(250000, flagged);
-    assert.equal(result.explained, true);
-    assert.match(result.summary, /Fully explained by 1 backdated/);
-    assert.equal(result.lines.length, 1);
-    assert.equal(result.lines[0].payee, "Employer Inc");
-  });
-
-  test("buildAttribution: partially explained, says so rather than pretending", () => {
-    const flagged = [{ id: "t1", date: "2026-07-28", payee_name: "Employer Inc", amount: 100000 }];
-    const result = rta.buildAttribution(250000, flagged);
-    assert.equal(result.explained, false);
-    assert.match(result.summary, /does not fully account/);
-  });
-
-  test("buildAttribution: no flagged transactions but RTA moved", () => {
-    const result = rta.buildAttribution(50000, []);
-    assert.equal(result.explained, false);
-    assert.match(result.summary, /no backdated or uncategorized/);
-  });
-
-  test("buildAttribution: no change at all", () => {
-    const result = rta.buildAttribution(0, []);
-    assert.match(result.summary, /did not change/);
-  });
-
-  test("buildAttribution: sorts by size of amount, largest first", () => {
-    const flagged = [
-      { id: "small", date: "2026-08-01", payee_name: "Small", amount: 1000 },
-      { id: "big", date: "2026-08-02", payee_name: "Big", amount: -50000 },
-    ];
-    const result = rta.buildAttribution(-49000, flagged);
-    assert.deepEqual(result.lines.map((l) => l.id), ["big", "small"]);
-  });
-
-  test("buildSnapshot: first snapshot has no delta or attribution", () => {
-    const snapshot = rta.buildSnapshot({
-      month: "2026-08", toBeBudgeted: 100000, previousSnapshot: null,
-      deltaTransactions: [], serverKnowledge: 42,
-    });
-    assert.equal(snapshot.delta, null);
-    assert.equal(snapshot.flagged.length, 0);
-    assert.match(snapshot.summary, /First snapshot/);
-    assert.equal(snapshot.serverKnowledge, 42);
-  });
-
-  test("buildSnapshot: computes delta against the previous snapshot and flags", () => {
-    const previous = { toBeBudgeted: 100000 };
-    const deltaTransactions = [
-      { id: "t1", date: "2026-07-28", category_id: null, amount: 50000, payee_name: "Payroll" },
-    ];
-    const snapshot = rta.buildSnapshot({
-      month: "2026-08", toBeBudgeted: 150000, previousSnapshot: previous,
-      deltaTransactions, serverKnowledge: 99,
-    });
-    assert.equal(snapshot.delta, 50000);
-    assert.equal(snapshot.flagged.length, 1);
-    assert.equal(snapshot.flaggedSum, 50000);
-    assert.match(snapshot.summary, /Fully explained/);
-  });
-
   // ---------- reconstruction ----------
 
   const groups = [
@@ -187,10 +84,16 @@ describe("rta tracker", () => {
   test("reconstruct audits income mismatches and uncategorized money", () => {
     const result = rta.reconstruct({ months, transactions, rtaIds: new Set(["rta"]) });
     const kinds = result.findings.map((f) => `${f.month}:${f.kind}`);
-    assert.deepEqual(kinds, [
-      "2026-03:negative", "2026-03:uncategorized", "2026-04:income", "2026-04:other",
-    ]);
+    // April's income mismatch and unexplained move are left out: Ready to
+    // Assign was positive that month.
+    assert.deepEqual(kinds, ["2026-03:negative", "2026-03:uncategorized"]);
     assert.equal(result.rows[2].uncategorizedSum, 700);
+  });
+
+  test("a budget that never went negative has nothing to audit", () => {
+    const fine = months.map((m) => ({ ...m, to_be_budgeted: Math.abs(m.to_be_budgeted) }));
+    const result = rta.reconstruct({ months: fine, transactions, rtaIds: new Set(["rta"]) });
+    assert.deepEqual(result.findings, []);
   });
 
   test("reconstruct detects a budget whose figures deduct later assignments", () => {
@@ -202,6 +105,28 @@ describe("rta tracker", () => {
     assert.equal(result.deductsLater, true);
     assert.deepEqual(result.rows.map((r) => [r.assignedLater, r.rebuilt, r.other]),
       [[500, 1500, 0], [0, 1500, 0]]);
+  });
+
+  test("future months are left out, but money assigned to them still counts", () => {
+    const withFuture = [
+      { month: "2026-01-01", income: 3000, budgeted: 1000, to_be_budgeted: 1500 },
+      { month: "2026-02-01", income: 0, budgeted: 500, to_be_budgeted: 1500 },
+      { month: "2026-03-01", income: 0, budgeted: 0, to_be_budgeted: -800 },
+    ];
+    const result = rta.reconstruct({
+      months: withFuture,
+      transactions: [
+        { id: "u1", date: "2026-01-10", category_id: null, amount: 5 },
+        { id: "u2", date: "2026-03-10", category_id: null, amount: 9 },
+      ],
+      rtaIds: new Set(),
+      currentMonth: "2026-01",
+    });
+    assert.deepEqual(result.rows.map((r) => r.month), ["2026-01"]);
+    assert.equal(result.rows[0].assignedLater, 500);
+    assert.equal(result.rows[0].rebuilt, 1500);
+    assert.equal(result.firstNegative, null);
+    assert.deepEqual(result.uncategorized.map((t) => t.id), ["u1"]);
   });
 
   test("an ongoing negative stretch is marked ongoing", () => {
@@ -216,13 +141,7 @@ describe("rta tracker", () => {
     assert.equal(result.stretches[0].ongoing, true);
   });
 
-  test("firstNegativeSnapshot and reconstructionCsv", () => {
-    assert.equal(rta.firstNegativeSnapshot([
-      { timestamp: 1, toBeBudgeted: 5 }, { timestamp: 2, toBeBudgeted: -5 },
-      { timestamp: 3, toBeBudgeted: -9 },
-    ]).timestamp, 2);
-    assert.equal(rta.firstNegativeSnapshot([]), null);
-
+  test("reconstructionCsv", () => {
     const result = rta.reconstruct({ months, transactions, rtaIds: new Set(["rta"]) });
     const lines = rta.reconstructionCsv(result.rows).trim().split("\n");
     assert.equal(lines.length, 5);
@@ -339,6 +258,56 @@ describe("rta tracker", () => {
     assert.equal(matches, true);
   });
 
+  test("unapproved income dated a few days back is flagged as likely backdated", () => {
+    const today = "2026-10-12";
+    const inflow = (date, approved) => ({ id: date, date, payee: "Payroll", amount: 5000000, approved });
+    assert.deepEqual(rta.likelyBackdated(inflow("2026-10-02", false), today), { days: 10 });
+    assert.equal(rta.likelyBackdated(inflow("2026-10-02", true), today), null,
+      "approved income is not flagged - nothing says it came in late");
+    assert.equal(rta.likelyBackdated(inflow("2026-10-11", false), today), null,
+      "a day or two of import lag is normal");
+
+    const [read] = rta.readyToAssignInflows(
+      [{ id: "t1", date: "2026-10-02", category_id: "rta", amount: 5000000, approved: false }],
+      new Set(["rta"]));
+    assert.equal(read.approved, false);
+
+    const { lines } = rta.buildLedger({
+      row: { income: 5000000, assigned: 0, other: 0, ynab: 5000000 },
+      previous: { ynab: 0 },
+      categories: [],
+      inflows: [inflow("2026-10-02", false)],
+      today,
+    });
+    const line = lines.find((l) => l.kind === "income");
+    assert.deepEqual(line.backdated, { days: 10 });
+    assert.equal(line.date, "2026-10-02", "flagged, not moved");
+
+    const explained = explainAugust({ inflows: [inflow("2026-08-01", false)], today: "2026-08-20" });
+    const cause = explained.causes.find((c) => c.kind === "backdated");
+    assert.match(cause.text, /\$5,000\.00 of this month's income is not approved yet but is dated up to 19 days ago/);
+  });
+
+  test("an assignment's date and order use local time, not its UTC timestamp", () => {
+    // 9:30pm local on Oct 11. West of UTC this timestamp is already Oct 12,
+    // which is what used to show - a day ahead.
+    const evening = new Date(2026, 9, 11, 21, 30).toISOString();
+    assert.equal(rta.localStamp(evening), "2026-10-11T21:30:00");
+
+    const { lines } = rta.buildLedger({
+      row: { income: 100000, assigned: 50000, other: 0, ynab: 50000 },
+      previous: { ynab: 0 },
+      categories: [],
+      inflows: [{ date: "2026-10-12", payee: "Payroll", amount: 100000 }],
+      movements: [{ at: evening, effect: -50000, category: "Rent", who: "Alex" }],
+    });
+    const movement = lines.find((l) => l.kind === "movement");
+    assert.equal(movement.date, "2026-10-11");
+    const order = lines.filter((l) => l.kind === "movement" || l.kind === "income")
+      .map((l) => l.kind);
+    assert.deepEqual(order, ["movement", "income"]);
+  });
+
   test("buildLedger adds reconciling lines so it always ends on YNAB's figure", () => {
     const { lines, endBalance } = rta.buildLedger({
       row: { income: 500000, assigned: 100000, other: 0, ynab: 350000 },
@@ -362,118 +331,6 @@ describe("rta tracker", () => {
     assert.equal(endBalance, 50000);
     assert.equal(lines.some((l) => l.kind === "reconcile"), false);
     assert.equal(lines.find((l) => l.recovered).kind, "later");
-  });
-
-  // ---------- by person ----------
-
-  const people = {
-    person1Name: "Alex", person2Name: "Sam",
-    person1GroupPrefix: "Alex", person2GroupPrefix: "Sam",
-    person1AccountTag: "A", person2AccountTag: "S",
-  };
-  const account = (name, type, balance, extra = {}) =>
-    ({ name, type, balance, on_budget: true, closed: false, deleted: false, ...extra });
-
-  function split() {
-    return rta.byPerson({
-      settings: people,
-      accounts: [
-        account("(A) Alex Checking", "checking", 800000),
-        account("(A) Alex Savings", "savings", 200000),
-        account("(A) Alex Visa", "creditCard", -300000),
-        account("(S) Sam Checking", "checking", 500000),
-        account("Joint Chequing", "checking", 900000),
-        account("(S) Old", "checking", 999000, { closed: true }),
-        account("(S) Brokerage", "otherAsset", 777000, { on_budget: false }),
-      ],
-      categories: [
-        cat("rta", "Inflow: Ready to Assign", 0, 400000, "Internal Master Category"),
-        cat("a1", "Alex Fun", 0, 900000, "Alex Spending"),
-        cat("a2", "Alex Gifts", 0, 300000, "Alex Spending"),
-        cat("s1", "Sam Fun", 0, 450000, "Sam Spending"),
-        cat("cc", "(A) Alex Visa", 0, 300000, "Credit Card Payments"),
-        cat("rent", "Rent", 0, 500000, "Bills"),
-      ],
-    });
-  }
-
-  test("byPerson compares own non-debt accounts with own categories", () => {
-    const [alex, sam] = split();
-    assert.deepEqual([alex.accounts, alex.available, alex.gap], [1000000, 1200000, -200000]);
-    assert.deepEqual([sam.accounts, sam.available, sam.gap], [500000, 450000, 50000]);
-  });
-
-  test("byPerson leaves out credit, shared, closed and off-budget", () => {
-    const [alex, sam] = split();
-    assert.deepEqual(alex.accountList.map((a) => a.name), ["(A) Alex Checking", "(A) Alex Savings"]);
-    assert.deepEqual(sam.accountList.map((a) => a.name), ["(S) Sam Checking"]);
-    assert.equal(alex.categoryList.some((c) => c.group === "Credit Card Payments"), false);
-    assert.equal(split().length, 2);
-  });
-
-  test("byPerson counts unpaid card spending, so a card purchase does not look like spare money", () => {
-    const base = [
-      { ...account("(A) Alex Checking", "checking", 1000000), id: "a-chq" },
-      { ...account("(B) Sam Checking", "checking", 1000000), id: "s-chq" },
-      { ...account("Joint Visa", "creditCard", -50000), id: "visa" },
-    ];
-    const settings = { ...people, person2AccountTag: "B" };
-    const categories = [
-      cat("food", "Alex Food", 0, 150000, "Alex Spending"),
-      cat("visa-pay", "Joint Visa", 0, 50000, "Credit Card Payments"),
-      cat("s1", "Sam Fun", 0, 800000, "Sam Spending"),
-    ];
-    // Alex had 200 in Food and spent 50 of it on the shared card.
-    const spent = [{ account_id: "visa", category_id: "food", amount: -50000 }];
-    const [alex] = rta.byPerson({ accounts: base, categories, transactions: spent, settings });
-    assert.deepEqual([alex.available, alex.unpaid, alex.gap], [150000, 50000, 800000]);
-
-    // Paid off from Alex's own chequing: still the same gap.
-    const paidByAlex = rta.byPerson({
-      accounts: base.map((a) => (a.id === "a-chq" ? { ...a, balance: 950000 } : a)),
-      categories,
-      settings,
-      transactions: [...spent,
-        { account_id: "a-chq", transfer_account_id: "visa", amount: -50000 },
-        { account_id: "visa", transfer_account_id: "a-chq", amount: 50000 }],
-    })[0];
-    assert.deepEqual([paidByAlex.unpaid, paidByAlex.gap], [0, 800000]);
-
-    // Paid off from Sam's chequing instead: Sam's gap does not move either.
-    const [alex2, sam2] = rta.byPerson({
-      accounts: base.map((a) => (a.id === "s-chq" ? { ...a, balance: 950000 } : a)),
-      categories,
-      settings,
-      transactions: [...spent,
-        { account_id: "s-chq", transfer_account_id: "visa", amount: -50000 }],
-    });
-    assert.deepEqual([alex2.gap, sam2.unpaid, sam2.gap], [800000, -50000, 200000]);
-  });
-
-  test("byPerson: paying the other person back for the card leaves both gaps alone", () => {
-    const settings = { ...people, person2AccountTag: "B" };
-    const categories = [
-      cat("food", "Alex Food", 0, 150000, "Alex Spending"),
-      cat("s1", "Sam Fun", 0, 800000, "Sam Spending"),
-    ];
-    const run = (alexCash, samCash, transactions) => rta.byPerson({
-      settings, categories, transactions,
-      accounts: [
-        { ...account("(A) Alex Checking", "checking", alexCash), id: "a-chq" },
-        { ...account("(B) Sam Checking", "checking", samCash), id: "s-chq" },
-        { ...account("Joint Visa", "creditCard", 0), id: "visa" },
-      ],
-    }).map((p) => p.gap);
-
-    const bought = { account_id: "visa", category_id: "food", amount: -50000 };
-    const samPays = { account_id: "s-chq", transfer_account_id: "visa", amount: -50000 };
-    const before = run(1000000, 1000000, [bought]);
-    // Sam pays the card, then Alex sends Sam 50 (both sides of the transfer).
-    const after = run(950000, 1000000, [bought, samPays,
-      { account_id: "a-chq", transfer_account_id: "s-chq", amount: -50000 },
-      { account_id: "s-chq", transfer_account_id: "a-chq", amount: 50000 }]);
-    assert.deepEqual(before, [800000, 200000]);
-    assert.deepEqual(after, before);
   });
 
   // ---------- money movement history ----------
@@ -535,8 +392,9 @@ describe("rta tracker", () => {
       ["movement", "Groceries", -230000],
       ["movement", "Fun", -260000],
       ["income", "Payroll", -110000],
-      ["movement", "Fun", -100000],
+      ["movement", "Moved back to Ready to Assign from Fun", -100000],
     ]);
+    assert.deepEqual(lines.filter((l) => l.movedBack).map((l) => l.amount), [10000]);
   });
 
   test("buildLedger marks the exact assignment, and who made it, that took it negative", () => {
@@ -554,7 +412,7 @@ describe("rta tracker", () => {
       ["movement", "Rent", 100000],
       ["movement", "Groceries", -50000],
       ["movement", "Fun", -80000],
-      ["movement", "Fun", -70000],
+      ["movement", "Moved back to Ready to Assign from Fun", -70000],
     ]);
     const crossing = lines.find((l) => l.wentNegative);
     assert.deepEqual([crossing.label, crossing.who, crossing.at],

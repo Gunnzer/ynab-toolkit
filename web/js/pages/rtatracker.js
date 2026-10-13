@@ -1,17 +1,17 @@
-// RTA Tracker: snapshots Ready to Assign over time and explains, as best it
-// can, why it moved between two snapshots.
+// RTA Tracker: rebuilds Ready to Assign month by month from YNAB's own
+// figures, finds when it went negative, and explains each month line by line.
 
 import { fmt } from "../money.js";
 import * as rta from "../tools/rta_tracker.js";
 import {
-  button, card, checkbox, clear, confirmDialog, customDialog, dateLabel,
+  button, card, checkbox, clear, customDialog, dateLabel,
   download, el, emptyRow, hint, logPane, monthLabel, pageHeading, pill,
   sectionTitle, table,
 } from "../ui.js";
 
 const LOG_EMPTY =
-  "Press \"Snapshot now\" to record today's Ready to Assign figure and see " +
-  "what changed since the last one you took.";
+  "Press \"Rebuild from history\" to rebuild Ready to Assign month by " +
+  "month and see when, and why, it went negative.";
 
 export function rtaTrackerPage(app) {
   const state = app.state;
@@ -26,72 +26,8 @@ export function rtaTrackerPage(app) {
     "Ready to Assign is not scoped to the current month - it is a running " +
     "total carried forward since the budget started, so a backdated " +
     "paycheque can shift it without showing up in this month's own " +
-    "activity. This records a snapshot each time you run it and tries to " +
-    "explain what moved since the last one."));
-
-  function snapshots() {
-    return settings.snapshots || (settings.snapshots = []);
-  }
-
-  function lastSnapshot() {
-    const list = snapshots();
-    return list.length ? list[list.length - 1] : null;
-  }
-
-  // ---------- actions ----------
-
-  const snapshotButton = button("Snapshot now", { accent: true, onClick: takeSnapshot });
-  const clearLink = button("Clear history", { small: true, onClick: clearHistory });
-  clearLink.classList.add("btn-link");
-
-  root.append(card(
-    el("div", { class: "card-row" }, snapshotButton, clearLink)));
-
-  // ---------- latest result ----------
-
-  const latestCard = card(hint(
-    "Nothing recorded yet. Take a snapshot to get started."));
-  root.append(latestCard);
-
-  function renderLatest(snapshot) {
-    clear(latestCard);
-    if (!snapshot) {
-      latestCard.append(hint("Nothing recorded yet. Take a snapshot to get started."));
-      return;
-    }
-
-    const deltaPill = snapshot.delta === null
-      ? pill("First snapshot", "muted")
-      : pill(
-        `${snapshot.delta >= 0 ? "+" : ""}${fmt(snapshot.delta)}`,
-        snapshot.delta === 0 ? "muted" : snapshot.delta > 0 ? "ok" : "warn");
-
-    latestCard.append(
-      el("div", { class: "card-row" },
-        sectionTitle("Latest snapshot"),
-        el("span", { class: "spacer" }),
-        deltaPill),
-      el("p", {},
-        el("b", { text: fmt(snapshot.toBeBudgeted) }),
-        ` ready to assign, as of ${new Date(snapshot.timestamp).toLocaleString()}.`),
-      hint(snapshot.summary));
-
-    if (snapshot.flagged.length) {
-      const flaggedTable = table([
-        { key: "date", label: "Date" },
-        { key: "payee", label: "Payee" },
-        { key: "amount", label: "Amount", className: "num" },
-      ]);
-      flaggedTable.classList.add("scroll-table");
-      for (const item of snapshot.flagged) {
-        flaggedTable.tbody.append(el("tr", {},
-          el("td", { text: dateLabel(item.date) }),
-          el("td", { text: item.payee }),
-          el("td", { class: "num", text: fmt(item.amount) })));
-      }
-      latestCard.append(flaggedTable);
-    }
-  }
+    "activity. This rebuilds it month by month from YNAB's own figures and " +
+    "explains each month line by line."));
 
   // ---------- reconstruction ----------
   //
@@ -116,8 +52,6 @@ export function rtaTrackerPage(app) {
     "went negative.");
   const causesCard = card();
   causesCard.hidden = true;
-  const peopleCard = card();
-  peopleCard.hidden = true;
   const findingsCard = card();
   findingsCard.hidden = true;
   let reconTable = buildReconTable(false);
@@ -131,7 +65,6 @@ export function rtaTrackerPage(app) {
       reconNote),
     reconStats,
     causesCard,
-    peopleCard,
     findingsCard,
     reconTableSlot);
   emptyRow(reconTable, "Press \"Rebuild from history\" to start.");
@@ -174,20 +107,13 @@ export function rtaTrackerPage(app) {
     const thisMonth = rta.currentMonthString();
     const pastRows = rebuilt.rows.filter((row) => row.month <= thisMonth);
     const now = pastRows[pastRows.length - 1] || null;
-    const firstSnapshot = rta.firstNegativeSnapshot(snapshots());
 
     clear(reconStats).append(
       stat("Ready to Assign now", now ? fmt(now.ynab) : "-",
         { kind: now?.negative ? "error" : "", note: now ? monthLabel(now.month) : "" }),
       stat("First went negative",
         rebuilt.firstNegative ? monthLabel(rebuilt.firstNegative.month) : "Never",
-        {
-          kind: rebuilt.firstNegative ? "warn" : "ok",
-          note: firstSnapshot
-            ? `First snapshot showing it negative: ` +
-              `${new Date(firstSnapshot.timestamp).toLocaleString()}`
-            : "",
-        }),
+        { kind: rebuilt.firstNegative ? "warn" : "ok" }),
       stat("Lowest point", rebuilt.lowest ? fmt(rebuilt.lowest.ynab) : "-",
         { note: rebuilt.lowest ? monthLabel(rebuilt.lowest.month) : "" }),
       stat("Negative stretches", String(rebuilt.stretches.length), {
@@ -456,10 +382,17 @@ export function rtaTrackerPage(app) {
       const who = line.kind === "movement"
         ? el("span", { class: "rta-who", "data-user": line.userId || "", text: line.who })
         : null;
-      const detail = [line.detail, line.accountId ? state.accountName(line.accountId) : ""]
+      // Flagged, never moved: there is no arrival time to move it to.
+      const backdatedNote = line.backdated
+        ? `Not approved yet but dated ${line.backdated.days} days ago - likely ` +
+          "imported late, so it was not really here on this date"
+        : "";
+      const detail = [line.detail, backdatedNote,
+        line.accountId ? state.accountName(line.accountId) : ""]
         .filter(Boolean).join(" · ");
       const flag = line.wentNegative ? pill("Went negative here", "error")
-        : line.recovered ? pill("Back above zero", "ok") : null;
+        : line.recovered ? pill("Back above zero", "ok")
+          : line.backdated ? pill("Likely backdated", "caution") : null;
       wrap.tbody.append(el("tr", { class: line.wentNegative ? "rta-cross" : "" },
         el("td", {},
           el("div", { text: line.date ? dateLabel(line.date) : "" }),
@@ -485,6 +418,7 @@ export function rtaTrackerPage(app) {
       carried: ["Carried in", "warn"],
       who: ["Who", "info"],
       uncategorized: ["Uncategorized", "info"],
+      backdated: ["Likely backdated", "caution"],
     };
     const list = el("div", { class: "rta-findings" });
     if (!explanation.causes.length) {
@@ -528,138 +462,6 @@ export function rtaTrackerPage(app) {
           hint(`Could not load the month's details: ${error.shortMessage || error.message}`));
       }
     }
-  }
-
-  // ---------- by person ----------
-
-  function personLabel(who) {
-    return who === "p1" ? state.personName(1) : who === "p2" ? state.personName(2) : "Shared";
-  }
-
-  async function renderPeople() {
-    clear(peopleCard);
-    peopleCard.hidden = false;
-    peopleCard.append(sectionTitle("By person"));
-    if (!state.peopleNamed) {
-      peopleCard.append(hint(
-        "Name both people on the Setup page (with their category group " +
-        "prefix and account tag) to compare each person's accounts with " +
-        "their categories."));
-      return;
-    }
-
-    let people;
-    try {
-      const month = await state.month(rta.currentMonthString());
-      people = rta.byPerson({
-        accounts: state.accounts,
-        categories: withGroupNames(month.data.categories),
-        transactions: (await state.loadAllTransactions()).list,
-        settings: {
-          ...state.withPeople({}),
-          accountOwners: store.get("splitSheet.accountOwners", {}) || {},
-        },
-      });
-    } catch (error) {
-      peopleCard.append(hint(
-        `Could not load this month's categories: ${error.shortMessage || error.message}`));
-      return;
-    }
-
-    peopleCard.append(hint(
-      "What is in each person's own accounts (not credit cards - credit is " +
-      "shared) against what is sitting in their categories right now. Card " +
-      "spending they have not paid off yet is counted too, since it has " +
-      "already left their categories but not their accounts. Below zero " +
-      "means their categories hold more than their accounts have, so some " +
-      "of it is the other person's money."));
-
-    const peopleTable = table([
-      { key: "who", label: "Person" },
-      { key: "accounts", label: "In their accounts", className: "num" },
-      { key: "available", label: "In their categories", className: "num" },
-      { key: "unpaid", label: "Unpaid card spending", className: "num" },
-      { key: "gap", label: "Difference", className: "num" },
-    ]);
-    for (const person of people) {
-      const link = button(personLabel(person.who), { small: true, onClick: () => showPerson(person) });
-      link.classList.add("btn-link");
-      peopleTable.tbody.append(el("tr", {},
-        el("td", {}, link),
-        el("td", { class: "num", text: fmt(person.accounts) }),
-        el("td", { class: "num", text: fmt(person.available) }),
-        el("td", { class: "num", text: fmt(person.unpaid) }),
-        el("td", { class: "num" },
-          pill(signed(person.gap), person.gap < -9 ? "error" : person.gap > 9 ? "ok" : "muted"))));
-    }
-    peopleCard.append(peopleTable);
-
-    for (const person of people) {
-      if (person.gap >= -9) continue;
-      const other = people.find((p) => p.who !== person.who);
-      // Only the part the other person actually has spare can be theirs;
-      // anything beyond that is money neither person's accounts hold.
-      const borrowed = other.gap > 9 ? Math.min(-person.gap, other.gap) : 0;
-      const missing = -person.gap - borrowed;
-      peopleCard.append(el("p", { class: "status-line is-error" },
-        `${personLabel(person.who)} has ${fmt(person.accounts)} but ` +
-        `${fmt(person.available)} sitting in their categories` +
-        (Math.abs(person.unpaid) > 9 ? ` and ${fmt(person.unpaid)} of card spending to pay off.` : ".") +
-        (borrowed
-          ? ` ${personLabel(person.who)} is using ${fmt(borrowed)} of ` +
-            `${personLabel(other.who)}'s money.`
-          : "") +
-        (missing > 9
-          ? ` ${fmt(missing)} is not in either person's accounts at all.`
-          : "")));
-    }
-  }
-
-  function showPerson(person) {
-    customDialog(personLabel(person.who), (body) => {
-      body.append(hint(
-        `${fmt(person.accounts)} in their accounts, ${fmt(person.available)} in ` +
-        `their categories. Card spending in their categories: ` +
-        `${fmt(person.cardSpending)}, card payments from their accounts ` +
-        `(counting money sent to or received from the other person as paying ` +
-        `them back): ` +
-        `${fmt(person.cardPayments)}, so ${fmt(person.unpaid)} still to pay. ` +
-        `Difference ${signed(person.gap)}. Anything that ` +
-        "should be here but is not needs its tag, name or group prefix " +
-        "set on Setup."));
-
-      body.append(sectionTitle(`Accounts (${person.accountList.length})`));
-      const accountTable = table([
-        { key: "name", label: "Account" },
-        { key: "balance", label: "Balance", className: "num" },
-      ]);
-      if (!person.accountList.length) emptyRow(accountTable, "No accounts matched.");
-      for (const account of person.accountList) {
-        accountTable.tbody.append(el("tr", {},
-          el("td", { text: account.name }),
-          el("td", { class: "num", text: fmt(account.balance) })));
-      }
-      body.append(accountTable);
-
-      body.append(sectionTitle(`Categories with money in them (${person.categoryList.length})`));
-      const categoryTable = table([
-        { key: "name", label: "Category" },
-        { key: "available", label: "Available", className: "num" },
-      ]);
-      categoryTable.classList.add("scroll-table");
-      if (!person.categoryList.length) emptyRow(categoryTable, "No categories matched.");
-      for (const category of person.categoryList) {
-        categoryTable.tbody.append(el("tr", {},
-          el("td", {}, el("div", { text: category.name }),
-            el("div", { class: "rta-ledger-detail", text: category.group })),
-          el("td", {
-            class: `num ${category.available < 0 ? "is-error" : ""}`,
-            text: fmt(category.available),
-          })));
-      }
-      body.append(categoryTable);
-      return { value: () => true };
-    }, { confirmText: "Done", cancelText: "", hideCancel: true, wide: true });
   }
 
   async function showMonth(row) {
@@ -741,7 +543,7 @@ export function rtaTrackerPage(app) {
     csvButton.disabled = false;
     renderReconstruction();
     renderCauses();
-    renderPeople();
+    state.recordRun("rtaTracker");
     log.write(
       rebuilt.firstNegative
         ? `First went negative in ${monthLabel(rebuilt.firstNegative.month)}.`
@@ -756,85 +558,7 @@ export function rtaTrackerPage(app) {
       rta.reconstructionCsv(rebuilt.rows), "text/csv");
   }
 
-  // ---------- history ----------
-
-  const historyTable = table([
-    { key: "when", label: "Taken" },
-    { key: "month", label: "Month" },
-    { key: "rta", label: "Ready to Assign", className: "num" },
-    { key: "delta", label: "Change", className: "num" },
-    { key: "flagged", label: "Flagged" },
-  ]);
-  historyTable.classList.add("scroll-table");
-
-  root.append(sectionTitle("History"), historyTable, log);
-
-  function renderHistory() {
-    const list = snapshots();
-    clear(historyTable.tbody);
-    if (!list.length) {
-      emptyRow(historyTable, "No snapshots yet.");
-      return;
-    }
-    for (const snapshot of [...list].reverse()) {
-      historyTable.tbody.append(el("tr", {},
-        el("td", { text: new Date(snapshot.timestamp).toLocaleString() }),
-        el("td", { text: snapshot.month }),
-        el("td", { class: "num", text: fmt(snapshot.toBeBudgeted) }),
-        el("td", {
-          class: "num",
-          text: snapshot.delta === null
-            ? "-" : `${snapshot.delta >= 0 ? "+" : ""}${fmt(snapshot.delta)}`,
-        }),
-        el("td", { text: snapshot.flagged.length ? String(snapshot.flagged.length) : "-" })));
-    }
-  }
-
-  // ---------- run ----------
-
-  async function takeSnapshot() {
-    if (!state.token) return log.write("Connect on the Setup page first.", "error");
-    if (!state.budgetId) {
-      return log.write("Select a budget on the Setup page first.", "error");
-    }
-
-    log.clearLog();
-    log.write("Taking a snapshot...", "head");
-
-    // Same snapshotRta() a plain budget refresh runs on its own - calling
-    // it here too instead of duplicating the fetch means there is only one
-    // place that decides what a snapshot actually contains.
-    const result = await app.run(() => state.snapshotRta(),
-      { log, buttons: [snapshotButton] });
-
-    if (!result) return;
-
-    renderLatest(result);
-    renderHistory();
-    log.write(result.summary, result.delta ? "ok" : "muted");
-    state.recordRun("rtaTracker");
-  }
-
-  async function clearHistory() {
-    if (!snapshots().length) return;
-    const confirmed = await confirmDialog("Clear history",
-      `Remove all ${snapshots().length} recorded snapshot(s)? The next ` +
-      "snapshot will start fresh, reading every transaction again to " +
-      "build its own delta baseline.", { confirmText: "Clear" });
-    if (!confirmed) return;
-
-    settings.snapshots = [];
-    settings.serverKnowledge = null;
-    store.save();
-    renderLatest(null);
-    renderHistory();
-    log.write("History cleared.", "muted");
-  }
-
-  // ---------- first paint ----------
-
-  renderLatest(lastSnapshot());
-  renderHistory();
+  root.append(log);
 
   return root;
 }

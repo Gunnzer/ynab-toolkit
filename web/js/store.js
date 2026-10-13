@@ -97,6 +97,10 @@ export const DEFAULTS = {
     // Which account each card belongs to, by account name: "p1", "p2" or
     // "joint". Only needed for accounts whose name does not already say.
     accountOwners: {},
+    // Settle up payments matched by hand, by cycle key: a chosen
+    // transaction, { via: "other", amount } for a payment outside YNAB, or
+    // { none: true } to overrule an automatic match.
+    settleMatches: {},
     // The Owner column: one person paid it all, it split the shared way
     // (set once on Setup), or custom - anything else, exact amounts kept.
     // Fixed, not user-editable - see the legend on the page itself.

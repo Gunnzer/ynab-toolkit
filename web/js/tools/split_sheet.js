@@ -632,6 +632,161 @@ export function monthlySummary(rows, settings = {}) {
   return result;
 }
 
+// ---------- settle up payments ----------
+
+// How long after a cycle closes a payment still counts as settling it.
+export const SETTLE_WINDOW_DAYS = 45;
+
+function isoLocal(date) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function addDays(date, days) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+}
+
+/** The dates a cycle's settle up payment is looked for between, inclusive. */
+export function settleWindow(cycle) {
+  return { from: isoLocal(cycle.end), to: isoLocal(addDays(cycle.end, SETTLE_WINDOW_DAYS)) };
+}
+
+/**
+ * How a transaction could be the settle up for a cycle, or null.
+ *
+ * In this budget a settle up is normally a transfer from one person's own
+ * account to the other's, which says who paid whom outright. When the
+ * other person's account is not in the budget it shows up instead as an
+ * outflow naming them (an e-transfer, say), or an inflow on the receiver's
+ * side naming the payer.
+ */
+export function settleVia(transaction, cycle, settings, accountNameOf = () => "") {
+  if (!cycle.settleFrom || transaction.deleted) return null;
+  const from = cycle.settleFrom === 1 ? "p1" : "p2";
+  const to = from === "p1" ? "p2" : "p1";
+  const owner = payerOf(transaction.account_name, settings);
+
+  if (transaction.transfer_account_id) {
+    if (transaction.amount >= 0 || owner !== from) return null;
+    const target = payerOf(accountNameOf(transaction.transfer_account_id), settings);
+    return target === to ? "transfer" : null;
+  }
+
+  const payee = String(transaction.payee_name || "").toLowerCase();
+  const nameOf = (which) => String(settings[`person${which}Name`] || "").trim().toLowerCase();
+  const fromName = nameOf(cycle.settleFrom);
+  const toName = nameOf(cycle.settleFrom === 1 ? 2 : 1);
+  if (transaction.amount < 0 && owner === from && toName && payee.includes(toName)) return "payee";
+  if (transaction.amount > 0 && owner === to && fromName && payee.includes(fromName)) return "payee";
+  return null;
+}
+
+/** A transaction described as a possible (or chosen) settle up payment. */
+export function describePayment(transaction, cycle, via = null) {
+  const amount = round2(Math.abs(transaction.amount) / 1000);
+  return {
+    transactionId: transaction.id,
+    date: transaction.date,
+    amount,
+    payee: transaction.payee_name || "",
+    account: transaction.account_name || "",
+    via,
+    difference: round2(amount - (cycle.settleAmount || 0)),
+  };
+}
+
+/**
+ * Every transaction in a cycle's window that looks like its settle up,
+ * closest amount first.
+ */
+export function settleCandidates(cycle, transactions, settings, accountNameOf) {
+  const { from, to } = settleWindow(cycle);
+  return (transactions || [])
+    .filter((t) => !t.deleted && t.date >= from && t.date <= to)
+    .map((t) => ({ t, via: settleVia(t, cycle, settings, accountNameOf) }))
+    .filter((item) => item.via)
+    .map((item) => describePayment(item.t, cycle, item.via))
+    .sort((a, b) => Math.abs(a.difference) - Math.abs(b.difference) ||
+      a.date.localeCompare(b.date));
+}
+
+/**
+ * Whether each cycle's settle up has been paid.
+ *
+ * A match chosen by hand always wins. Otherwise a payment between the two
+ * people for exactly the settle up amount counts as paid on its own; one
+ * between them for a different amount is offered as a possible match to
+ * confirm, since a partial payment or a rounding difference is a call for
+ * a person to make, not a guess. Cycles are matched oldest first and a
+ * payment is only ever used once, so two cycles that happen to settle for
+ * the same amount do not both claim the same transfer.
+ *
+ * Returns a Map of cycle key to { status, payment, candidates }, where
+ * status is "even", "open" (cycle not closed yet, and nothing matched),
+ * "paid", "possible" or "unpaid".
+ */
+export function matchSettlements(cycles, transactions, settings, {
+  accountNameOf, manual = {}, today = isoLocal(new Date()),
+} = {}) {
+  const byId = new Map((transactions || []).map((t) => [t.id, t]));
+  const used = new Set(Object.values(manual)
+    .map((entry) => entry?.transactionId).filter(Boolean));
+  const result = new Map();
+
+  for (const cycle of [...cycles].sort((a, b) => a.start - b.start)) {
+    if (!cycle.settleFrom) {
+      result.set(cycle.key, { status: "even", payment: null, candidates: [] });
+      continue;
+    }
+
+    const candidates = settleCandidates(cycle, transactions, settings, accountNameOf);
+    const chosen = manual[cycle.key];
+    // Marked "not paid yet" by hand: overrides an automatic match that
+    // turned out to be a different payment.
+    if (chosen?.none) {
+      result.set(cycle.key, { status: "unpaid", payment: null, candidates, manual: true });
+      continue;
+    }
+    if (chosen) {
+      const live = chosen.transactionId ? byId.get(chosen.transactionId) : null;
+      const payment = live && !live.deleted
+        ? { ...describePayment(live, cycle, chosen.via || "manual"), manual: true }
+        : { ...chosen, manual: true,
+          difference: round2((chosen.amount || 0) - cycle.settleAmount) };
+      result.set(cycle.key, { status: "paid", payment, candidates });
+      continue;
+    }
+
+    const free = candidates.filter((c) => !used.has(c.transactionId));
+    const exact = free.find((c) => Math.abs(c.difference) < 0.005);
+    if (exact) {
+      used.add(exact.transactionId);
+      result.set(cycle.key, { status: "paid", payment: exact, candidates });
+    } else if (isoLocal(cycle.end) >= today) {
+      result.set(cycle.key, { status: "open", payment: null, candidates });
+    } else if (free.length) {
+      result.set(cycle.key, { status: "possible", payment: free[0], candidates });
+    } else {
+      result.set(cycle.key, { status: "unpaid", payment: null, candidates });
+    }
+  }
+  return result;
+}
+
+/**
+ * What is still owed across every cycle once payments are taken off, as
+ * the signed owed-to-person-1 figure monthlySummary() uses for `net`.
+ */
+export function outstandingNet(cycles, matches) {
+  let total = 0;
+  for (const cycle of cycles) {
+    const match = matches.get(cycle.key);
+    const paid = match?.status === "paid" ? (match.payment?.amount || 0) : 0;
+    total += Math.sign(cycle.net) * (Math.abs(cycle.net) - paid);
+  }
+  return round2(total);
+}
+
 export function columnsFor(settings) {
   return ["Card", "Date", "Description", "Amount", "Owner",
     settings.person1Name || "Person 1",

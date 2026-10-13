@@ -67,8 +67,8 @@ export const PAGES = [
   {
     id: "rtatracker", title: "RTA Tracker", icon: "pulse", key: "rtaTracker",
     build: rtaTrackerPage,
-    blurb: "Snapshots Ready to Assign over time and tries to explain a " +
-      "shift by finding backdated or uncategorized transactions.",
+    blurb: "Rebuilds Ready to Assign month by month, finds when it went " +
+      "negative, and explains each month line by line.",
     group: "tracking", groupLabel: "Tracking",
   },
   {
