@@ -149,7 +149,24 @@ export class YnabClient {
     ).transactions;
   }
 
+  /** Upcoming transactions set up in YNAB to repeat (or happen once later). */
+  async scheduledTransactions(budgetId) {
+    return (
+      await this.request("GET", `/budgets/${budgetId}/scheduled_transactions`)
+    ).scheduled_transactions;
+  }
+
   // ---------- writes ----------
+
+  /**
+   * Update several transactions in one request - each entry needs its `id`
+   * plus only the fields to change (e.g. { id, category_id, approved }).
+   */
+  async updateTransactions(budgetId, transactions) {
+    return this.request("PATCH", `/budgets/${budgetId}/transactions`, {
+      body: { transactions },
+    });
+  }
 
   async updateTransaction(budgetId, transactionId, transaction) {
     return (

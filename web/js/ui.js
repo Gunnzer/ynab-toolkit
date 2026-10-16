@@ -71,7 +71,28 @@ const ICONS = {
     '<path d="M9.5 4.5v15"/><path d="m7.2 10.4-1.8 1.6 1.8 1.6"/>',
   funnel: '<path d="M4 5h16l-6.2 7.5V19l-3.6-2v-4.5z"/>',
   pulse: '<path d="M3 12h4l2.5-7 4 14 2.5-7H21"/>',
+  calendar:
+    '<rect x="3.5" y="5" width="17" height="15.5" rx="2"/>' +
+    '<path d="M3.5 10h17"/><path d="M8 3v4"/><path d="M16 3v4"/>' +
+    '<path d="M8 14h2"/><path d="M14 14h2"/>',
+  check:
+    '<rect x="3.5" y="3.5" width="17" height="17" rx="3"/>' +
+    '<path d="m8 12.5 3 3 5.5-6"/>',
   x: '<path d="m6 6 12 12"/><path d="m18 6-12 12"/>',
+  grip:
+    '<circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/>' +
+    '<circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/>' +
+    '<circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/>',
+  plus: '<path d="M12 5v14"/><path d="M5 12h14"/>',
+  left: '<path d="m14 6-6 6 6 6"/>',
+  right: '<path d="m10 6 6 6-6 6"/>',
+  wallet:
+    '<rect x="3.5" y="6" width="17" height="13" rx="2.5"/>' +
+    '<path d="M3.5 10h17"/><path d="M15.5 14.5h1.5"/>',
+  layout:
+    '<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/>' +
+    '<rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/>' +
+    '<rect x="3.5" y="13.5" width="17" height="7" rx="1.5"/>',
 };
 
 /** An inline SVG icon. Inherits colour, so it works on any background. */
@@ -249,6 +270,72 @@ export function emptyRow(wrap, message) {
       el("td", { colspan: String(wrap.columns.length), text: message })));
 }
 
+/**
+ * Click-to-sort headers on a table() wrapper: each listed column's label
+ * becomes a button - first click sorts ascending, every click after flips
+ * the direction - with an arrow on the sorted one. Pair with sortRows()
+ * (tools/sort.js) when drawing the rows.
+ *
+ * Works next to a column filter's funnel: the label inside its
+ * .th-filter-row is swapped for the button. The <th> itself is never
+ * restyled - a sticky header silently stops sticking if its own display
+ * changes (see the .filterable-th note in app.css).
+ *
+ * Returns { sort, setLabel(key, text) }: `sort` is { key, dir } or null,
+ * and setLabel renames a header without losing its button (repainting a
+ * <th>'s textContent would wipe it).
+ */
+export function sortableHeaders(wrap, keys, { initial = null, onChange } = {}) {
+  const control = { sort: initial };
+  const parts = new Map();
+  const ths = wrap.querySelectorAll("th");
+
+  function paint() {
+    for (const [key, part] of parts) {
+      const dir = control.sort?.key === key ? control.sort.dir : null;
+      part.arrow.textContent = dir === "asc" ? "▲" : dir === "desc" ? "▼" : "";
+      part.th.setAttribute("aria-sort",
+        dir === "asc" ? "ascending" : dir === "desc" ? "descending" : "none");
+      part.button.title = dir === "asc"
+        ? `Sorted by ${part.label.textContent}, lowest first - click for highest first`
+        : `Sort by ${part.label.textContent}`;
+    }
+  }
+
+  for (const key of keys) {
+    const index = wrap.columns.findIndex((column) => column.key === key);
+    if (index < 0) continue;
+    const th = ths[index];
+    const label = el("span", { text: wrap.columns[index].label || key });
+    const arrow = el("span", { class: "sort-arrow", "aria-hidden": "true" });
+    const button = el("button", {
+      type: "button", class: "th-sort",
+      onClick: () => {
+        const flip = control.sort?.key === key && control.sort.dir === "asc";
+        control.sort = { key, dir: flip ? "desc" : "asc" };
+        paint();
+        onChange?.(control.sort);
+      },
+    }, label, arrow);
+    const filterRow = th.querySelector(".th-filter-row");
+    if (filterRow) {
+      filterRow.firstElementChild.replaceWith(button);
+    } else {
+      th.textContent = "";
+      th.append(button);
+    }
+    parts.set(key, { th, button, label, arrow });
+  }
+
+  control.setLabel = (key, text) => {
+    const part = parts.get(key);
+    if (part) part.label.textContent = text;
+    paint();
+  };
+  paint();
+  return control;
+}
+
 // ---------- dialogs ----------
 
 const dialog = () => document.getElementById("dialog");
@@ -375,11 +462,55 @@ export function categoryPicker(state, { onChange } = {}) {
       popup.remove();
       popup = null;
       document.removeEventListener("pointerdown", onOutside, true);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", follow);
     }
   }
 
   function onOutside(event) {
-    if (!root.contains(event.target)) close();
+    if (!root.contains(event.target) && !popup?.contains(event.target)) close();
+  }
+
+  // The popup is fixed in the viewport, so it is moved along with the field
+  // when the page (or the table it sits in) scrolls, and closed only once
+  // the field itself is off screen. Closing on any scroll or resize at all
+  // would close it the moment it opened on a phone: focusing the search box
+  // brings up the keyboard, which resizes the window on Android and scrolls
+  // the page on iOS. Scrolling its own list is left alone.
+  function onScroll(event) {
+    if (popup && event.target instanceof Node && popup.contains(event.target)) return;
+    follow();
+  }
+
+  function follow() {
+    if (!popup) return;
+    const rect = fieldButton.getBoundingClientRect();
+    if (rect.bottom < 0 || rect.top > window.innerHeight) close();
+    else place();
+  }
+
+  /**
+   * Position the popup under the field, in viewport coordinates. It is not
+   * a child of the field: a field inside a table sits in a scrolling box
+   * (.table-wrap always is one - see the overflow note in app.css) that
+   * clips anything poking out, which made the list invisible (a real bug,
+   * reported live on Categorize). Flips above the field when there is more
+   * room there, and is kept on screen at the right edge.
+   */
+  function place() {
+    const rect = fieldButton.getBoundingClientRect();
+    popup.style.position = "fixed";
+    popup.style.right = "auto";
+    popup.style.minWidth = `${rect.width}px`;
+    popup.style.left = `${Math.max(8, rect.left)}px`;
+    popup.style.top = `${rect.bottom + 6}px`;
+    const box = popup.getBoundingClientRect();
+    const overflowRight = box.right - (window.innerWidth - 8);
+    if (overflowRight > 0) popup.style.left = `${Math.max(8, rect.left - overflowRight)}px`;
+    const below = window.innerHeight - rect.bottom;
+    if (box.height > below - 14 && rect.top > below) {
+      popup.style.top = `${Math.max(8, rect.top - 6 - box.height)}px`;
+    }
   }
 
   function open() {
@@ -396,7 +527,9 @@ export function categoryPicker(state, { onChange } = {}) {
     const list = el("ul", { class: "picker-list", role: "listbox" });
     const foot = el("div", { class: "picker-foot" });
     popup = el("div", { class: "picker-popup" }, search, list, foot);
-    root.append(popup);
+    // Inside a modal dialog the popup has to stay inside it too: anything
+    // outside an open modal is unclickable.
+    (fieldButton.closest("dialog") || document.body).append(popup);
 
     let visible = [];
     let cursor = 0;
@@ -449,19 +582,13 @@ export function categoryPicker(state, { onChange } = {}) {
     cursor = Math.max(0, items.findIndex((i) => i.id === selected?.id));
     render();
 
-    // Anchored to the field's left edge by default. A field sitting in the
-    // right portion of the page (e.g. the last column of a row of pickers)
-    // would otherwise push the popup off the right side of the viewport,
-    // taking the search box with it - flip to the field's right edge
-    // instead whenever that would happen. Checked only now, after render(),
-    // since the popup's width depends on its list content.
-    if (popup.getBoundingClientRect().right > window.innerWidth) {
-      popup.style.left = "auto";
-      popup.style.right = "0";
-    }
+    // Placed only now, after render(), since its size depends on the list.
+    place();
 
     search.focus();
     document.addEventListener("pointerdown", onOutside, true);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", follow);
   }
 
   fieldButton.addEventListener("click", open);

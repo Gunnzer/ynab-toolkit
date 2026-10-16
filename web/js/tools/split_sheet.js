@@ -121,13 +121,20 @@ export function sharedRatio(settings) {
  * The Owner code for a person's own expense. Their account tag doubles as
  * this - it is already the one-letter identifier they set up for exactly
  * this purpose - so P1/P2 only show up as a literal fallback for someone
- * who has not set a tag. Shared and Custom stay the fixed "S"/"C" codes;
- * only P1/P2 are ever person-specific.
+ * who has not set a tag, or whose tag is the Shared or Custom code. Shared
+ * and Custom stay the fixed "S"/"C" codes; only P1/P2 are ever
+ * person-specific.
  */
 export function personCode(which, settings) {
-  const tag = String(settings[`person${which}AccountTag`] || "").trim();
-  if (tag) return tag;
   const codes = settings.codes || {};
+  const tag = String(settings[`person${which}AccountTag`] || "").trim();
+  // A tag that is also the Shared or Custom code (Sam tagged "S") would
+  // make every code ambiguous: sharesFor() billed every shared row entirely
+  // to that person, and the exported Owner column could not tell them apart.
+  // Found in regression with a person tagged "S".
+  const reserved = [codes.shared || "S", codes.custom || "C"]
+    .map((code) => String(code).toUpperCase());
+  if (tag && !reserved.includes(tag.toUpperCase())) return tag;
   return codes[`person${which}`] || `P${which}`;
 }
 

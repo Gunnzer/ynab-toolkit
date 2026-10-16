@@ -283,6 +283,20 @@ describe("reading a YNAB export", () => {
     assert.deepEqual([rows[0].Share1, rows[0].Share2], [0, 40]);
   });
 
+  test("a tag that is also the Shared or Custom code is not used as a code", () => {
+    const settings = { ...SETTINGS, codes: undefined, person1Ratio: 0.5 };
+    assert.equal(sheet.personCode(2, settings), "P2");
+    assert.equal(sheet.personCode(1, { ...settings, person1AccountTag: "c" }), "P1");
+    assert.equal(sheet.personCode(1, settings), "A");
+    const result = sheet.fromExport({
+      headers,
+      rows: [row(["Joint", "03/05/2026", "Landlord", "Household", "", "100.00", ""])],
+    }, settings);
+    const rows = sheet.buildRows(result.items, settings);
+    assert.equal(rows[0].Owner, "S");
+    assert.deepEqual([rows[0].Share1, rows[0].Share2], [50, 50]);
+  });
+
   test("the account tag is kept in Card", () => {
     const rows = [["(A) Visa", "03/05/2026", "Shop", "Household", "", "10.00", ""]];
     const build = (settings) => sheet.buildRows(

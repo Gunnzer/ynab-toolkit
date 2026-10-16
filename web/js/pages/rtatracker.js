@@ -3,10 +3,11 @@
 
 import { fmt } from "../money.js";
 import * as rta from "../tools/rta_tracker.js";
+import { sortRows } from "../tools/sort.js";
 import {
   button, card, checkbox, clear, customDialog, dateLabel,
   download, el, emptyRow, hint, logPane, monthLabel, pageHeading, pill,
-  sectionTitle, table,
+  sectionTitle, sortableHeaders, table,
 } from "../ui.js";
 
 const LOG_EMPTY =
@@ -355,6 +356,14 @@ export function rtaTrackerPage(app) {
     return row;
   }
 
+  /**
+   * The month line by line. Sortable: "Date" is the order things actually
+   * happened (oldest or newest first) - by position in the ledger, not the
+   * date text, so lines with no date of their own ("Left over from last
+   * month") stay where they belong. "Ready to Assign" is still the balance
+   * right after each line, whichever way it is sorted; the section headings
+   * only make sense in the natural order, so they show only then.
+   */
   function ledgerTable(ledger) {
     const wrap = table([
       { key: "date", label: "Date" },
@@ -363,7 +372,6 @@ export function rtaTrackerPage(app) {
       { key: "balance", label: "Ready to Assign", className: "num" },
     ]);
     wrap.classList.add("scroll-table");
-    let section = null;
     const headings = ledger.timed
       ? {
         income: "In the order it happened (income by date, assignments by exact time)",
@@ -373,39 +381,62 @@ export function rtaTrackerPage(app) {
         income: "Income, by date",
         assigned: "Assigned, in budget order (no history recorded for this month)",
       };
-    for (const line of ledger.lines) {
-      if (headings[line.kind] && section !== headings[line.kind]) {
-        section = headings[line.kind];
-        wrap.tbody.append(el("tr", { class: "group-row rta-ledger-group" },
-          el("td", { colspan: "4", text: headings[line.kind] })));
+    const indexed = ledger.lines.map((line, order) => ({ ...line, order }));
+    const sorter = sortableHeaders(wrap, ["date", "what", "amount", "balance"], {
+      initial: settings.ledgerSort || { key: "date", dir: "asc" },
+      onChange: (sort) => {
+        settings.ledgerSort = sort;
+        store.save();
+        draw();
+      },
+    });
+
+    function draw() {
+      clear(wrap.tbody);
+      const sort = sorter.sort || { key: "date", dir: "asc" };
+      const natural = sort.key === "date" && sort.dir === "asc";
+      const lines = sortRows(indexed, sort, (line, key) => (
+        key === "date" ? line.order : key === "what" ? line.label : line[key]));
+      let section = null;
+      for (const line of lines) {
+        if (natural && headings[line.kind] && section !== headings[line.kind]) {
+          section = headings[line.kind];
+          wrap.tbody.append(el("tr", { class: "group-row rta-ledger-group" },
+            el("td", { colspan: "4", text: headings[line.kind] })));
+        }
+        const who = line.kind === "movement"
+          ? el("span", {
+            class: "rta-who", "data-user": line.userId || "",
+            text: line.userId !== undefined ? whoName(line.userId) : line.who,
+          })
+          : null;
+        // Flagged, never moved: there is no arrival time to move it to.
+        const backdatedNote = line.backdated
+          ? `Not approved yet but dated ${line.backdated.days} days ago - likely ` +
+            "imported late, so it was not really here on this date"
+          : "";
+        const detail = [line.detail, backdatedNote,
+          line.accountId ? state.accountName(line.accountId) : ""]
+          .filter(Boolean).join(" · ");
+        const flag = line.wentNegative ? pill("Went negative here", "error")
+          : line.recovered ? pill("Back above zero", "ok")
+            : line.backdated ? pill("Likely backdated", "caution") : null;
+        wrap.tbody.append(el("tr", { class: line.wentNegative ? "rta-cross" : "" },
+          el("td", {},
+            el("div", { text: line.date ? dateLabel(line.date) : "" }),
+            line.at ? el("div", { class: "rta-ledger-detail", text: timeLabel(line.at) }) : null),
+          el("td", {},
+            el("div", { class: "rta-ledger-what" }, el("span", { text: line.label }), flag),
+            who || detail
+              ? el("div", { class: "rta-ledger-detail" },
+                who ? "by " : "", who, who && detail ? " · " : "", detail)
+              : null),
+          el("td", { class: "num", text: signed(line.amount) }),
+          el("td", { class: `num ${line.balance < 0 ? "is-error" : ""}`, text: fmt(line.balance) })));
       }
-      const who = line.kind === "movement"
-        ? el("span", { class: "rta-who", "data-user": line.userId || "", text: line.who })
-        : null;
-      // Flagged, never moved: there is no arrival time to move it to.
-      const backdatedNote = line.backdated
-        ? `Not approved yet but dated ${line.backdated.days} days ago - likely ` +
-          "imported late, so it was not really here on this date"
-        : "";
-      const detail = [line.detail, backdatedNote,
-        line.accountId ? state.accountName(line.accountId) : ""]
-        .filter(Boolean).join(" · ");
-      const flag = line.wentNegative ? pill("Went negative here", "error")
-        : line.recovered ? pill("Back above zero", "ok")
-          : line.backdated ? pill("Likely backdated", "caution") : null;
-      wrap.tbody.append(el("tr", { class: line.wentNegative ? "rta-cross" : "" },
-        el("td", {},
-          el("div", { text: line.date ? dateLabel(line.date) : "" }),
-          line.at ? el("div", { class: "rta-ledger-detail", text: timeLabel(line.at) }) : null),
-        el("td", {},
-          el("div", { class: "rta-ledger-what" }, el("span", { text: line.label }), flag),
-          who || detail
-            ? el("div", { class: "rta-ledger-detail" },
-              who ? "by " : "", who, who && detail ? " · " : "", detail)
-            : null),
-        el("td", { class: "num", text: signed(line.amount) }),
-        el("td", { class: `num ${line.balance < 0 ? "is-error" : ""}`, text: fmt(line.balance) })));
     }
+
+    draw();
     return wrap;
   }
 

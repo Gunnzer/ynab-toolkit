@@ -53,6 +53,19 @@
   --caution-soft: #faf1d6;
 
   /* geometry */
+  /* Chart series, in a fixed order: a series keeps its colour by position,
+     never by rank. Validated as a set against the white card (adjacent
+     colour-blind separation 9.1 or more); slots 3-5 sit under 3:1, so every
+     chart writes its numbers out in a legend and a table, never colour
+     alone. "Other" is the grey a folded-together tail gets. */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-other: #a3abb3;
+
   --radius: 6px;
   --radius-lg: 10px;
   --sidebar-width: 224px;
@@ -669,14 +682,309 @@ tr.is-faded td { opacity: .6; }
 }
 .saved-filter-actions .pill { flex: 0 0 auto; }
 
-/* ---------- home tool cards ---------- */
+/* Setup: a settings code, long and unbroken, wraps anywhere. */
+.settings-code { min-height: 110px; font-size: 11.5px; word-break: break-all; }
+
+/* ---------- home: widgets ---------- */
+
+/* A four-column grid: small takes one column, medium two, large the whole
+   row. Order is exactly the saved order (no dense packing), so what you
+   drag is where it lands. Tablet and phone drop to two columns, where
+   small stays half a row and medium/large take all of it. */
+.home-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.home-bar .btn svg { margin-right: 6px; }
+.home-whose { display: flex; align-items: center; gap: 8px; }
+.home-whose .field-label { margin: 0; }
+.home-whose select { width: auto; min-width: 150px; }
+.widget-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  align-items: stretch;
+}
+.widget.size-s { grid-column: span 1; }
+.widget.size-m { grid-column: span 2; }
+.widget.size-l { grid-column: 1 / -1; }
+
+.widget { padding: 16px 18px; gap: 12px; min-width: 0; position: relative; }
+.widget-head { display: flex; align-items: center; gap: 8px; min-height: 26px; }
+.widget-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  border-radius: 7px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.widget-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  color: var(--muted);
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.widget-open { padding: 2px 4px; }
+/* A small widget opens its page as a whole (see home.js), so no link. */
+.widget.size-s .widget-open { display: none; }
+.widget.is-openable { cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease; }
+.widget.is-openable:hover { border-color: var(--border-strong); box-shadow: var(--shadow-md); }
+.widget.is-openable:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.widget-body { display: flex; flex-direction: column; min-width: 0; }
+.widget-content { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+/* The one number a small widget is about. */
+.widget-value {
+  font-size: 26px;
+  font-weight: 650;
+  line-height: 1.15;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.widget-value.is-ok { color: var(--ok); }
+.widget-value.is-warn { color: var(--warn); }
+.widget-value.is-error { color: var(--error); }
+.widget-note { margin-top: 4px; font-size: 12.5px; color: var(--muted); }
+.widget-warning { margin: 0; font-size: 12.5px; font-weight: 600; color: var(--error); }
+.widget-subhead {
+  margin-top: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.widget-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.widget-rows li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding: 7px 0;
+  border-top: 1px solid var(--border);
+}
+.widget-rows li:first-child { border-top: 0; padding-top: 0; }
+.widget-rows li.is-total { font-weight: 650; border-top-color: var(--border-strong); }
+.widget-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.widget-row-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.widget-row-sub { font-size: 12px; color: var(--muted); }
+.widget-row-sub.is-warn { color: var(--warn); }
+.widget-row-value { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.widget-row-value.is-ok { color: var(--ok); }
+.widget-row-value.is-error { color: var(--error); }
+.widget-bar {
+  flex: 0 0 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--sunken);
+  overflow: hidden;
+}
+.widget-bar > span { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
+.widget-tool-icons { display: flex; flex-wrap: wrap; gap: 8px; }
+.widget-tool-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  cursor: pointer;
+}
+.widget-tool-icon:hover { border-color: var(--accent); }
+.tool-icon.is-small { width: 28px; height: 28px; flex: 0 0 28px; border-radius: 7px; }
+
+/* Needs attention, inside its widget: one row per thing, a coloured edge
+   carrying the level so the list scans without reading the pills. */
+.attention-list-compact { display: flex; flex-direction: column; margin: 0 -18px; }
+.attention-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 18px 10px 15px;
+  border-left: 3px solid transparent;
+}
+.attention-item + .attention-item { border-top: 1px solid var(--border); }
+.attention-item.is-error { border-left-color: var(--error); }
+.attention-item.is-warn { border-left-color: var(--warn); }
+.attention-item.is-info { border-left-color: var(--accent); }
+.attention-item .pill { flex: 0 0 52px; justify-content: center; }
+.attention-text { flex: 1; min-width: 0; }
+.attention-title { font-weight: 600; }
+
+/* ---------- home: charts ---------- */
+
+.chart { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.chart-plot { position: relative; width: 100%; }
+.chart-svg { display: block; overflow: visible; }
+.chart-grid { stroke: var(--border); stroke-width: 1; shape-rendering: crispEdges; }
+.chart-base { stroke: var(--border-strong); stroke-width: 1; shape-rendering: crispEdges; }
+.chart-average { stroke: var(--muted); stroke-width: 1; shape-rendering: crispEdges; }
+.chart-axis { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.chart-axis.is-strong { fill: var(--text); font-weight: 600; }
+.chart-hover { fill: var(--sunken); }
+.chart-cross { stroke: var(--border-strong); stroke-width: 1; shape-rendering: crispEdges; }
+/* A dot keeps a ring in the card colour, so it stays readable over a line. */
+.chart-dot { stroke: var(--card); stroke-width: 2; }
+.chart-hit { outline: none; cursor: default; }
+.chart-hit:focus-visible { stroke: var(--accent); stroke-width: 2; }
+.chart-tip {
+  position: absolute;
+  top: 0;
+  z-index: 2;
+  min-width: 120px;
+  padding: 8px 10px;
+  background: var(--card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+  font-size: 12.5px;
+}
+.chart-tip-title { color: var(--muted); margin-bottom: 4px; }
+.chart-tip-row { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.chart-tip-row strong { font-variant-numeric: tabular-nums; }
+.chart-tip-row.is-total { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--border); }
+.chart-tip-name, .chart-tip-row.is-total span { color: var(--muted); }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; }
+.chart-legend-item { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.chart-legend-name { color: var(--text); }
+.chart-legend-value { color: var(--muted); font-variant-numeric: tabular-nums; }
+.chart-key { display: inline-block; width: 10px; height: 10px; border-radius: 2px; flex: 0 0 auto; }
+.chart-key.is-line { width: 12px; height: 2px; border-radius: 1px; }
+
+/* Tool links: a compact list, or cards when large. */
+.tool-link-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; }
+.tool-link, .tool-card {
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: var(--card);
+  cursor: pointer;
+}
+.tool-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.tool-link:hover, .tool-link:focus-visible { border-color: var(--accent); }
+.tool-link-title { font-weight: 600; }
+
+/* Widget settings dialogs. */
+.settings-checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px 14px; }
+.settings-checks .is-off { color: var(--muted); }
+.chart-choices {
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 4px 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.chart-choice-group { margin: 10px 0 2px; padding-left: 8px; font-weight: 600; }
+.chart-choice-group:first-child { margin-top: 2px; }
+.chart-choice-category { padding: 2px 0 2px 32px; }
+
+/* ---------- home: customizing ---------- */
+
+/* Edit controls exist on every widget but only show in Customize mode. */
+.widget-edit, .widget-grip { display: none; }
+.home-page.is-editing .widget-edit { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+/* A half-width widget on a phone has no room for sizes and tools in one row. */
+.widget-sizes, .widget-tool { flex: 0 0 auto; }
+.home-page.is-editing .widget-grip { display: inline-flex; color: var(--faint); cursor: grab; }
+.home-page.is-editing .widget-open { display: none; }
+.home-page.is-editing .widget {
+  border-style: dashed;
+  border-color: var(--border-strong);
+  cursor: grab;
+}
+/* Content is only a preview while editing - its buttons must not fire. */
+.home-page.is-editing .widget-body { opacity: .75; pointer-events: none; }
+.widget.is-dragging { opacity: .4; }
+.widget.drop-before { box-shadow: -4px 0 0 0 var(--accent); }
+.widget.drop-after { box-shadow: 4px 0 0 0 var(--accent); }
+.widget.size-l.drop-before { box-shadow: 0 -4px 0 0 var(--accent); }
+.widget.size-l.drop-after { box-shadow: 0 4px 0 0 var(--accent); }
+.widget-sizes {
+  display: inline-flex;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.widget-size {
+  min-width: 30px;
+  height: 28px;
+  border: 0;
+  background: var(--card);
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.widget-size + .widget-size { border-left: 1px solid var(--border-strong); }
+.widget-size.is-active { background: var(--accent); color: var(--card); }
+.widget-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--muted);
+  cursor: pointer;
+}
+.widget-tool:hover:not(:disabled) { color: var(--text); border-color: var(--border-strong); }
+.widget-tool:disabled { opacity: .35; cursor: default; }
+.widget-tool.is-remove:hover { color: var(--error); border-color: var(--error); }
+
+.widget-choices { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+.widget-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.widget-choice input { margin-top: 5px; }
+.widget-choice.is-off { opacity: .55; cursor: default; }
+.widget-choice-text { display: flex; flex-direction: column; gap: 2px; }
+.widget-choice-title { font-weight: 600; }
+
+/* ---------- home: tool cards (the large Tool links widget) ---------- */
 
 .tool-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
 }
-.tool-card { gap: 12px; transition: box-shadow .15s ease, border-color .15s ease; }
+.tool-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  transition: box-shadow .15s ease, border-color .15s ease;
+}
 .tool-card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-md); }
 .tool-card-title { display: flex; align-items: center; gap: 12px; }
 .tool-icon {
@@ -690,16 +998,6 @@ tr.is-faded td { opacity: .6; }
   background: var(--accent-soft);
   color: var(--accent);
 }
-.tool-card-foot {
-  margin-top: auto;
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-}
-.tool-card-foot .btn { margin-top: 8px; }
 
 /* ==========================================================================
    Controls
@@ -1149,6 +1447,26 @@ td {
   flex: none;
 }
 .th-filter-btn:hover { background: var(--sunken); color: var(--muted); }
+
+/* A sortable header's label: reads exactly like the plain header text
+   until hovered, with an arrow once it is the sorted column. */
+.th-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+.th-sort:hover { color: var(--text); }
+.th-sort:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+.sort-arrow { color: var(--accent); font-size: 9px; }
+th[aria-sort="ascending"], th[aria-sort="descending"] { color: var(--muted); }
 .th-filter-btn.is-active { color: var(--accent); }
 
 /* A quick per-row "filter this payee out" action, sitting in its own
@@ -1528,6 +1846,10 @@ td .btn-small { min-height: 28px; padding: 0 9px; font-size: 12.5px; }
    ========================================================================== */
 
 @media (max-width: 900px) {
+  /* Home's widget grid: two columns, small stays half a row. */
+  .widget-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .widget.size-m { grid-column: 1 / -1; }
+
   :root { --gutter: 18px; }
 
   .app { flex-direction: column; }
@@ -1571,6 +1893,12 @@ td .btn-small { min-height: 28px; padding: 0 9px; font-size: 12.5px; }
  * matches both.
  */
 @media (max-width: 560px) {
+  .widget { padding: 14px; }
+  .widget-value { font-size: 22px; }
+  .attention-list-compact { margin: 0 -14px; }
+  .attention-item { padding: 10px 14px 10px 11px; gap: 10px; }
+  .attention-item .pill { flex-basis: 44px; }
+
   :root { --gutter: 14px; --control-height: 40px; }
 
   /* Smaller and tighter than the 900px tier's nav-item so a full tool

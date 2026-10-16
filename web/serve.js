@@ -20,6 +20,7 @@ const TYPES = {
   ".json": "application/json; charset=utf-8",
   ".svg": "image/svg+xml",
   ".png": "image/png",
+  ".webmanifest": "application/manifest+json",
   ".ico": "image/x-icon",
 };
 

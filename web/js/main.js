@@ -16,6 +16,8 @@ import { autoAssignPage } from "./pages/autoassign.js";
 import { duplicatesPage } from "./pages/duplicates.js";
 import { bankImportPage } from "./pages/bank.js";
 import { rtaTrackerPage } from "./pages/rtatracker.js";
+import { upcomingPage } from "./pages/upcoming.js";
+import { categorizePage } from "./pages/categorize.js";
 
 // Home first, then the daily tools. Setup is pinned to the sidebar footer.
 // `key` is the flag under tools.enabled; pages without one are always shown.
@@ -58,17 +60,17 @@ export const PAGES = [
     group: "info", groupLabel: "YNAB Info & Reporting",
   },
   {
-    id: "bank", title: "Bank Import", icon: "upload", key: "bankImport",
-    build: bankImportPage,
-    blurb: "Turn a bank export into a CSV that YNAB can import, tidying " +
-      "payee names on the way.",
-    group: "tracking", groupLabel: "Tracking",
-  },
-  {
     id: "rtatracker", title: "RTA Tracker", icon: "pulse", key: "rtaTracker",
     build: rtaTrackerPage,
     blurb: "Rebuilds Ready to Assign month by month, finds when it went " +
       "negative, and explains each month line by line.",
+    group: "tracking", groupLabel: "Tracking",
+  },
+  {
+    id: "upcoming", title: "Upcoming Bills", icon: "calendar", key: "upcoming",
+    build: upcomingPage,
+    blurb: "What is due in the next few weeks, and whether each account " +
+      "covers it before the next money comes in.",
     group: "tracking", groupLabel: "Tracking",
   },
   {
@@ -85,18 +87,34 @@ export const PAGES = [
       "per expense for a shared expense tracker.",
     group: "together", groupLabel: "YNAB Together",
   },
+  // Bank Import and Duplicates together under "Tools", at explicit user
+  // request: both work on transactions coming in rather than on the budget.
   {
-    id: "autoassign", title: "Auto Assign", icon: "fill", key: "autoAssign",
-    build: autoAssignPage,
-    blurb: "Empty a holding category into your targeted categories, in the " +
-      "priority order you set.",
-    group: "cleanup", groupLabel: "Cleanup",
+    id: "bank", title: "Bank Import", icon: "upload", key: "bankImport",
+    build: bankImportPage,
+    blurb: "Turn a bank export into a CSV that YNAB can import, tidying " +
+      "payee names on the way.",
+    group: "tools", groupLabel: "Tools",
+  },
+  {
+    id: "categorize", title: "Categorize", icon: "check", key: "categorize",
+    build: categorizePage,
+    blurb: "Transactions with no category or not approved yet, with a " +
+      "category suggested from your history. Approve in bulk, with undo.",
+    group: "tools", groupLabel: "Tools",
   },
   {
     id: "duplicates", title: "Duplicates", icon: "copies", key: "duplicates",
     build: duplicatesPage,
     blurb: "Find transactions imported twice and flag them for review. " +
       "Never deletes anything.",
+    group: "tools", groupLabel: "Tools",
+  },
+  {
+    id: "autoassign", title: "Auto Assign", icon: "fill", key: "autoAssign",
+    build: autoAssignPage,
+    blurb: "Empty a holding category into your targeted categories, in the " +
+      "priority order you set.",
     group: "cleanup", groupLabel: "Cleanup",
   },
 ];
@@ -169,6 +187,11 @@ class App {
 
   enabledToolPages() {
     return TOGGLEABLE.filter((page) => this.toolEnabled(page.key));
+  }
+
+  /** Every tool page, switched on or not. */
+  toolPages() {
+    return TOGGLEABLE;
   }
 
   visiblePages() {
@@ -421,6 +444,13 @@ app.routeFromHash();
 // someone clearing site data by hand, which is what the backup file is for.
 requestPersistence();
 app.autoConnect();
+
+// Installable as a phone app (see sw.js). Browsers only allow a service
+// worker on https or localhost, so a file:// copy simply goes without.
+if ("serviceWorker" in navigator &&
+  (location.protocol === "https:" || location.hostname === "localhost")) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
 
 // A file dropped anywhere but a drop zone would otherwise be opened by the
 // browser, navigating away from the app and losing whatever was on screen.

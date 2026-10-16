@@ -9,6 +9,39 @@ Maintained going forward: add a new dated entry for each push, in this same
 style (feature/fix name and files, then bullets on what changed and why),
 before or as part of the push itself.
 
+## 2026-10-16
+
+**Home: a dashboard of widgets you choose** (`pages/home.js`, `pages/home_widgets.js`, `pages/home_charts.js`, `tools/home_layout.js`, `tools/chart_data.js`, `tools/dashboard.js`, `tools/forecast.js`, `pages/categorize.js`, `main.js`, `store.js`, `ui.js`, `app.css`, tests, `CLAUDE.md`)
+* Home is now widgets. Press Customize to add, remove, resize (small, medium, large), drag or move them, and open each one's settings (its own title, plus options like which accounts, how far ahead, or which categories). Changes save as you go, and a phone keeps a layout of its own.
+* A bigger widget shows more, not the same thing stretched: small is one number (tap it to open its page), medium adds a short list or chart, large the full detail.
+* Widgets: Ready to Assign, Overspent, To review, Subscriptions, Spending chart, Needs attention, Upcoming bills, Cash forecast, Spending this month, Cash flow, Accounts, Settle up and Tool links.
+* Spending chart: month by month for the categories or groups you pick, one colour each or combined. Add as many as you like. "All spending" and each group are select-all boxes.
+* Cash forecast is a line chart of each account's balance over the next 30 days, and Cash flow a chart of income against spending.
+* Tool links replaces the old tool cards: pick which tools to link, and add more than one to group them.
+* Whose: one choice (Everyone, either person, Shared) changes every widget. Ready to Assign shows the whole budget and says so, Cash flow shows that person's spending only, and Settle up is always both people. Split transactions are shared out between people.
+
+**Upcoming Bills** (`pages/upcoming.js`, `tools/forecast.js`, `tools/recurring.js`, `state.js`, `api.js`, tests)
+* What is due in the next 2 weeks to 60 days, from YNAB's scheduled transactions plus regular bills and pay spotted in your history, and whether each chequing, savings or cash account covers it.
+
+**Categorize** (`pages/categorize.js`, `tools/categorize.js`, `api.js`, tests)
+* Transactions with no category or not approved yet, with a category suggested from how you have categorized that payee before. Approve in bulk, with undo.
+* Leaves out off-budget accounts, and never fills in a category it cannot show you (like Ready to Assign).
+
+**Phone app and moving settings** (`manifest.webmanifest`, `sw.js`, `assets/`, `index.html`, `serve.js`, `pages/setup.js`, `tools/settings_code.js`, tests)
+* Add the site to your phone's home screen and it opens like an app. The last copy opens offline. No budget data is stored for this.
+* Setup: Send to / Receive from another device moves your settings with a code you paste, no file needed. Never includes your token.
+
+**Smaller changes** (`ui.js`, `pages/splitsheet.js`, `pages/rtatracker.js`, `main.js`, `tools/sort.js`, `tools/recurring.js`, `tools/split_sheet.js`, `pages/setup.js`, tests)
+* Click a column heading to sort Bill Splitting's Preview and RTA Tracker's month view, either way.
+* Bank Import, Categorize and Duplicates sit together under "Tools" in the sidebar.
+* Recurring detection finds income too, including twice-a-month pay, and no longer flags a bill that creeps up slowly as a price increase.
+
+**Fixes** (`ui.js`, `pages/splitsheet.js`, `tools/split_sheet.js`, `pages/setup.js`, tests)
+* Bill Splitting's column filter lists scroll again.
+* Category dropdowns on Categorize and Shared Expenses are no longer hidden inside the table, and stay open on a phone when the keyboard comes up.
+* Bill Splitting: a person whose tag is S or C no longer gets every shared expense billed to them - their code shows as P1 or P2 instead.
+* Setup's explanation of how the account tag decides whose expense it is now matches what the app does.
+
 ## 2026-10-12 (night)
 
 **Reports: four new tabs** (`pages/reports.js`, `pages/report_tabs.js`, `pages/report_budget_actual.js`, `pages/report_trends.js`, `pages/report_recurring.js`, `pages/report_cash_flow.js`, `pages/report_kit.js`, `tools/budget_actual.js`, `tools/trends.js`, `tools/recurring.js`, `tools/cash_flow.js`, `main.js`, `app.css`, tests, `CLAUDE.md`)

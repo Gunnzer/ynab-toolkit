@@ -23,6 +23,8 @@ export class AppState {
     // Fetched once, shared by every page. See transactions() and month().
     this.txCache = null;
     this.monthCache = new Map();
+    // YNAB's scheduled transactions for the current budget, once fetched.
+    this.scheduledCache = null;
 
     // RTA Tracker's snapshot history was removed. Drop what it left in
     // settings rather than carrying it forward in every backup.
@@ -122,6 +124,8 @@ export class AppState {
     ]);
     this.categoryGroups = groups;
     this.accounts = accounts;
+    this.scheduledCache = null;
+    this.monthCache.clear();
     this.cacheTransactions(transactions);
     this.persistSession();
     this.notify();
@@ -180,6 +184,15 @@ export class AppState {
   }
 
   /** One budget month, cached per budget. */
+  /** Scheduled transactions, fetched once per budget until something is refreshed. */
+  async scheduled({ force = false } = {}) {
+    const cache = this.scheduledCache;
+    if (!force && cache && cache.budgetId === this.budgetId) return cache.list;
+    const list = await this.requireClient().scheduledTransactions(this.budgetId);
+    this.scheduledCache = { budgetId: this.budgetId, list };
+    return list;
+  }
+
   async month(month, { force = false } = {}) {
     const key = `${this.budgetId}|${month}`;
     const cached = this.monthCache.get(key);
@@ -201,6 +214,7 @@ export class AppState {
    */
   invalidate() {
     this.txCache = null;
+    this.scheduledCache = null;
     this.monthCache.clear();
     this.notify();
   }

@@ -52,6 +52,14 @@ export const DEFAULTS = {
     person1: { name: "", groupPrefix: "", accountTag: "" },
     person2: { name: "", groupPrefix: "", accountTag: "" },
   },
+  // Home's widgets: which show, in what order, at what size. One layout
+  // for wide screens and one for phones, since what fits on each differs;
+  // null means "not customized yet" (a phone starts from the wide one).
+  home: {
+    layouts: { wide: null, narrow: null },
+    // Whose things every widget shows: "all", "p1", "p2" or "shared".
+    owner: "all",
+  },
   tools: {
     enabled: {
       budgetOverview: true,
@@ -64,6 +72,8 @@ export const DEFAULTS = {
       autoAssign: false,
       duplicates: false,
       bankImport: true,
+      upcoming: true,
+      categorize: true,
     },
     lastRun: {},
   },

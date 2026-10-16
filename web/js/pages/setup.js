@@ -4,10 +4,11 @@
 // about getting connected and staying that way.
 
 import { estimateStorage } from "../store.js";
+import { decodeSettings, encodeSettings } from "../tools/settings_code.js";
 import { DEFAULT_SPLIT_MEMO_PATTERN } from "../tools/split_sheet.js";
 import {
-  button, card, checkbox, clear, confirmDialog, download, el, field, hint,
-  logPane, pageHeading, pickFile, sectionTitle, select, textInput,
+  button, card, checkbox, clear, confirmDialog, customDialog, download, el,
+  field, hint, logPane, pageHeading, pickFile, sectionTitle, select, textInput,
 } from "../ui.js";
 
 const LOG_EMPTY =
@@ -179,14 +180,16 @@ export function setupPage(app) {
     sectionTitle("The two people"),
     hint("Used by Shared Expenses and Bill Splitting. Bill Splitting also works " +
       "out whose expense a transaction was: a category group starting with " +
-      "the prefix below belongs to that person, and everything else is " +
-      "shared. The account tag is the letter in brackets in front of an " +
-      "account name, and is only consulted when a transaction has no " +
-      "category group at all. Share of shared expenses is Shared " +
+      "the prefix below belongs to that person. The account tag is the " +
+      "letter in brackets in front of an account name: when the group does " +
+      "not name either person, a transaction on a tagged account is that " +
+      "person's. Anything else is shared. Share of shared expenses is Shared " +
       "Expenses' own split - person 2 always gets the remainder."),
     el("div", { class: "card-grid" }, personFields(1), personFields(2)),
     hint("Renaming someone here changes how Bill Splitting classifies " +
-      "transactions, not just the column headings.")));
+      "transactions, not just the column headings. The tag is also that " +
+      "person's Owner code on Bill Splitting, except S and C, which already " +
+      "mean Shared and Custom - with one of those, P1 or P2 is used instead.")));
   paintPerson2Share();
 
   // ---------- bill splitting: reading files ----------
@@ -285,8 +288,13 @@ export function setupPage(app) {
       button("Back up settings", { accent: true, onClick: exportSettings }),
       button("Restore from file", { onClick: importSettings }),
       button("Reset everything", { danger: true, onClick: resetAll })),
+    el("div", { class: "card-row" },
+      button("Send to another device", { onClick: sendSettings }),
+      button("Receive from another device", { onClick: receiveSettings })),
     hint("Backups contain your settings and category mappings. They never " +
-      "contain your access token."),
+      "contain your access token. To move settings between your phone and " +
+      "computer without a file, send them as a code and paste it on the other " +
+      "device - you still paste your token there once."),
     storageNote));
 
   // ---------- behaviour ----------
@@ -456,6 +464,92 @@ export function setupPage(app) {
     download(`ynab-toolkit-settings-${stamp}.json`,
       JSON.stringify(store.exportData(), null, 2));
     log.write("Settings saved to a file. Keep it somewhere safe.", "ok");
+  }
+
+  /**
+   * Settings as a text code: shared through the phone's share sheet where
+   * there is one (to a note or a message to yourself), and always shown so
+   * it can be copied by hand.
+   */
+  async function sendSettings() {
+    const code = await encodeSettings(store.exportData());
+    customDialog("Send settings to another device", (body) => {
+      const box = el("textarea", { readonly: "", class: "mono settings-code" });
+      box.value = code;
+      const status = hint("");
+      const copy = button("Copy code", {
+        accent: true,
+        onClick: async () => {
+          try {
+            await navigator.clipboard.writeText(code);
+            status.textContent = "Copied. On the other device: Setup, Receive from another device, paste.";
+          } catch {
+            box.select();
+            status.textContent = "Could not copy automatically - it is selected, copy it by hand.";
+          }
+        },
+      });
+      const share = button("Share...", {
+        onClick: async () => {
+          try {
+            await navigator.share({ title: "YNAB Toolkit settings", text: code });
+          } catch {
+            // Cancelled from the share sheet, or not allowed: nothing to do.
+          }
+        },
+      });
+      share.hidden = typeof navigator.share !== "function";
+      body.append(
+        hint("Your settings as a code. Send it to yourself (a note, an email, " +
+          "a message) and paste it on the other device. It has no access " +
+          "token in it."),
+        box,
+        el("div", { class: "card-row" }, copy, share),
+        status);
+      return { value: () => true };
+    }, { confirmText: "Done", cancelText: "", hideCancel: true });
+  }
+
+  async function receiveSettings() {
+    const code = await customDialog("Receive settings from another device", (body) => {
+      const box = el("textarea", {
+        class: "mono settings-code", placeholder: "Paste the code here (it starts with YTK)",
+      });
+      const error = el("p", { class: "hint is-error" });
+      body.append(
+        hint("This replaces the settings in this browser with the ones from " +
+          "the other device. Back up first if you might want these back."),
+        box, error);
+      setTimeout(() => box.focus(), 0);
+      return {
+        validate: () => {
+          if (!box.value.trim()) {
+            error.textContent = "Paste the code first.";
+            return false;
+          }
+          return true;
+        },
+        value: () => box.value,
+      };
+    }, { confirmText: "Replace my settings" });
+    if (!code) return;
+
+    let payload;
+    try {
+      payload = await decodeSettings(code);
+    } catch (decodeError) {
+      log.write(decodeError.message, "error");
+      return;
+    }
+    const result = store.importData(payload);
+    log.write(result.ok ? "Settings received from the other device." : result.message,
+      result.ok ? "ok" : "error");
+    if (result.ok) {
+      state.categoryGroups = [];
+      state.accounts = [];
+      state.notify();
+      app.refresh();
+    }
   }
 
   async function importSettings() {

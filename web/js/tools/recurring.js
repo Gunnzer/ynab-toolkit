@@ -4,6 +4,9 @@
 export const CADENCES = [
   { key: "weekly", label: "Weekly", days: 7, min: 5, max: 9, perYear: 52 },
   { key: "biweekly", label: "Every 2 weeks", days: 14, min: 12, max: 16, perYear: 26 },
+  // The 1st and 15th, or the 3rd and 17th: gaps alternate around 14 to 17
+  // days, which fits neither "every 2 weeks" nor monthly on its own.
+  { key: "semimonthly", label: "Twice a month", days: 15, min: 12, max: 18, perYear: 24 },
   { key: "monthly", label: "Monthly", days: 30, min: 25, max: 36, perYear: 12 },
   { key: "bimonthly", label: "Every 2 months", days: 61, min: 54, max: 68, perYear: 6 },
   { key: "quarterly", label: "Quarterly", days: 91, min: 80, max: 102, perYear: 4 },
@@ -45,12 +48,24 @@ export function normalizePayee(name) {
     .trim();
 }
 
+/**
+ * The cadence the gaps between charges fit best. Where two could fit
+ * ("every 2 weeks" and "twice a month" overlap), the one that more of the
+ * gaps actually fall inside wins - and the earlier, tighter one on a tie.
+ */
 function cadenceFor(intervals) {
   const typical = median(intervals);
-  const cadence = CADENCES.find((c) => typical >= c.min && typical <= c.max);
-  if (!cadence) return null;
-  const regular = intervals.filter((d) => d >= cadence.min && d <= cadence.max).length;
-  return regular / intervals.length >= 0.75 ? cadence : null;
+  let best = null;
+  let bestShare = 0;
+  for (const cadence of CADENCES) {
+    if (typical < cadence.min || typical > cadence.max) continue;
+    const share = intervals.filter((d) => d >= cadence.min && d <= cadence.max).length / intervals.length;
+    if (share > bestShare) {
+      best = cadence;
+      bestShare = share;
+    }
+  }
+  return bestShare >= 0.75 ? best : null;
 }
 
 /**
@@ -62,11 +77,12 @@ function cadenceFor(intervals) {
  *   isNew     first seen within the last three cycles
  *   stopped   overdue by more than half a cycle (and at least a week)
  */
-export function findRecurring(transactions, { today }) {
+export function findRecurring(transactions, { today, direction = "out" }) {
   const todayDay = dayNumber(today);
+  const incoming = direction === "in";
   const byPayee = new Map();
   for (const t of transactions || []) {
-    if (t.deleted || (t.amount || 0) >= 0) continue;
+    if (t.deleted || !t.amount || (t.amount > 0) !== incoming) continue;
     // A transfer is money moving between your own accounts (a card
     // payment, a regular move to savings or investments), not a charge.
     if (t.transfer_account_id) continue;
@@ -82,7 +98,7 @@ export function findRecurring(transactions, { today }) {
   for (const list of byPayee.values()) {
     const clusters = [];
     for (const t of [...list].sort((a, b) => a.date.localeCompare(b.date))) {
-      const amount = -t.amount;
+      const amount = Math.abs(t.amount);
       const home = clusters.find((c) => Math.abs(amount - median(c.amounts)) <= median(c.amounts) * AMOUNT_SPREAD);
       if (home) {
         home.items.push(t);
@@ -113,14 +129,18 @@ export function findRecurring(transactions, { today }) {
       const before = amounts.slice(0, stepStart);
       const spreadOf = (list) => (list.length > 1
         ? (Math.max(...list) - Math.min(...list)) / (median(list) || 1) : 0);
-      const steppedUp = before.length >= 2 && spreadOf(before) <= 0.1 &&
+      // The old price has to have been essentially fixed (within 2%): a
+      // subscription charges the same each time, where a bill that creeps
+      // up a little every month is not a price change.
+      const steppedUp = before.length >= 2 && spreadOf(before) <= 0.02 &&
         latest - median(before) >= 500 && latest > median(before) * 1.02;
       const usual = Math.round(median(steppedUp ? before : amounts.slice(0, -1)));
       const varies = !steppedUp && spreadOf(amounts.slice(0, -1)) > 0.1;
       // A bill that varies (hydro, phone) comes monthly or less often.
       // Something weekly or fortnightly that varies is a shopping habit -
       // the same grocery store twice a month - not a recurring charge.
-      if (varies && cadence.days < 25) continue;
+      // Income is exempt: a paycheque every two weeks can vary with hours.
+      if (varies && cadence.days < 25 && !incoming) continue;
       const typical = varies ? Math.round(amounts.slice(-3).reduce((a, b) => a + b, 0) /
         Math.min(3, amounts.length)) : latest;
       const lastDay = days[days.length - 1];
@@ -132,6 +152,9 @@ export function findRecurring(transactions, { today }) {
         if (t.category_id) categories.set(t.category_id, (categories.get(t.category_id) || 0) + 1);
       }
       const categoryId = [...categories.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+      const accounts = new Map();
+      for (const t of items) accounts.set(t.account_id, (accounts.get(t.account_id) || 0) + 1);
+      const accountId = [...accounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
 
       found.push({
         key: `${normalizePayee(items[0].payee_name)}|${usual}`,
@@ -139,6 +162,8 @@ export function findRecurring(transactions, { today }) {
         payee: String(items[items.length - 1].payee_name || "").split("*")[0].trim(),
         cadence: cadence.key,
         cadenceLabel: cadence.label,
+        intervalDays: interval,
+        direction: incoming ? "in" : "out",
         count: items.length,
         firstDate: items[0].date,
         lastDate: items[items.length - 1].date,
@@ -153,6 +178,7 @@ export function findRecurring(transactions, { today }) {
         isNew: todayDay - days[0] <= interval * 3 + 7,
         stopped: overdue > Math.max(7, interval / 2),
         categoryId,
+        accountId,
         transactionIds: items.map((t) => t.id),
       });
     }

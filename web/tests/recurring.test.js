@@ -53,6 +53,32 @@ describe("recurring charges", () => {
     assert.equal(netflix.priceUp, null);
   });
 
+  test("pay on the 3rd and 17th is twice a month, and income is found too", () => {
+    const pay = [];
+    for (let m = 1; m <= 6; m += 1) {
+      for (const d of [3, 17]) pay.push({ ...charge(`2026-0${m}-${String(d).padStart(2, "0")}`, 0, "ACME Payroll"), amount: 2400000 });
+    }
+    assert.deepEqual(findRecurring(pay, { today: "2026-06-20" }), [], "income is not a charge");
+    const [salary] = findRecurring(pay, { today: "2026-06-20", direction: "in" });
+    assert.equal(salary.cadence, "semimonthly");
+    assert.equal(salary.direction, "in");
+    assert.equal(salary.yearly, 2400000 * 24);
+  });
+
+  test("every other Friday is still every 2 weeks", () => {
+    const fridays = [];
+    for (let i = 0; i < 8; i += 1) {
+      fridays.push(charge(new Date(Date.UTC(2026, 0, 2 + i * 14)).toISOString().slice(0, 10), 5000, "Allowance"));
+    }
+    assert.equal(findRecurring(fridays, { today: "2026-04-20" })[0].cadence, "biweekly");
+  });
+
+  test("a bill creeping up a little each month is not a price increase", () => {
+    const [bill] = findRecurring(monthly("Insurance Co", [180000, 181000, 182000, 183000, 184000, 189000]),
+      { today: "2026-06-20" });
+    assert.equal(bill.priceUp, null);
+  });
+
   test("a bill that varies is still found, marked as varying", () => {
     const [hydro] = findRecurring(monthly("Hydro One", [90000, 120000, 105000, 95000, 130000]),
       { today: "2026-05-20" });

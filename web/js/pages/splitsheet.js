@@ -2,11 +2,13 @@
 
 import { fmt } from "../money.js";
 import { parseDelimited } from "../tools/bank_convert.js";
+import { sortRows } from "../tools/sort.js";
 import * as sheet from "../tools/split_sheet.js";
 import {
   button, card, checkbox, clear, confirmDialog, customDialog, dateLabel,
   download, el, emptyRow, field, hint, icon, logPane, monthOptions,
-  pageHeading, pickFile, radioGroup, sectionTitle, select, table, textInput,
+  pageHeading, pickFile, radioGroup, sectionTitle, select, sortableHeaders, table,
+  textInput,
 } from "../ui.js";
 
 const LOG_EMPTY =
@@ -778,6 +780,19 @@ export function splitSheetPage(app) {
   const columnFilters = { Card: null, Description: null, Owner: null, Memo: null };
   for (const key of Object.keys(columnFilters)) addColumnFilter(key);
 
+  // Click a header to sort by it, again to flip. Remembered between visits;
+  // applied after the column filters, and the totals row always stays last.
+  const sorter = sortableHeaders(preview,
+    ["Card", "Date", "Description", "Amount", "Owner", "Share1", "Share2", "Memo"],
+    {
+      initial: settings.previewSort || null,
+      onChange: (sort) => {
+        settings.previewSort = sort;
+        store.save();
+        drawPreview();
+      },
+    });
+
   function addColumnFilter(key) {
     const index = preview.columns.findIndex((c) => c.key === key);
     const th = preview.querySelectorAll("th")[index];
@@ -802,8 +817,44 @@ export function splitSheetPage(app) {
       popup.remove();
       popup = null;
       document.removeEventListener("pointerdown", onOutside, true);
-      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", follow);
     }
+    // Listening in the capture phase also catches scrolling *inside* the
+    // popup's own value list - which must not move or close it, or a long
+    // list can never be scrolled (a real bug, reported live).
+    function onScroll(event) {
+      if (popup && event.target instanceof Node && popup.contains(event.target)) return;
+      follow();
+    }
+
+    // A `fixed` popup does not track the page's scroll by itself, so it is
+    // moved along with the funnel and closed only once the funnel is off
+    // screen. Closing on any scroll or resize closed it as soon as it
+    // opened on a phone, where focusing the search box brings up the
+    // keyboard (a resize on Android, a page scroll on iOS).
+    function follow() {
+      if (!popup) return;
+      const rect = funnelButton.getBoundingClientRect();
+      if (rect.bottom < 0 || rect.top > window.innerHeight) close();
+      else place();
+    }
+
+    // Fixed positioning means "right: 0" would mean the viewport's edge,
+    // not the button's - nudge left explicitly instead, clamped so it
+    // never runs off the left edge either on a narrow window.
+    function place() {
+      const rect = funnelButton.getBoundingClientRect();
+      popup.style.position = "fixed";
+      popup.style.top = `${rect.bottom + 6}px`;
+      popup.style.left = `${Math.max(8, rect.left)}px`;
+      popup.style.minWidth = `${Math.max(rect.width, 220)}px`;
+      const overflow = popup.getBoundingClientRect().right - (window.innerWidth - 8);
+      if (overflow > 0) {
+        popup.style.left = `${Math.max(8, rect.left - overflow)}px`;
+      }
+    }
+
     function onOutside(event) {
       if (!th.contains(event.target) && !popup.contains(event.target)) close();
     }
@@ -840,13 +891,9 @@ export function splitSheetPage(app) {
       // it gets clipped to that panel instead of floating on top of it (you
       // end up scrolling a tiny table to see a filter popup that has
       // nowhere else to go). Positioned as `fixed` from the funnel button's
-      // own screen position instead of relying on a positioned ancestor.
+      // own screen position (place(), once the list is rendered) instead of
+      // relying on a positioned ancestor.
       document.body.append(popup);
-      const rect = funnelButton.getBoundingClientRect();
-      popup.style.position = "fixed";
-      popup.style.top = `${rect.bottom + 6}px`;
-      popup.style.left = `${rect.left}px`;
-      popup.style.minWidth = `${Math.max(rect.width, 220)}px`;
 
       function syncSelectAll() {
         selectAllBox.checked = visibleValues.length > 0 &&
@@ -890,19 +937,11 @@ export function splitSheetPage(app) {
       }
 
       renderList();
-      // Fixed positioning means "right: 0" would mean the viewport's edge,
-      // not the button's - nudge left explicitly instead, clamped so it
-      // never runs off the left edge either on a narrow window.
-      const overflow = popup.getBoundingClientRect().right - (window.innerWidth - 8);
-      if (overflow > 0) {
-        popup.style.left = `${Math.max(8, rect.left - overflow)}px`;
-      }
+      place();
       search.focus();
       document.addEventListener("pointerdown", onOutside, true);
-      // A popup anchored with `fixed` does not track the page's own scroll,
-      // only the button's initial position - closing on scroll avoids it
-      // drifting away from the funnel it opened from.
-      window.addEventListener("scroll", close, true);
+      window.addEventListener("scroll", onScroll, true);
+      window.addEventListener("resize", follow);
     }
 
     funnelButton.addEventListener("click", (event) => {
@@ -931,9 +970,9 @@ export function splitSheetPage(app) {
   }
 
   function paintPreviewHeadings() {
-    const heads = preview.querySelectorAll("th");
-    heads[preview.columns.findIndex((c) => c.key === "Share1")].textContent = state.personName(1);
-    heads[preview.columns.findIndex((c) => c.key === "Share2")].textContent = state.personName(2);
+    // setLabel, not textContent: the header holds a sort button.
+    sorter.setLabel("Share1", state.personName(1));
+    sorter.setLabel("Share2", state.personName(2));
   }
 
   function paintLegend() {
@@ -1244,7 +1283,7 @@ export function splitSheetPage(app) {
       return;
     }
 
-    for (const row of filtered) {
+    for (const row of sortRows(filtered, sorter.sort)) {
       preview.tbody.append(el("tr", {}, ...rowCells(row, codes, { withCheckbox: false })));
     }
 
