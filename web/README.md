@@ -12,6 +12,7 @@ modules, no build step, no npm packages, no server.
 | Auto Assign | Empties a holding category into your targeted categories, group by group in the priority order you set. |
 | Duplicates | Finds transactions that look imported twice and flags them for review. It never deletes anything. |
 | Bank Import | Converts a bank export into the four-column CSV YNAB imports, tidying up payee names on the way. |
+| Card Rewards | Which of your credit cards earns the most for a purchase, grouped by point type, asking follow-up questions until it is 90% sure. Canadian card details built in. |
 
 ## Running it locally
 

@@ -122,6 +122,7 @@ test("defaults are a clean slate", () => {
   assert.equal(DEFAULTS.autoAssign.groupIds.length, 0);
   assert.deepEqual(DEFAULTS.autoAssign.backups, {});
   assert.equal(DEFAULTS.duplicates.since, "");
+  assert.deepEqual(DEFAULTS.cardRewards.wallet, []);
   for (const key of ["dateColumn", "payeeColumn", "amountColumn", "memoColumn",
     "outflowColumn", "inflowColumn"]) {
     assert.equal(DEFAULTS.bankImport[key], "", `bankImport.${key} should start empty`);

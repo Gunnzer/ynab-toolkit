@@ -74,6 +74,7 @@ export const DEFAULTS = {
       bankImport: true,
       upcoming: true,
       categorize: true,
+      cardRewards: true,
     },
     lastRun: {},
   },
@@ -147,6 +148,14 @@ export const DEFAULTS = {
     saved: [],
     // Which saved filter, if any, the controls currently match.
     activeSavedName: "",
+  },
+  // The cards you carry: { id } for a built-in card (plus `picks` and
+  // `flags` where the card has choices), or a whole card typed in by hand
+  // ({ custom: true, ... }). Never anything that identifies an account.
+  cardRewards: {
+    wallet: [],
+    purchase: "groceries",
+    amount: "",
   },
   duplicates: {
     since: "",

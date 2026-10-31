@@ -47,6 +47,13 @@ for review. It never deletes anything.
 **Bank Import** converts a bank export into the four columns YNAB wants,
 tidying up payee names with rules you control.
 
+**Card Rewards** tells you which of your credit cards earns the most for
+what you are buying (groceries, gas, dining and so on), grouped by the kind
+of points each one earns. It asks follow-up questions, like which store or
+whether a spending cap is used up, until it is at least 90% sure. Details for
+common Canadian cards are built in and re-checked once a month; any other
+card can be added by hand. It does not read your budget.
+
 Only Shared Expenses and Auto Assign change anything in YNAB, and both save
 a backup first so a run can be reversed. Everything else only reads.
 

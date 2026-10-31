@@ -1,0 +1,461 @@
+// Built-in catalogue of Canadian credit cards and how each one earns.
+//
+// No API is called for this: the app ships the data, and a scheduled Claude
+// Code task re-checks every card once a month and commits changes straight
+// to this file (see CLAUDE.md, "Card Rewards"). Keep it plain data so that
+// task can edit it safely, and bump CATALOGUE_CHECKED plus the card's own
+// `checked` whenever a card is re-verified.
+//
+// Sources are named, never linked: the privacy test allows no third party
+// host in the shipped code.
+//
+// A card:
+//   id, name, issuer, network ("amex" | "visa" | "mastercard"),
+//   points (a POINT_TYPES id), annualFee and fxFee (CAD, fraction),
+//   base: what every purchase earns when no rule matches,
+//   earn: rules, checked in order, the first that matches wins:
+//     on: purchase ids (PURCHASES), "*" for every purchase, or "picks" for
+//         the categories the cardholder chose (see `picks` below)
+//     rate: points per $1, or percent for cash back
+//     when: answers that must hold, e.g. { store: ["loblaw"] }. A key that
+//         is not asked for this purchase never holds. `flag` is a yes/no the
+//         cardholder sets once on the card (see `flags`).
+//     cap: { key, spend, per: "month" | "year", label } - past it the rule
+//         stops matching. Rules sharing a key share the cap.
+//   picks: { count, from, label } - categories the cardholder chooses
+//   flags: [{ id, label }] - yes/no facts about the cardholder
+//   notes: things the rules cannot say
+//   source, checked: where the figures came from and when (YYYY-MM-DD)
+
+export const CATALOGUE_CHECKED = "2026-10-31";
+
+export const POINT_TYPES = {
+  mr: { name: "Amex Membership Rewards", unit: "points" },
+  aeroplan: { name: "Aeroplan", unit: "points" },
+  scene: { name: "Scene+", unit: "points" },
+  td: { name: "TD Rewards", unit: "points" },
+  bmo: { name: "BMO Rewards", unit: "points" },
+  avion: { name: "RBC Avion", unit: "points" },
+  pc: { name: "PC Optimum", unit: "points", note: "10,000 points = $10 off at Loblaw stores and Shoppers" },
+  cash: { name: "Cash back", unit: "percent" },
+};
+
+export const PURCHASES = [
+  { id: "groceries", label: "Groceries" },
+  { id: "dining", label: "Restaurants, bars and coffee" },
+  { id: "delivery", label: "Food delivery (Uber Eats, DoorDash, Skip)" },
+  { id: "gas", label: "Gas" },
+  { id: "ev", label: "EV charging" },
+  { id: "transit", label: "Transit, taxis and rideshare" },
+  { id: "streaming", label: "Streaming (Netflix, Spotify, Crave)" },
+  { id: "bills", label: "Recurring bills (phone, internet, insurance)" },
+  { id: "drugstore", label: "Drugstore" },
+  { id: "entertainment", label: "Movies, concerts and events" },
+  { id: "travel", label: "Flights, hotels and travel" },
+  { id: "other", label: "Everything else" },
+];
+
+export const NETWORKS = {
+  amex: "American Express",
+  visa: "Visa",
+  mastercard: "Mastercard",
+};
+
+export const CARDS = [
+  {
+    id: "amex-cobalt",
+    name: "American Express Cobalt Card",
+    issuer: "American Express",
+    network: "amex",
+    points: "mr",
+    annualFee: 191.88,
+    fxFee: 0.025,
+    base: 1,
+    earn: [
+      {
+        on: ["groceries", "dining", "delivery"], rate: 5,
+        when: { currency: ["cad"] },
+        cap: { key: "eats", spend: 2500, per: "month", label: "eats and drinks" },
+      },
+      { on: ["streaming"], rate: 3, when: { currency: ["cad"] } },
+      { on: ["gas", "transit"], rate: 2, when: { currency: ["cad"] } },
+    ],
+    notes: [
+      "5x only at grocery stores, restaurants and delivery in Canada; " +
+        "superstores and warehouse clubs earn 1x.",
+      "Travel dropped to 1x in October 2024.",
+    ],
+    source: "americanexpress.com/ca, Milesopedia, Frugal Flyer",
+    checked: "2026-10-31",
+  },
+  {
+    id: "amex-gold",
+    name: "American Express Gold Rewards Card",
+    issuer: "American Express",
+    network: "amex",
+    points: "mr",
+    annualFee: 250,
+    fxFee: 0.025,
+    base: 1,
+    earn: [
+      { on: ["travel", "gas", "groceries", "drugstore"], rate: 2 },
+    ],
+    notes: ["Gas, grocery and drugstore 2x is for merchants in Canada."],
+    source: "americanexpress.com/ca, NerdWallet Canada, Rewards Canada",
+    checked: "2026-10-31",
+  },
+  {
+    id: "amex-aeroplan",
+    name: "American Express Aeroplan Card",
+    issuer: "American Express",
+    network: "amex",
+    points: "aeroplan",
+    annualFee: 120,
+    fxFee: 0.025,
+    base: 1,
+    earn: [
+      { on: ["travel"], rate: 2, when: { booking: ["air-canada"] } },
+      { on: ["dining", "delivery"], rate: 1.5, when: { currency: ["cad"] } },
+    ],
+    notes: [],
+    source: "americanexpress.com/ca, Milesopedia, NerdWallet Canada",
+    checked: "2026-10-31",
+  },
+  {
+    id: "td-aeroplan-vi",
+    name: "TD Aeroplan Visa Infinite Card",
+    issuer: "TD",
+    network: "visa",
+    points: "aeroplan",
+    annualFee: 139,
+    fxFee: 0.025,
+    base: 1,
+    earn: [
+      {
+        on: ["gas", "ev", "groceries"], rate: 1.5,
+        cap: { key: "accel", spend: 80000, per: "year", label: "1.5x purchases" },
+      },
+      {
+        on: ["travel"], rate: 1.5, when: { booking: ["air-canada"] },
+        cap: { key: "accel", spend: 80000, per: "year", label: "1.5x purchases" },
+      },
+    ],
+    notes: [
+      "Air Canada 1.5x counts purchases made directly with Air Canada, " +
+        "Air Canada Vacations included.",
+      "The $80,000 yearly cap on 1.5x is from third party calculators; " +
+        "TD's own page does not state it.",
+    ],
+    source: "td.com, Milesopedia, The Point Calculator",
+    checked: "2026-10-31",
+  },
+  {
+    id: "cibc-aeroplan-vi",
+    name: "CIBC Aeroplan Visa Infinite Card",
+    issuer: "CIBC",
+    network: "visa",
+    points: "aeroplan",
+    annualFee: 139,
+    fxFee: 0.025,
+    base: 1,
+    earn: [
+      {
+        on: ["gas", "ev", "groceries"], rate: 1.5,
+        cap: { key: "accel", spend: 80000, per: "year", label: "1.5x purchases" },
+      },
+      {
+        on: ["travel"], rate: 1.5, when: { booking: ["air-canada"] },
+        cap: { key: "accel", spend: 80000, per: "year", label: "1.5x purchases" },
+      },
+    ],
+    notes: ["The $80,000 yearly cap on 1.5x is not confirmed on CIBC's own page."],
+    source: "cibc.com, Finder Canada, Prince of Travel",
+    checked: "2026-10-31",
+  },
+  {
+    id: "scotia-gold-amex",
+    name: "Scotiabank Gold American Express Card",
+    issuer: "Scotiabank",
+    network: "amex",
+    points: "scene",
+    annualFee: 120,
+    fxFee: 0,
+    base: 1,
+    earn: [
+      {
+        on: ["groceries"], rate: 6, when: { store: ["sobeys"] },
+        cap: { key: "accel", spend: 50000, per: "year", label: "bonus category purchases" },
+      },
+      {
+        on: ["groceries", "dining", "delivery", "entertainment"], rate: 5,
+        cap: { key: "accel", spend: 50000, per: "year", label: "bonus category purchases" },
+      },
+      {
+        on: ["gas", "transit", "streaming"], rate: 3,
+        cap: { key: "accel", spend: 50000, per: "year", label: "bonus category purchases" },
+      },
+    ],
+    notes: [
+      "6x at Sobeys, Safeway, IGA, FreshCo, Foodland and Voila.",
+      "No foreign transaction fee.",
+    ],
+    source: "scotiabank.com, Ratehub, Milesopedia",
+    checked: "2026-10-31",
+  },
+  {
+    id: "scotia-passport-vi",
+    name: "Scotiabank Passport Visa Infinite+ Card",
+    issuer: "Scotiabank",
+    network: "visa",
+    points: "scene",
+    annualFee: 150,
+    fxFee: 0,
+    base: 1,
+    earn: [
+      { on: ["groceries"], rate: 3, when: { store: ["sobeys"] } },
+      { on: ["groceries", "dining", "delivery", "entertainment", "transit"], rate: 2 },
+    ],
+    notes: [
+      "3x at Sobeys, Safeway, IGA, Foodland and participating co-ops.",
+      "No foreign transaction fee.",
+    ],
+    source: "scotiabank.com, NerdWallet Canada, Rewards Canada",
+    checked: "2026-10-31",
+  },
+  {
+    id: "scotia-momentum-vi",
+    name: "Scotia Momentum Visa Infinite+ Card",
+    issuer: "Scotiabank",
+    network: "visa",
+    points: "cash",
+    annualFee: 120,
+    fxFee: 0.025,
+    base: 1,
+    earn: [
+      {
+        on: ["groceries", "bills", "streaming"], rate: 4,
+        cap: { key: "four", spend: 25000, per: "year", label: "4% purchases" },
+      },
+      {
+        on: ["gas", "transit", "delivery"], rate: 2,
+        cap: { key: "two", spend: 25000, per: "year", label: "2% purchases" },
+      },
+    ],
+    notes: ["Rent and tax payments earn 1% from October 22, 2026."],
+    source: "scotiabank.com, Prince of Travel, Ratehub",
+    checked: "2026-10-31",
+  },
+  {
+    id: "pc-world-elite",
+    name: "PC World Elite Mastercard",
+    issuer: "PC Financial",
+    network: "mastercard",
+    points: "pc",
+    annualFee: 0,
+    fxFee: 0.025,
+    base: 10,
+    earn: [
+      { on: ["drugstore"], rate: 45, when: { pharmacy: ["shoppers"] } },
+      { on: ["groceries"], rate: 30, when: { store: ["loblaw"] } },
+      { on: ["gas"], rate: 20, when: { station: ["esso"] } },
+    ],
+    notes: [
+      "Esso and Mobil earn at least 30 points per litre; shown here as about " +
+        "20 per dollar at $1.50 a litre.",
+    ],
+    source: "pcfinancial.ca, Ratehub, Milesopedia",
+    checked: "2026-10-31",
+  },
+  {
+    id: "rogers-red-we",
+    name: "Rogers Red World Elite Mastercard",
+    issuer: "Rogers Bank",
+    network: "mastercard",
+    points: "cash",
+    annualFee: 0,
+    fxFee: 0.025,
+    base: 1.5,
+    flags: [{ id: "rogersService", label: "I have a Rogers, Fido or Shaw service" }],
+    earn: [
+      {
+        on: ["*"], rate: 3, when: { currency: ["usd"] },
+        cap: { key: "accel", spend: 61000, per: "year", label: "bonus rate purchases" },
+      },
+      {
+        on: ["*"], rate: 2, when: { currency: ["cad", "foreign"], flag: "rogersService" },
+        cap: { key: "accel", spend: 61000, per: "year", label: "bonus rate purchases" },
+      },
+    ],
+    notes: [
+      "From November 18, 2026: up to 5% on Rogers purchases, and cash back " +
+        "no longer redeems at 1.5x on Rogers bills.",
+    ],
+    source: "rogersbank.com, Milesopedia, Prince of Travel",
+    checked: "2026-10-31",
+  },
+  {
+    id: "bmo-cashback-we",
+    name: "BMO CashBack World Elite Mastercard",
+    issuer: "BMO",
+    network: "mastercard",
+    points: "cash",
+    annualFee: 120,
+    fxFee: 0.025,
+    base: 1,
+    earn: [
+      { on: ["groceries"], rate: 5, cap: { key: "groceries", spend: 500, per: "month", label: "groceries" } },
+      { on: ["transit"], rate: 4, cap: { key: "transit", spend: 300, per: "month", label: "transit" } },
+      { on: ["gas", "ev"], rate: 3, cap: { key: "gas", spend: 300, per: "month", label: "gas and EV charging" } },
+      { on: ["bills"], rate: 2, cap: { key: "bills", spend: 500, per: "month", label: "recurring bills" } },
+    ],
+    notes: ["Caps are per statement period."],
+    source: "bmo.com, NerdWallet Canada, Ratehub",
+    checked: "2026-10-31",
+  },
+  {
+    id: "bmo-eclipse-vi",
+    name: "BMO eclipse Visa Infinite Card",
+    issuer: "BMO",
+    network: "visa",
+    points: "bmo",
+    annualFee: 120,
+    fxFee: 0.025,
+    base: 1,
+    earn: [
+      {
+        on: ["dining", "delivery", "groceries", "gas", "transit"], rate: 5,
+        cap: { key: "accel", spend: 50000, per: "year", label: "5x purchases" },
+      },
+    ],
+    notes: [],
+    source: "bmo.com, NerdWallet Canada, Milesopedia",
+    checked: "2026-10-31",
+  },
+  {
+    id: "rbc-avion-vi",
+    name: "RBC Avion Visa Infinite",
+    issuer: "RBC",
+    network: "visa",
+    points: "avion",
+    annualFee: 120,
+    fxFee: 0.025,
+    base: 1,
+    earn: [
+      { on: ["travel"], rate: 1.25 },
+    ],
+    notes: [],
+    source: "rbcroyalbank.com, NerdWallet Canada, Ratehub",
+    checked: "2026-10-31",
+  },
+  {
+    id: "cibc-dividend-vi",
+    name: "CIBC Dividend Visa Infinite Card",
+    issuer: "CIBC",
+    network: "visa",
+    points: "cash",
+    annualFee: 120,
+    fxFee: 0.025,
+    base: 1,
+    earn: [
+      { on: ["groceries", "gas", "ev"], rate: 4 },
+      { on: ["dining", "delivery", "transit", "bills"], rate: 2 },
+    ],
+    notes: ["Bonus rates stop at a yearly spending cap; check your terms for the amount."],
+    source: "cibc.com, Milesopedia, Frugal Flyer",
+    checked: "2026-10-31",
+  },
+  {
+    id: "amex-simplycash-preferred",
+    name: "SimplyCash Preferred Card from American Express",
+    issuer: "American Express",
+    network: "amex",
+    points: "cash",
+    annualFee: 119.88,
+    fxFee: 0.025,
+    base: 2,
+    earn: [
+      { on: ["gas", "groceries"], rate: 4 },
+    ],
+    notes: ["Cash back is paid once a year, on the September statement."],
+    source: "americanexpress.com/ca, Savings Grove, Rewards Canada",
+    checked: "2026-10-31",
+  },
+  {
+    id: "td-first-class-vi",
+    name: "TD First Class Travel Visa Infinite Card",
+    issuer: "TD",
+    network: "visa",
+    points: "td",
+    annualFee: 139,
+    fxFee: 0.025,
+    base: 2,
+    earn: [
+      { on: ["travel"], rate: 8, when: { booking: ["expedia"] } },
+      { on: ["groceries", "dining", "delivery"], rate: 6 },
+      { on: ["bills"], rate: 4 },
+    ],
+    notes: [],
+    source: "td.com, MoneySense",
+    checked: "2026-10-31",
+  },
+  {
+    id: "td-cashback-vi",
+    name: "TD Cash Back Visa Infinite Card",
+    issuer: "TD",
+    network: "visa",
+    points: "cash",
+    annualFee: 139,
+    fxFee: 0.025,
+    base: 1,
+    earn: [
+      { on: ["groceries"], rate: 3, cap: { key: "groceries", spend: 15000, per: "year", label: "groceries" } },
+      { on: ["gas"], rate: 3, cap: { key: "gas", spend: 15000, per: "year", label: "gas" } },
+      { on: ["bills"], rate: 3, cap: { key: "bills", spend: 15000, per: "year", label: "recurring bills" } },
+    ],
+    notes: [],
+    source: "td.com, MoneySense, creditcardGenius",
+    checked: "2026-10-31",
+  },
+  {
+    id: "cibc-costco-mc",
+    name: "CIBC Costco Mastercard",
+    issuer: "CIBC",
+    network: "mastercard",
+    points: "cash",
+    annualFee: 0,
+    fxFee: 0.025,
+    base: 1,
+    earn: [
+      { on: ["dining"], rate: 3 },
+      { on: ["gas"], rate: 3, when: { station: ["costco"] } },
+      { on: ["gas", "ev"], rate: 2 },
+    ],
+    notes: [
+      "2% at Costco.ca; Costco warehouse purchases earn 1%.",
+      "Cash back comes as a Costco certificate each January.",
+    ],
+    source: "cibc.com, creditcardGenius, Milesopedia",
+    checked: "2026-10-31",
+  },
+  {
+    id: "tangerine-mc",
+    name: "Tangerine Money-Back Credit Card",
+    issuer: "Tangerine",
+    network: "mastercard",
+    points: "cash",
+    annualFee: 0,
+    fxFee: 0.025,
+    base: 0.5,
+    picks: {
+      count: 3,
+      from: ["groceries", "dining", "gas", "bills", "drugstore", "entertainment", "transit"],
+      label: "Your 2% categories (2, or 3 if cash back goes to a Tangerine savings account)",
+    },
+    earn: [
+      { on: ["picks"], rate: 2 },
+    ],
+    notes: ["The World Mastercard version earns the same."],
+    source: "tangerine.ca",
+    checked: "2026-10-31",
+  },
+];

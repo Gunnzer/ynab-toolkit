@@ -18,6 +18,7 @@ import { bankImportPage } from "./pages/bank.js";
 import { rtaTrackerPage } from "./pages/rtatracker.js";
 import { upcomingPage } from "./pages/upcoming.js";
 import { categorizePage } from "./pages/categorize.js";
+import { cardRewardsPage } from "./pages/cardrewards.js";
 
 // Home first, then the daily tools. Setup is pinned to the sidebar footer.
 // `key` is the flag under tools.enabled; pages without one are always shown.
@@ -101,6 +102,13 @@ export const PAGES = [
     build: categorizePage,
     blurb: "Transactions with no category or not approved yet, with a " +
       "category suggested from your history. Approve in bulk, with undo.",
+    group: "tools", groupLabel: "Tools",
+  },
+  {
+    id: "cardrewards", title: "Card Rewards", icon: "wallet", key: "cardRewards",
+    build: cardRewardsPage,
+    blurb: "Pick what you are buying and see which of your credit cards " +
+      "earns the most points for it, grouped by the kind of points.",
     group: "tools", groupLabel: "Tools",
   },
   {

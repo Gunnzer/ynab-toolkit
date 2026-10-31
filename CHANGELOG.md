@@ -9,6 +9,14 @@ Maintained going forward: add a new dated entry for each push, in this same
 style (feature/fix name and files, then bullets on what changed and why),
 before or as part of the push itself.
 
+## 2026-10-31
+
+**Card Rewards** (`pages/cardrewards.js`, `tools/card_rewards.js`, `tools/card_catalogue.js`, `main.js`, `store.js`, `app.css`, `tests/card_rewards.test.js`, `tests/privacy.test.js`, `README.md`, `web/README.md`, `CLAUDE.md`)
+* New tool under Tools: add the credit cards you carry, pick what you are buying (groceries, gas, dining, travel and more) and an optional amount, and see your cards ranked by points earned, grouped by point type (Membership Rewards, Aeroplan, Scene+, cash back...). Points are compared as they are, not converted to dollars.
+* Asks follow-up questions until it is at least 90% sure: which store (Costco only takes Mastercard, Walmart does not count as groceries), which gas station, how you are booking travel, the currency, whether the place takes Amex, and whether a card's bonus cap is already used up. "Not sure" is always an answer, and any answer can be taken back.
+* 19 Canadian cards built in, with earn rates, caps, fees and where the figures came from. Cards with choices (Tangerine's 2% categories, Rogers customers) are set up once on the card. Any other card can be added by hand.
+* Card details are re-checked once a month by a scheduled Claude task that commits changes to the catalogue. No API key, nothing sent anywhere, and nothing read from YNAB.
+
 ## 2026-10-16
 
 **Home: a dashboard of widgets you choose** (`pages/home.js`, `pages/home_widgets.js`, `pages/home_charts.js`, `tools/home_layout.js`, `tools/chart_data.js`, `tools/dashboard.js`, `tools/forecast.js`, `pages/categorize.js`, `main.js`, `store.js`, `ui.js`, `app.css`, tests, `CLAUDE.md`)
