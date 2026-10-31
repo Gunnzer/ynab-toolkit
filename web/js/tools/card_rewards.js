@@ -110,7 +110,82 @@ export const QUESTIONS = [
 // How likely a cap is already used up, before anyone says.
 const CAP_PRIOR = { month: 0.07, year: 0.05 };
 
-const CARD_INDEX = new Map(CARDS.map((card) => [card.id, card]));
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Everything wrong with a downloaded catalogue, as sentences; empty when it
+ * is safe to use. The app runs this on every download and keeps its last
+ * good copy rather than use a file that fails, and the tests run it on the
+ * shipped file, so a bad monthly update fails the deploy instead of
+ * reaching anyone.
+ */
+export function validateCatalogue(data) {
+  const problems = [];
+  if (!data || typeof data !== "object") return ["It is not a catalogue at all."];
+  if (!DATE.test(data.checked || "")) problems.push("`checked` is not a YYYY-MM-DD date.");
+  const types = data.pointTypes && typeof data.pointTypes === "object" ? data.pointTypes : null;
+  if (!types) problems.push("`pointTypes` is missing.");
+  for (const [id, type] of Object.entries(types || {})) {
+    if (!type?.name || !["points", "percent"].includes(type.unit)) problems.push(`Point type ${id} needs a name and a unit.`);
+  }
+  if (!Array.isArray(data.cards) || !data.cards.length) {
+    problems.push("There are no cards.");
+    return problems;
+  }
+
+  const purchases = new Set(ALL);
+  const ids = new Set();
+  for (const card of data.cards) {
+    const name = card?.id || "(a card with no id)";
+    if (!card?.id || ids.has(card.id)) problems.push(`${name} is missing an id or listed twice.`);
+    ids.add(card?.id);
+    if (!card?.name || !card?.issuer) problems.push(`${name} needs a name and an issuer.`);
+    if (!["amex", "visa", "mastercard"].includes(card?.network)) problems.push(`${name} has an unknown network.`);
+    if (!types?.[card?.points]) problems.push(`${name} earns an unknown point type.`);
+    if (!(card?.base > 0)) problems.push(`${name} needs a base rate above 0.`);
+    if (!(card?.annualFee >= 0) || !(card?.fxFee >= 0 && card?.fxFee < 0.1)) problems.push(`${name} has odd fees.`);
+    if (!DATE.test(card?.checked || "") || card.checked > data.checked) {
+      problems.push(`${name} needs a checked date no later than the catalogue's.`);
+    }
+    if (!card?.source) problems.push(`${name} needs a source.`);
+    if (!Array.isArray(card?.earn)) {
+      problems.push(`${name} has no earn rules.`);
+      continue;
+    }
+    for (const rule of card.earn) {
+      if (!(rule?.rate > 0) || !Array.isArray(rule?.on) || !rule.on.length) {
+        problems.push(`${name} has a rule with no rate or no purchases.`);
+        continue;
+      }
+      for (const on of rule.on) {
+        if (on === "picks" && !card.picks) problems.push(`${name} uses picks without offering any.`);
+        else if (on !== "*" && on !== "picks" && !purchases.has(on)) problems.push(`${name}: unknown purchase ${on}.`);
+      }
+      for (const [key, allowed] of Object.entries(rule.when || {})) {
+        if (key === "flag") {
+          if (!card.flags?.some((f) => f.id === allowed)) problems.push(`${name}: unknown flag ${allowed}.`);
+          continue;
+        }
+        const question = QUESTIONS.find((q) => q.id === key);
+        if (!question || !Array.isArray(allowed)) {
+          problems.push(`${name}: unknown question ${key}.`);
+          continue;
+        }
+        for (const value of allowed) {
+          if (!question.options.some((o) => o.id === value)) problems.push(`${name}: ${key} has no answer ${value}.`);
+        }
+      }
+      if (rule.cap && !(rule.cap.key && rule.cap.spend > 0 && rule.cap.label &&
+        ["month", "year"].includes(rule.cap.per))) {
+        problems.push(`${name} has an incomplete cap.`);
+      }
+    }
+    for (const id of card.picks?.from || []) {
+      if (!purchases.has(id)) problems.push(`${name}: unknown pick ${id}.`);
+    }
+  }
+  return problems;
+}
 
 export function purchaseLabel(id) {
   return PURCHASES.find((p) => p.id === id)?.label || id;
@@ -144,7 +219,7 @@ export function formatEarned(points, rate, amount) {
 export function walletCards(wallet = []) {
   const cards = [];
   for (const entry of wallet) {
-    const base = entry.custom ? normaliseCustom(entry) : CARD_INDEX.get(entry.id);
+    const base = entry.custom ? normaliseCustom(entry) : CARDS.find((card) => card.id === entry.id);
     if (!base) continue;
     cards.push({
       ...base,

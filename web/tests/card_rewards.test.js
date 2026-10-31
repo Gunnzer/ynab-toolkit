@@ -1,16 +1,18 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  CARDS, CATALOGUE_CHECKED, NETWORKS, POINT_TYPES, PURCHASES,
-} from "../js/tools/card_catalogue.js";
+import { readFileSync } from "node:fs";
+
+import { CARDS, CATALOGUE_CHECKED, PURCHASES, setCatalogue } from "../js/tools/card_catalogue.js";
 import {
   QUESTIONS, TARGET_CONFIDENCE, UNSURE, daysSince, describeEarn, earnFor, explain,
-  formatEarned, formatRate, normaliseCustom, questionsFor, recommend, walletCards,
+  formatEarned, formatRate, normaliseCustom, questionsFor, recommend, validateCatalogue,
+  walletCards,
 } from "../js/tools/card_rewards.js";
 
-const PURCHASE_IDS = new Set(PURCHASES.map((p) => p.id));
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
+// The file the site serves and the app downloads every day.
+const SHIPPED = JSON.parse(readFileSync(new URL("../data/cards.json", import.meta.url), "utf8"));
+setCatalogue(SHIPPED);
 
 /** Answer whatever it asks with its first option, until it stops asking. */
 function answerAll(cards, purchase, pick = (q) => q.options[0].id) {
@@ -24,48 +26,32 @@ function answerAll(cards, purchase, pick = (q) => q.options[0].id) {
 }
 
 describe("card catalogue", () => {
-  test("every card is complete and refers only to things that exist", () => {
-    const ids = new Set();
-    const questionIds = new Set(QUESTIONS.map((q) => q.id));
-    assert.match(CATALOGUE_CHECKED, DATE);
-    for (const card of CARDS) {
-      assert.ok(!ids.has(card.id), `${card.id} is listed twice`);
-      ids.add(card.id);
-      assert.ok(card.name && card.issuer, `${card.id} needs a name and issuer`);
-      assert.ok(NETWORKS[card.network], `${card.id} has an unknown network`);
-      assert.ok(POINT_TYPES[card.points], `${card.id} has an unknown point type`);
-      assert.ok(card.base > 0, `${card.id} needs a base rate`);
-      assert.ok(card.annualFee >= 0 && card.fxFee >= 0 && card.fxFee < 0.1, `${card.id} fees`);
-      assert.match(card.checked, DATE, `${card.id} needs a checked date`);
-      assert.ok(card.checked <= CATALOGUE_CHECKED, `${card.id} checked after the catalogue`);
-      assert.ok(card.source, `${card.id} needs a source`);
-      for (const rule of card.earn) {
-        assert.ok(rule.rate > 0, `${card.id} has a rule with no rate`);
-        for (const on of rule.on) {
-          assert.ok(on === "*" || on === "picks" || PURCHASE_IDS.has(on), `${card.id}: unknown purchase ${on}`);
-          if (on === "picks") assert.ok(card.picks, `${card.id} uses picks without offering any`);
-        }
-        for (const [key, allowed] of Object.entries(rule.when || {})) {
-          if (key === "flag") {
-            assert.ok(card.flags?.some((f) => f.id === allowed), `${card.id}: unknown flag ${allowed}`);
-            continue;
-          }
-          assert.ok(questionIds.has(key), `${card.id}: unknown question ${key}`);
-          const options = QUESTIONS.find((q) => q.id === key).options.map((o) => o.id);
-          for (const value of allowed) assert.ok(options.includes(value), `${card.id}: ${key} has no ${value}`);
-        }
-        if (rule.cap) {
-          assert.ok(rule.cap.key && rule.cap.spend > 0 && rule.cap.label, `${card.id} cap`);
-          assert.ok(["month", "year"].includes(rule.cap.per), `${card.id} cap period`);
-        }
-      }
-      for (const id of card.picks?.from || []) assert.ok(PURCHASE_IDS.has(id), `${card.id}: pick ${id}`);
-    }
+  test("the shipped data file passes validation", () => {
+    assert.deepEqual(validateCatalogue(SHIPPED), []);
+    assert.equal(CATALOGUE_CHECKED, SHIPPED.checked);
+    assert.ok(CARDS.length >= 10);
   });
 
   test("the user's own cards are in it", () => {
     assert.ok(CARDS.some((c) => c.id === "amex-cobalt"));
     assert.ok(CARDS.some((c) => c.id === "td-aeroplan-vi"));
+  });
+
+  test("validation catches the mistakes a monthly update could make", () => {
+    const broken = structuredClone(SHIPPED);
+    broken.cards[0].earn[0].on = ["grocerys"];
+    broken.cards[1].points = "air-miles";
+    broken.cards[2].earn.push({ on: ["travel"], rate: 2, when: { booking: ["westjet"] } });
+    broken.cards[3].checked = "2099-01-01";
+    broken.cards.push({ ...broken.cards[4] });
+    const problems = validateCatalogue(broken);
+    assert.ok(problems.some((p) => /unknown purchase grocerys/.test(p)));
+    assert.ok(problems.some((p) => /unknown point type/.test(p)));
+    assert.ok(problems.some((p) => /booking has no answer westjet/.test(p)));
+    assert.ok(problems.some((p) => /checked date/.test(p)));
+    assert.ok(problems.some((p) => /listed twice/.test(p)));
+    assert.deepEqual(validateCatalogue(null), ["It is not a catalogue at all."]);
+    assert.ok(validateCatalogue({ checked: "2026-10-31", pointTypes: {}, cards: [] }).length > 0);
   });
 
   test("every question's priors add up for every purchase", () => {
@@ -76,6 +62,10 @@ describe("card catalogue", () => {
         assert.ok(Math.abs(total - 1) < 1e-9, `${q.id} for ${purchase} adds up to ${total}`);
       }
     }
+  });
+
+  test("every purchase type can be asked about", () => {
+    assert.ok(PURCHASES.every((p) => QUESTIONS.some((q) => q.appliesTo.includes(p.id))));
   });
 });
 

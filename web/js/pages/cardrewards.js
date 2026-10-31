@@ -1,9 +1,11 @@
 // Card Rewards: pick what you are buying and see which of your cards earns
 // the most for it, grouped by the kind of points each earns. Asks follow-up
 // questions (which store, does it take Amex, is a cap used up) until it is
-// at least 90% sure. Standalone: reads nothing from YNAB.
+// at least 90% sure. Standalone: reads nothing from YNAB. The card details
+// are downloaded from this site at most once a day (tools/card_feed.js).
 
 import { CARDS, CATALOGUE_CHECKED, NETWORKS, POINT_TYPES, PURCHASES } from "../tools/card_catalogue.js";
+import { browserFetchJson, loadCatalogue } from "../tools/card_feed.js";
 import {
   TARGET_CONFIDENCE, UNSURE, daysSince, describeEarn, explain, formatEarned,
   formatRate, groupName, recommend, walletCards,
@@ -32,8 +34,9 @@ export function cardRewardsPage(app) {
     "compared as they are (5x is 5, 4% is 4), so compare within a group. " +
     "Where the answer depends on something it does not know yet (which " +
     "store, whether a cap is used up), it asks, until it is at least 90% " +
-    "sure. Card details are built in and re-checked once a month. Nothing " +
-    "here reads or changes your budget."));
+    "sure. Card details are re-checked once a month and downloaded at most " +
+    "once a day, like exchange rates. Nothing here reads or changes your " +
+    "budget."));
 
   const purchaseSelect = select(
     PURCHASES.map((p) => ({ value: p.id, label: p.label })),
@@ -78,7 +81,11 @@ export function cardRewardsPage(app) {
     },
   });
 
-  const age = daysSince(CATALOGUE_CHECKED, todayIso());
+  const feedStatus = el("p", { class: "hint" });
+  const updateButton = button("Check for updates", {
+    small: true,
+    onClick: () => refreshCatalogue(true),
+  });
   root.append(askHost, resultsHost, card(
     sectionTitle("Your cards"),
     walletList,
@@ -86,10 +93,49 @@ export function cardRewardsPage(app) {
       el("div", { class: "reward-add-select" }, addSelect),
       addButton,
       button("Add one by hand...", { onClick: () => editCustom(null) })),
-    hint(`Card details last checked ${dateLabel(CATALOGUE_CHECKED)}` +
-      (age !== null && age > 45 ? ` (${age} days ago, so may be out of date)` : "") +
-      ". A card that is missing can be added by hand, or ask for it to be " +
+    el("div", { class: "card-row reward-feed" }, feedStatus, updateButton),
+    hint("A card that is missing can be added by hand, or ask for it to be " +
       "added to the built-in list.")));
+
+  let feed = null;
+
+  async function refreshCatalogue(force = false) {
+    updateButton.disabled = true;
+    feedStatus.textContent = "Getting the latest card details...";
+    let storage = null;
+    try { storage = window.localStorage; } catch { storage = null; }
+    feed = await loadCatalogue({ fetchJson: browserFetchJson, storage, force });
+    updateButton.disabled = false;
+    paintFeed();
+    renderWallet();
+    render();
+  }
+
+  function paintFeed() {
+    if (!feed) return;
+    feedStatus.classList.toggle("is-error", !feed.ok || feed.source === "saved-fallback");
+    if (!feed.ok) {
+      feedStatus.textContent = `${feed.error} Check your connection and try again.`;
+      return;
+    }
+    const age = daysSince(CATALOGUE_CHECKED, todayIso());
+    const parts = [`Card details checked ${dateLabel(CATALOGUE_CHECKED)}` +
+      (age !== null && age > 45 ? ` (${age} days ago, so may be out of date)` : "") + "."];
+    parts.push(feed.source === "downloaded"
+      ? "Downloaded just now."
+      : `Downloaded ${sinceLabel(feed.fetchedAt)}.`);
+    if (feed.source === "saved-fallback") parts.push(`${feed.error} Using the copy saved on this device.`);
+    feedStatus.textContent = parts.join(" ");
+  }
+
+  function sinceLabel(at) {
+    const minutes = Math.max(0, Math.round((Date.now() - at) / 60000));
+    if (minutes < 2) return "just now";
+    if (minutes < 90) return `${minutes} minutes ago`;
+    const hours = Math.round(minutes / 60);
+    if (hours < 36) return `${hours} hours ago`;
+    return `${Math.round(hours / 24)} days ago`;
+  }
 
   function amount() {
     const value = Number(settings.amount);
@@ -164,8 +210,10 @@ export function cardRewardsPage(app) {
   function renderResults() {
     clear(resultsHost);
     if (!last) {
-      resultsHost.append(card(hint("Add the cards you have under \"Your cards\" " +
-        "below, and the best one for each purchase shows up here.")));
+      resultsHost.append(card(hint(!CARDS.length && !feed
+        ? "Getting the latest card details..."
+        : "Add the cards you have under \"Your cards\" below, and the best " +
+          "one for each purchase shows up here.")));
       return;
     }
     const spend = amount();
@@ -212,8 +260,8 @@ export function cardRewardsPage(app) {
 
     settings.wallet.forEach((entry, index) => {
       const resolved = cards.find((c) => c.id === entry.id);
-      if (!resolved) return;
-      walletList.append(walletRow(entry, resolved, index));
+      if (resolved) walletList.append(walletRow(entry, resolved, index));
+      else if (CARDS.length) walletList.append(goneRow(entry, index));
     });
 
     const held = new Set(settings.wallet.map((e) => e.id));
@@ -221,7 +269,10 @@ export function cardRewardsPage(app) {
     const available = CARDS.filter((c) => !held.has(c.id))
       .sort((a, b) => a.issuer.localeCompare(b.issuer) || a.name.localeCompare(b.name));
     if (!available.length) {
-      addSelect.append(el("option", { value: "", text: "Every built-in card is added" }));
+      addSelect.append(el("option", {
+        value: "",
+        text: CARDS.length ? "Every built-in card is added" : "Card details not loaded yet",
+      }));
     }
     let groupNode = null;
     let lastIssuer = null;
@@ -234,6 +285,32 @@ export function cardRewardsPage(app) {
       groupNode.append(el("option", { value: c.id, text: c.name }));
     }
     addButton.disabled = !available.length;
+  }
+
+  // A card dropped from the downloaded list (discontinued, usually). Kept
+  // in the wallet so it comes back if the list gets it again.
+  function goneRow(entry, index) {
+    return el("div", { class: "reward-wallet-row" },
+      el("div", { class: "reward-wallet-main" },
+        el("div", {},
+          el("div", { class: "reward-name", text: entry.id }),
+          el("div", { class: "hint", text: "No longer in the card list, so it is left out of the ranking." })),
+        removeButton(entry.id, index)));
+  }
+
+  function removeButton(label, index) {
+    return el("button", {
+      type: "button",
+      class: "row-exclude-btn",
+      title: `Remove ${label}`,
+      "aria-label": `Remove ${label}`,
+      onClick: () => {
+        settings.wallet.splice(index, 1);
+        store.save();
+        renderWallet();
+        render();
+      },
+    }, icon("x", { size: 16 }));
   }
 
   function walletRow(entry, resolved, index) {
@@ -283,18 +360,7 @@ export function cardRewardsPage(app) {
         el("div", { class: "reward-wallet-actions" },
           button("Details", { small: true, onClick: () => showDetails(resolved) }),
           resolved.custom ? button("Edit", { small: true, onClick: () => editCustom(entry) }) : null,
-          el("button", {
-            type: "button",
-            class: "row-exclude-btn",
-            title: `Remove ${resolved.name}`,
-            "aria-label": `Remove ${resolved.name}`,
-            onClick: () => {
-              settings.wallet.splice(index, 1);
-              store.save();
-              renderWallet();
-              render();
-            },
-          }, icon("x", { size: 16 })))),
+          removeButton(resolved.name, index))),
       extras.length ? el("div", { class: "reward-wallet-extras" }, extras) : null);
   }
 
@@ -394,5 +460,6 @@ export function cardRewardsPage(app) {
 
   renderWallet();
   render();
+  refreshCatalogue();
   return root;
 }

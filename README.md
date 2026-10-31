@@ -51,8 +51,9 @@ tidying up payee names with rules you control.
 what you are buying (groceries, gas, dining and so on), grouped by the kind
 of points each one earns. It asks follow-up questions, like which store or
 whether a spending cap is used up, until it is at least 90% sure. Details for
-common Canadian cards are built in and re-checked once a month; any other
-card can be added by hand. It does not read your budget.
+common Canadian cards are re-checked once a month and downloaded from this
+site at most once a day, like exchange rates; any other card can be added by
+hand. It does not read your budget.
 
 Only Shared Expenses and Auto Assign change anything in YNAB, and both save
 a backup first so a run can be reversed. Everything else only reads.

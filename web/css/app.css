@@ -1924,6 +1924,8 @@ td .btn-small { min-height: 28px; padding: 0 9px; font-size: 12.5px; }
 .reward-wallet-extras .field-label { margin: 0; }
 .reward-picks { display: flex; flex-wrap: wrap; gap: 4px 16px; }
 .reward-add { margin-top: 12px; }
+.reward-feed { margin-top: 12px; justify-content: space-between; }
+.reward-feed .hint { margin: 0; flex: 1 1 260px; }
 .reward-add-select { flex: 1 1 260px; min-width: 0; }
 .reward-add-select select { width: 100%; }
 

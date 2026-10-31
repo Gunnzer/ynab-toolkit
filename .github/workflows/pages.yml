@@ -2,12 +2,21 @@
 # here than usual: tests/privacy.test.js fails the build if a token, a
 # budget id, an email address or a third party host ever appears in the
 # source, so a mistake cannot reach a public URL.
+#
+# It also runs once a day, like an exchange rate feed: Card Rewards' card
+# details (web/data/cards.json) are re-checked monthly by a scheduled task
+# that commits only to the `card-data` branch, never to main. Each run takes
+# the newest copy from there, the tests validate it (card_rewards.test.js),
+# and the deploy publishes exactly the copy the tests passed. With no
+# `card-data` branch yet, the copy on main is used.
 
 name: Deploy to GitHub Pages
 
 on:
   push:
     branches: [main]
+  schedule:
+    - cron: "17 10 * * *"
   workflow_dispatch:
 
 permissions:
@@ -23,8 +32,19 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    outputs:
+      cards: ${{ steps.cards.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
+      - name: Use the latest card details
+        id: cards
+        run: |
+          if git fetch --depth=1 origin card-data; then
+            echo "sha=$(git rev-parse FETCH_HEAD)" >> "$GITHUB_OUTPUT"
+            git show FETCH_HEAD:web/data/cards.json > web/data/cards.json
+          else
+            echo "No card-data branch yet; using the copy on main."
+          fi
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -39,6 +59,11 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - name: Use the same card details the tests passed with
+        if: needs.test.outputs.cards != ''
+        run: |
+          git fetch --depth=1 origin "${{ needs.test.outputs.cards }}"
+          git show FETCH_HEAD:web/data/cards.json > web/data/cards.json
       - uses: actions/configure-pages@v5
       - name: Upload the web folder
         uses: actions/upload-pages-artifact@v3
