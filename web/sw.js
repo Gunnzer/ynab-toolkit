@@ -7,7 +7,7 @@
 // cached - requests to YNAB's API are on another origin and are left
 // completely alone, so no budget data is ever stored here.
 
-const CACHE = "ynab-toolkit-v1";
+const CACHE = "ynab-toolkit-v2";
 
 self.addEventListener("install", () => self.skipWaiting());
 
@@ -23,8 +23,17 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
   if (new URL(request.url).origin !== self.location.origin) return;
 
+  // "no-cache" makes the browser check with the site every time instead of
+  // reusing its own copy: GitHub Pages lets files be reused for 10 minutes,
+  // so a plain fetch here showed a page up to 10 minutes stale after a
+  // push (reported live). An unchanged file costs a tiny "not modified".
+  // A page load cannot be re-issued with options, so it goes by its URL.
+  const fresh = request.mode === "navigate"
+    ? fetch(request.url, { cache: "no-cache", credentials: "same-origin" })
+    : fetch(request, { cache: "no-cache" });
+
   event.respondWith(
-    fetch(request)
+    fresh
       .then((response) => {
         if (response.ok) {
           const copy = response.clone();

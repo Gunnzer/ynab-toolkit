@@ -11,6 +11,9 @@ before or as part of the push itself.
 
 ## 2026-11-01
 
+**Refresh always shows the latest version** (`sw.js`, `CLAUDE.md`)
+* After a push, a refresh could keep showing the old site for up to 10 minutes, because the browser reused its saved copy. The site now checks for a newer copy on every load (cheap when nothing changed) and still opens offline.
+
 **Card Rewards: says what it is still unsure about** (`pages/cardrewards.js`, `tools/card_rewards.js`, `tools/merchants.js`, `app.css`, tests, `CLAUDE.md`)
 * Once it is sure enough it now says what is left ("Still open: have you already put $80,000 on your TD Aeroplan VI this year?") with an "Answer it" button to get closer to 100%, instead of a bare "90% sure".
 * No more vague "Could be 1% to 4%" when the only doubt is a spending cap; the cap already has its own line.
