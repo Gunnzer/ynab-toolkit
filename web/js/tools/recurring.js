@@ -186,6 +186,29 @@ export function findRecurring(transactions, { today, direction = "out" }) {
   return found.sort((a, b) => Number(a.stopped) - Number(b.stopped) || b.yearly - a.yearly);
 }
 
+/**
+ * Which payee a recurring charge is, for leaving it out: the normalized
+ * payee alone, not its amount, so a price change or a second amount from
+ * the same payee stays left out too.
+ */
+export function payeeKey(item) {
+  return String(item.key || "").split("|")[0];
+}
+
+/**
+ * Recurring charges without the ones left out (at explicit user request,
+ * "like investments" - a monthly contribution is not a subscription):
+ * `payees` are payeeKey()s, `categoryIds` leave out everything in those
+ * categories, including charges that start later.
+ */
+export function excludeRecurring(found, { payees = [], categoryIds = [] } = {}) {
+  const leftOutPayees = new Set(payees.map((p) => (typeof p === "string" ? p : p.key)));
+  const leftOutCategories = new Set(categoryIds);
+  if (!leftOutPayees.size && !leftOutCategories.size) return found;
+  return found.filter((r) => !leftOutPayees.has(payeeKey(r)) &&
+    !(r.categoryId && leftOutCategories.has(r.categoryId)));
+}
+
 /** Yearly and monthly cost of everything still active. */
 export function recurringTotals(found) {
   const yearly = found.filter((r) => !r.stopped).reduce((sum, r) => sum + r.yearly, 0);

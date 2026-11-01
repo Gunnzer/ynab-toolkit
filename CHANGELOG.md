@@ -11,6 +11,19 @@ before or as part of the push itself.
 
 ## 2026-11-01
 
+**Reports by person, matching Home** (`tools/ownership.js`, `pages/report_recurring.js`, `pages/report_cash_flow.js`, `pages/report_kit.js`, `pages/home.js`, `pages/home_widgets.js`, `app.css`, `tests/ownership.test.js`, `CLAUDE.md`)
+* The Recurring and Cash flow reports now have a Whose choice, shared with Budget vs actual and Trends. Home and Reports use the same rules, so their numbers agree.
+* A split charge is shared out between people on the Recurring report ("50% of $200.00"). One person's Cash flow shows spending only, since income is not split by person.
+* Opening a report from a Home widget or alert takes Home's Whose with it, so you land on the same figure the widget showed.
+* Fixed: Home's Cash flow widget counted money moved to investments as Shared spending. It now counts as saved, as it does for Everyone.
+
+**Leave recurring charges out** (`tools/recurring.js`, `pages/recurring_exclude.js`, `pages/report_recurring.js`, `pages/home_widgets.js`, `pages/home.js`, `store.js`, `app.css`, `tests/recurring.test.js`, `CLAUDE.md`)
+* Leave whole categories (like Investing) or single charges out of the Recurring report, Home's Subscriptions and its price and new-charge alerts. Set it from the Recurring report or the Subscriptions widget's settings; both share one list. A charge stays left out if its price changes, and can be brought back.
+* Upcoming bills and the cash forecast still count everything, since the money still leaves the account.
+
+**Removed** (`pref.png`)
+* A stray screenshot committed by accident is no longer published with the site.
+
 **Fewer places to go: tools grouped into spaces** (`main.js`, `index.html`, `ui.js`, `app.css`, `pages/report_tabs.js`, `pages/setup.js`, every page's "Setup" wording, `CLAUDE.md`)
 * The 14 tools now live in six spaces: Home, Budget, Transactions, Reports, Together and Card Rewards. Each space shows its tools as a row of tabs under the title (Budget: This month, My plan, Auto Assign, Ready to Assign; Reports: its five reports plus Upcoming bills and Export).
 * On a phone or tablet the menu is a bar along the bottom with Home, Budget, Activity, Cards and More; More opens a sheet with Reports, Together and Settings. The old menu that filled the top of the screen is gone.

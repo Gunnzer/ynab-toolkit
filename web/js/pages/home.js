@@ -44,6 +44,19 @@ function connectionStatus(state) {
   return null;
 }
 
+/**
+ * Opening a report from a widget takes Home's Whose with it, so the page
+ * you land on shows the same figures the widget did (Sam's $155 of
+ * subscriptions, not everyone's $1,992). Reports' Spending tab keeps its
+ * own Whose (`owner`, part of its saved filters); the other tabs share
+ * `insightOwner`.
+ */
+export function carryOwner(app, page, owner) {
+  if (page !== "reports") return;
+  app.state.store.set("reports.insightOwner", owner || "all");
+  app.state.store.set("reports.owner", owner || "all");
+}
+
 export function homePage(app) {
   const state = app.state;
   const store = state.store;
@@ -192,6 +205,7 @@ export function homePage(app) {
     const openable = Boolean(widget.go && (!widget.tool || app.toolEnabled(widget.tool)));
     const open = () => {
       if (widget.tab) store.set("reports.reportTab", widget.tab);
+      carryOwner(app, widget.go, owner);
       app.go(widget.go);
     };
     const openLink = openable ? button("Open", { small: true, onClick: open }) : null;
@@ -213,7 +227,15 @@ export function homePage(app) {
     const remove = tool("x", "Remove from Home", () => commit(hl.removeWidget(layout, id)));
     const settings = tool("settings", "Settings", async () => {
       const next = await askSettings(widget, layout.find((entry) => entry.id === id)?.config || {});
-      if (next) commit(hl.setConfig(layout, id, next));
+      if (!next) return;
+      commit(hl.setConfig(layout, id, next));
+      // A widget's settings can also change a shared setting (what
+      // Subscriptions leaves out), which its own config does not show -
+      // so start from fresh data and redraw everything.
+      ctx = widgetContext(app, owner);
+      for (const node of nodes.values()) {
+        drawWidget(node.widget, node.body, node.dataset.size, ctx, app, JSON.parse(node.dataset.config || "{}"));
+      }
     });
     remove.classList.add("is-remove");
     const handle = el("span", { class: "widget-grip", title: "Drag to move", "aria-hidden": "true" },

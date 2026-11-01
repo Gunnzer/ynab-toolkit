@@ -3,11 +3,12 @@
 import { fmt } from "../money.js";
 import { fullMonthsBefore } from "../tools/budget_actual.js";
 import { cashFlow, cashFlowTotals } from "../tools/cash_flow.js";
+import { personTransactions } from "../tools/ownership.js";
 import { readyToAssignCategoryIds } from "../tools/rta_tracker.js";
 import { card, clear, el, emptyRow, hint, logPane, monthLabel, table } from "../ui.js";
-import { localMonth, percentText, stat } from "./report_kit.js";
+import { localMonth, ownerSelect, ownershipFor, percentText, stat } from "./report_kit.js";
 
-export function cashFlowReport(app) {
+export function cashFlowReport(app, { settings, store }) {
   const state = app.state;
   const log = logPane("Reading income and spending.");
   let loaded = null;
@@ -17,6 +18,19 @@ export function cashFlowReport(app) {
     "went out of a category, refunds netting off. Money moved to an " +
     "investment or other tracking account counts as saved, not spent. " +
     "Savings rate is what was left over as a share of income."));
+  // Whose, shared with the other insight tabs. Income reaches Ready to
+  // Assign, which is nobody's in particular, so one person's view is their
+  // spending only (as on Home) - the income, left over and savings rate
+  // columns are hidden rather than shown as zeros.
+  const owner = ownerSelect(state, settings.insightOwner, (value) => {
+    settings.insightOwner = value;
+    store.save();
+    render();
+  });
+  const whoseRow = card(el("div", { class: "card-row" }, el("label", { class: "field-label", text: "Whose" }),
+    el("div", { class: "narrow" }, owner),
+    el("span", { class: "grow hint", text: "" })));
+  const whoseNote = whoseRow.querySelector(".grow");
   const stats = el("div", { class: "stat-grid" });
   const list = table([
     { key: "month", label: "Month" },
@@ -31,7 +45,7 @@ export function cashFlowReport(app) {
     el("span", {}, el("span", { class: "swatch is-income" }), " Income"),
     el("span", {}, el("span", { class: "swatch is-spending" }), " Spending"));
 
-  const nodes = [intro, stats, legend, list, log];
+  const nodes = [intro, whoseRow, stats, legend, list, log];
 
   async function load() {
     if (!state.token || !state.budgetId) {
@@ -48,15 +62,27 @@ export function cashFlowReport(app) {
     if (!loaded) return;
     const current = localMonth();
     const full = fullMonthsBefore(current, 12);
+    const own = ownershipFor(state, owner.value);
+    const person = !own.everyone;
+    list.classList.toggle("is-person", person);
+    legend.hidden = person;
+    whoseNote.textContent = person
+      ? "Spending only - income is not split by person. Split transactions count only this person's part."
+      : "";
     const rows = cashFlow({
-      transactions: loaded.transactions,
+      transactions: personTransactions(loaded.transactions, own),
       rtaIds: readyToAssignCategoryIds(state.categoryGroups),
       months: [...full, current],
     });
     const fullRows = rows.slice(0, -1);
     const totals = cashFlowTotals(fullRows);
 
-    clear(stats).append(
+    if (person) {
+      clear(stats).append(
+        stat("Spending", fmt(totals.spending), { note: "Last 12 full months" }),
+        stat("Average month", fmt(totals.averageSpending)),
+        stat("Moved to investments", fmt(totals.toTracking), { note: "Counted as saved, not spent" }));
+    } else clear(stats).append(
       stat("Income", fmt(totals.income), { note: "Last 12 full months" }),
       stat("Spending", fmt(totals.spending), { note: `${fmt(totals.averageSpending)} a month on average` }),
       stat("Left over", fmt(totals.leftOver), {

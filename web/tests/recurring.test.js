@@ -1,7 +1,7 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 
-import { findRecurring, normalizePayee, recurringTotals } from "../js/tools/recurring.js";
+import { excludeRecurring, findRecurring, normalizePayee, payeeKey, recurringTotals } from "../js/tools/recurring.js";
 
 let next = 0;
 const charge = (date, amount, payee, extra = {}) => ({
@@ -11,6 +11,33 @@ const charge = (date, amount, payee, extra = {}) => ({
 const monthly = (payee, amounts, startMonth = 1, day = 5, year = 2026) =>
   amounts.map((amount, i) => charge(
     `${year}-${String(startMonth + i).padStart(2, "0")}-${String(day).padStart(2, "0")}`, amount, payee));
+
+describe("leaving recurring charges out", () => {
+  const found = [
+    { key: "netflix com|16490", categoryId: "subs" },
+    { key: "netflix com|5000", categoryId: "subs" },
+    { key: "wealthsimple|500000", categoryId: "invest" },
+    { key: "grocer|200000", categoryId: null },
+  ];
+
+  test("by payee - every amount from it, whatever the price", () => {
+    assert.equal(payeeKey(found[0]), "netflix com");
+    assert.deepEqual(excludeRecurring(found, { payees: ["netflix com"] }).map((r) => r.key),
+      ["wealthsimple|500000", "grocer|200000"]);
+    assert.deepEqual(excludeRecurring(found, { payees: [{ key: "grocer", name: "Grocer" }] }).length, 3,
+      "stored as { key, name } works too");
+  });
+
+  test("by category; one with no category is never caught by that", () => {
+    assert.deepEqual(excludeRecurring(found, { categoryIds: ["invest", "x"] }).map((r) => r.key),
+      ["netflix com|16490", "netflix com|5000", "grocer|200000"]);
+  });
+
+  test("nothing left out: the same list back", () => {
+    assert.equal(excludeRecurring(found, {}), found);
+    assert.equal(excludeRecurring(found), found);
+  });
+});
 
 describe("recurring charges", () => {
   test("payee names lose order numbers and processor suffixes", () => {

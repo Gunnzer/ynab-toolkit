@@ -1,12 +1,14 @@
 // Reports tab: recurring charges and subscriptions.
 
 import { fmt } from "../money.js";
-import { findRecurring, recurringTotals } from "../tools/recurring.js";
+import { personRecurring } from "../tools/ownership.js";
+import { excludeRecurring, findRecurring, payeeKey, recurringTotals } from "../tools/recurring.js";
 import {
-  card, checkbox, clear, customDialog, dateLabel, el, emptyRow, hint, logPane,
+  button, card, checkbox, clear, customDialog, dateLabel, el, emptyRow, hint, icon, logPane,
   pill, table,
 } from "../ui.js";
-import { localToday, stat } from "./report_kit.js";
+import { excludeFields, leaveOutPayee, loadExclude, saveExclude } from "./recurring_exclude.js";
+import { localToday, ownerSelect, ownershipFor, stat } from "./report_kit.js";
 
 export function recurringReport(app, { settings, store }) {
   const state = app.state;
@@ -20,12 +22,34 @@ export function recurringReport(app, { settings, store }) {
       render();
     });
 
+  // Whose: the same choice as Budget vs actual and Trends (and what Home's
+  // Whose carries over when you open this from a widget), with the same
+  // rules as Home's Subscriptions - a split charge is shared out, so the two
+  // always agree.
+  const owner = ownerSelect(state, settings.insightOwner, (value) => {
+    settings.insightOwner = value;
+    store.save();
+    render();
+  });
+
+  const leaveOutButton = button("Leave out", { small: true, onClick: chooseLeftOut });
+
+  async function chooseLeftOut() {
+    const next = await customDialog("Leave out of recurring", (body) => excludeFields(body, app),
+      { confirmText: "Save", wide: true });
+    if (!next) return;
+    saveExclude(store, next);
+    render();
+  }
+
   const controls = card(
     el("div", { class: "card-row" },
       hint("Found by spotting the same payee charging a similar amount on a " +
         "regular schedule over the last 15 months. Click one to see every charge."),
       el("span", { class: "spacer" }),
-      showStopped));
+      showStopped, leaveOutButton),
+    el("div", { class: "card-row" }, el("label", { class: "field-label", text: "Whose" }),
+      el("div", { class: "narrow" }, owner)));
 
   const stats = el("div", { class: "stat-grid" });
   const list = table([
@@ -54,7 +78,11 @@ export function recurringReport(app, { settings, store }) {
 
   function render() {
     if (!loaded) return;
-    const found = loaded.found;
+    const exclude = loadExclude(store);
+    const everything = personRecurring(loaded.found, loaded.transactions, ownershipFor(state, owner.value));
+    const found = excludeRecurring(everything, exclude);
+    const hidden = everything.length - found.length;
+    leaveOutButton.textContent = hidden ? `Leave out (${hidden} left out)` : "Leave out";
     const active = found.filter((r) => !r.stopped);
     const totals = recurringTotals(found);
     const raised = active.filter((r) => r.priceUp);
@@ -89,19 +117,31 @@ export function recurringReport(app, { settings, store }) {
       if (item.priceUp) flags.push(pill(`Up ${fmt(item.priceUp.to - item.priceUp.from)}`, "warn"));
       if (item.isNew) flags.push(pill("New", "info"));
       if (item.stopped) flags.push(pill("Stopped?", "muted"));
+      const leaveOut = el("button", {
+        type: "button", class: "widget-tool", title: "Leave this one out", "aria-label": `Leave ${item.payee} out`,
+        onClick: () => {
+          leaveOutPayee(store, payeeKey(item), item.payee || payeeKey(item));
+          render();
+        },
+      }, icon("x", { size: 14 }));
 
       list.tbody.append(el("tr", { class: item.stopped ? "is-faded" : "" },
         el("td", {},
-          el("button", {
-            type: "button", class: "category-link", text: item.payee || "(no payee)",
-            title: "See every charge", onClick: () => showCharges(item),
-          }),
+          // Next to the name, not in the last column: on a phone the table
+          // scrolls sideways and the last column starts off screen.
+          el("div", { class: "recurring-payee" },
+            el("button", {
+              type: "button", class: "category-link", text: item.payee || "(no payee)",
+              title: "See every charge", onClick: () => showCharges(item),
+            }),
+            leaveOut),
           el("div", { class: "hint", text: item.categoryId ? state.categoryName(item.categoryId, "") : "" })),
         el("td", { text: item.cadenceLabel }),
         el("td", { class: "num" },
           item.varies
             ? el("span", { title: `Latest ${fmt(item.latest)}` }, `about ${fmt(item.typical)}`)
-            : fmt(item.latest)),
+            : fmt(item.latest),
+          item.share ? el("div", { class: "hint", text: `${Math.round(item.share * 100)}% of ${fmt(item.fullTypical)}` }) : null),
         el("td", { class: "num", text: fmt(item.yearly) }),
         el("td", { text: dateLabel(item.lastDate) }),
         el("td", { class: item.stopped ? "hint" : "", text: dateLabel(item.nextDate) }),

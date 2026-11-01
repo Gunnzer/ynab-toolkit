@@ -142,6 +142,10 @@ export const DEFAULTS = {
     owner: "all",
     groupNames: [],
     excludeCategoryIds: [],
+    // Recurring charges left out of the Recurring tab and Home's
+    // Subscriptions (an investment contribution is not a subscription):
+    // payees as { key, name }, and whole categories.
+    recurringExclude: { payees: [], categoryIds: [] },
     payeeContains: "",
     includeInflow: false,
     // Named filters, so a report you look at every month is one click.

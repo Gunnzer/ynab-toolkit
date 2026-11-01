@@ -677,6 +677,18 @@ tr.is-faded td { opacity: .6; }
 /* Setup: a settings code, long and unbroken, wraps anywhere. */
 .settings-code { min-height: 110px; font-size: 11.5px; word-break: break-all; }
 
+/* Reports Cash flow for one person: income is nobody's in particular, so
+   its columns (and bar) are hidden rather than shown as zeros. */
+.cash-flow-table.is-person th:nth-child(3), .cash-flow-table.is-person td:nth-child(3),
+.cash-flow-table.is-person th:nth-child(5), .cash-flow-table.is-person td:nth-child(5),
+.cash-flow-table.is-person th:nth-child(6), .cash-flow-table.is-person td:nth-child(6),
+.cash-flow-table.is-person .cash-bar.is-income { display: none; }
+
+/* Reports Recurring: the payee with its leave-out x beside it. */
+.recurring-payee { display: flex; align-items: center; gap: 8px; }
+.recurring-payee .widget-tool { width: 24px; height: 22px; opacity: .6; }
+.recurring-payee .widget-tool:hover, .recurring-payee .widget-tool:focus-visible { opacity: 1; }
+
 /* ---------- home: widgets ---------- */
 
 /* A four-column grid: small takes one column, medium two, large the whole

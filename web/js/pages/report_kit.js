@@ -2,6 +2,7 @@
 // Not a page of its own.
 
 import { ownerOf } from "../tools/split_sheet.js";
+import { ownership } from "../tools/ownership.js";
 import { el, select } from "../ui.js";
 
 const SVG = "http://www.w3.org/2000/svg";
@@ -58,6 +59,20 @@ export function ownerSelect(state, value, onChange) {
     { value: "p2", label: state.personName(2) },
     { value: "shared", label: "Shared" },
   ], value || "all", onChange);
+}
+
+/**
+ * The Whose rules for one choice, read from the app's state - the one
+ * place Home and every Reports tab get them, so their numbers agree.
+ */
+export function ownershipFor(state, owner) {
+  return ownership({
+    owner,
+    categoryGroups: state.categoryGroups || [],
+    people: state.withPeople({}),
+    accountOwners: state.store.get("splitSheet.accountOwners", {}) || {},
+    accountNameOf: (id) => state.accountName(id),
+  });
 }
 
 export function ownerMatches(state, groupName, owner) {

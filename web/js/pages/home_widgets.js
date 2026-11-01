@@ -13,13 +13,15 @@ import { dailyBalances, selectionName, spendingSeries } from "../tools/chart_dat
 import { buildAlerts } from "../tools/dashboard.js";
 import * as duplicates from "../tools/duplicates.js";
 import { CASH_TYPES } from "../tools/forecast.js";
-import { findRecurring, recurringTotals } from "../tools/recurring.js";
+import { personRecurring, personTransactions, recurringShare } from "../tools/ownership.js";
+import { excludeRecurring, findRecurring, recurringTotals } from "../tools/recurring.js";
 import { readyToAssignCategoryIds } from "../tools/rta_tracker.js";
 import * as sheet from "../tools/split_sheet.js";
 import { button, clear, el, hint, icon, monthLabel, pill, select } from "../ui.js";
 import { buildQueue } from "./categorize.js";
 import { chartLegend, columnChart, lineChart, OTHER_COLOR, SERIES_COLORS } from "./home_charts.js";
-import { assignableCategories, localMonth, localToday } from "./report_kit.js";
+import { assignableCategories, localMonth, localToday, ownershipFor } from "./report_kit.js";
+import { excludeFields, loadExclude, saveExclude } from "./recurring_exclude.js";
 import { loadForecast } from "./upcoming.js";
 
 // ---------- shared data ----------
@@ -36,59 +38,6 @@ function memo(load) {
 }
 
 /**
- * Whose things count, for Home's "Whose" choice (Everyone / a person /
- * Shared) - the same rules as everywhere else in the app: a category by
- * its group's person prefix (`ownerOf()`), an account by its tag or name
- * (`payerOf()`, where "shared" means a joint account), a transaction by
- * its category, or by its account when it has none of its own (no
- * category yet, or YNAB's internal one).
- */
-function ownership(state, owner) {
-  const everyone = !owner || owner === "all";
-  const people = state.withPeople({});
-  const accountSettings = { ...people, accountOwners: state.store.get("splitSheet.accountOwners", {}) || {} };
-  const groupOf = new Map();
-  for (const group of state.categoryGroups || []) {
-    for (const category of group.categories || []) groupOf.set(category.id, group.name);
-  }
-  const categoryMine = (id) => everyone || sheet.ownerOf(groupOf.get(id) || "", "", people) === owner;
-  const accountMine = (id) => everyone ||
-    sheet.payerOf(state.accountName(id), accountSettings) === (owner === "shared" ? "joint" : owner);
-  // YNAB's internal categories (Ready to Assign, Uncategorized) and card
-  // payments have no person prefix, so ownerOf() would call them "shared" -
-  // which put the whole budget's income into Shared's spending (a real bug,
-  // caught live). Anything in them goes by its account instead.
-  const ownCategory = (id) => Boolean(id) && groupOf.has(id) &&
-    groupOf.get(id) !== "Internal Master Category" && groupOf.get(id) !== "Credit Card Payments";
-  const itemMine = (categoryId, accountId) => everyone ||
-    (ownCategory(categoryId) ? categoryMine(categoryId) : accountMine(accountId));
-  const transactionMine = (t) => {
-    if (everyone) return true;
-    const legs = (t.subtransactions || []).filter((leg) => !leg.deleted);
-    if (legs.length) return legs.some((leg) => (ownCategory(leg.category_id) ? categoryMine(leg.category_id) : accountMine(t.account_id)));
-    return ownCategory(t.category_id) ? categoryMine(t.category_id) : accountMine(t.account_id);
-  };
-  /**
-   * How much of an amount is this person's, 0 to 1. A split is shared out
-   * leg by leg (a $200 grocery run split $100 / $100 is half each) - the
-   * first cut credited the whole of it to whoever's card it was on, so a
-   * split recurring charge or bill showed in full for one person and not
-   * at all for the other (found testing every widget per person).
-   */
-  const shareOf = (legs, categoryId, accountId) => {
-    if (everyone) return 1;
-    const live = (legs || []).filter((leg) => !leg.deleted);
-    if (!live.length) return itemMine(categoryId, accountId) ? 1 : 0;
-    const size = (leg) => Math.abs(leg.amount || 0);
-    const total = live.reduce((sum, leg) => sum + size(leg), 0);
-    if (!total) return 0;
-    const legCategory = (leg) => leg.category_id ?? leg.categoryId;
-    return live.filter((leg) => itemMine(legCategory(leg), accountId)).reduce((sum, leg) => sum + size(leg), 0) / total;
-  };
-  return { everyone, categoryMine, accountMine, transactionMine, itemMine, ownCategory, shareOf };
-}
-
-/**
  * One per page build (and per "Whose" choice): each source is loaded the
  * first time a widget asks, and handed out already narrowed to that
  * person, so a widget only has to know when its figure cannot be split by
@@ -98,7 +47,7 @@ export function widgetContext(app, owner = "all") {
   const state = app.state;
   const today = localToday();
   const current = localMonth();
-  const mine = ownership(state, owner);
+  const mine = ownershipFor(state, owner);
   const ctx = {
     today,
     current,
@@ -125,52 +74,23 @@ export function widgetContext(app, owner = "all") {
       }).filter(Boolean);
       return { ...all, accounts: all.accounts.filter((a) => mine.accountMine(a.id)), events };
     }),
-    // Each recurring charge's (and income's) share for this person - by
-    // key, so the forecast's bills can use it too. Taken across all of its
-    // charges, weighted by amount, and a charge with no category of its own
-    // counts as the series' usual one: going by the latest charge alone, a
-    // still-uncategorized latest SHELL charge on Alex's card handed a shared
-    // Gas series to Alex (found testing per person).
+    // Each recurring charge's (and income's) share for this person, by
+    // key, so the forecast's bills use exactly the shares Subscriptions does.
     recurringShares: memo(async () => {
       const list = await ctx.allList();
       const byId = new Map(list.map((t) => [t.id, t]));
       const shares = new Map();
       for (const r of [...findRecurring(list, { today }), ...findRecurring(list, { today, direction: "in" })]) {
-        let mineTotal = 0;
-        let total = 0;
-        for (const id of r.transactionIds) {
-          const t = byId.get(id);
-          if (!t) continue;
-          const size = Math.abs(t.amount || 0);
-          const legs = (t.subtransactions || []).filter((leg) => !leg.deleted);
-          const share = legs.length
-            ? mine.shareOf(legs, null, t.account_id)
-            : mine.shareOf(null, mine.ownCategory(t.category_id) ? t.category_id : r.categoryId, t.account_id);
-          mineTotal += share * size;
-          total += size;
-        }
-        shares.set(r.key, total ? mineTotal / total : 0);
+        shares.set(r.key, recurringShare(r, byId, mine));
       }
       return shares;
     }),
+    // The same list the Reports Recurring tab shows for this person, with
+    // the same charges left out.
     recurring: memo(async () => {
-      const found = findRecurring(await ctx.allList(), { today }).filter((r) => !r.stopped);
-      if (mine.everyone) return found;
-      const shares = await ctx.recurringShares();
-      const scale = (amount, share) => Math.round(amount * share);
-      return found.map((r) => {
-        const share = shares.get(r.key) || 0;
-        if (share === 1) return r;
-        return {
-          ...r,
-          share,
-          typical: scale(r.typical, share),
-          usual: scale(r.usual, share),
-          latest: scale(r.latest, share),
-          yearly: scale(r.yearly, share),
-          priceUp: r.priceUp ? { from: scale(r.priceUp.from, share), to: scale(r.priceUp.to, share) } : null,
-        };
-      }).filter((r) => r.share !== 0);
+      const list = await ctx.allList();
+      const found = personRecurring(findRecurring(list, { today }).filter((r) => !r.stopped), list, mine);
+      return excludeRecurring(found, loadExclude(state.store));
     }),
     // Month categories with their real names, budget categories only.
     categories: memo(async () => {
@@ -373,6 +293,10 @@ function attentionWidget(body, size, ctx, app) {
           small: true,
           onClick: () => {
             if (alert.tab) app.state.store.set("reports.reportTab", alert.tab);
+            if (alert.go === "reports") {
+              app.state.store.set("reports.insightOwner", ctx.owner || "all");
+              app.state.store.set("reports.owner", ctx.owner || "all");
+            }
             app.go(alert.go);
           },
         })));
@@ -617,11 +541,16 @@ const MONTH_SHORT = (month) => {
 };
 
 /** One person's (or the shared) spending by month - income is not split by person. */
-async function personSpendingFlow(body, size, ctx) {
-  const spending = await ctx.spending();
+async function personSpendingFlow(body, size, ctx, app) {
   const full = fullMonthsBefore(ctx.current, size === "l" ? 12 : 6);
   const months = [...full, ctx.current];
-  const values = months.map((m) => [...spending.values()].reduce((sum, byMonth) => sum + (byMonth.get(m) || 0), 0));
+  // Same as the Reports Cash flow tab for one person: their own legs only,
+  // money moved to investments counted as saved, not spent.
+  const values = cashFlow({
+    transactions: personTransactions(await ctx.allList(), ctx),
+    rtaIds: readyToAssignCategoryIds(app.state.categoryGroups),
+    months,
+  }).map((r) => r.spending);
   const last = values[values.length - 2];
   body.append(big(fmt(last), `spent in ${monthLabel(full[full.length - 1])}, ${ctx.ownerName}`));
   if (size === "s") return;
@@ -638,7 +567,7 @@ async function personSpendingFlow(body, size, ctx) {
 }
 
 async function cashFlowWidget(body, size, ctx, app) {
-  if (ctx.filtered) return personSpendingFlow(body, size, ctx);
+  if (ctx.filtered) return personSpendingFlow(body, size, ctx, app);
   const list = await ctx.list();
   const full = fullMonthsBefore(ctx.current, size === "l" ? 12 : 6);
   const flow = cashFlow({
@@ -932,6 +861,13 @@ export const WIDGETS = [
     id: "recurring", title: "Subscriptions", icon: "pulse", tool: "reports", go: "reports", tab: "recurring",
     blurb: "What your regular charges cost a month, and any that went up or are new.",
     sizes: ["s", "m", "l"], defaultSize: "s", byDefault: true, needsBudget: true, render: recurringWidget,
+    // What to leave out is one setting shared with Reports, not this
+    // widget's own, so it is saved straight away rather than into config.
+    wideSettings: true,
+    fields: (body, config, app) => {
+      const exclude = excludeFields(body, app);
+      return { value: () => { saveExclude(app.state.store, exclude.value()); return {}; } };
+    },
   },
   {
     id: "categoryChart", title: "Spending chart", icon: "chart", tool: null, go: "reports", tab: "trends",
