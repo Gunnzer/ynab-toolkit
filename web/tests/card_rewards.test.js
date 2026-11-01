@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { CARDS, CATALOGUE_CHECKED, PURCHASES, setCatalogue } from "../js/tools/card_catalogue.js";
 import {
   QUESTIONS, TARGET_CONFIDENCE, UNSURE, daysSince, describeEarn, earnFor, explain,
-  centsPerPoint, formatEarned, formatRate, formatValue, formatWorth, normaliseCustom, questionsFor, recommend, shortName,
+  centsPerPoint, formatEarned, formatRate, formatValue, formatWorth, normaliseCustom, questionsFor, recommend, shortName, transferRatio, asPreferred,
   validateCatalogue, walletCards,
 } from "../js/tools/card_rewards.js";
 
@@ -264,6 +264,52 @@ describe("value or points, grouped or one list", () => {
     const broken = structuredClone(SHIPPED);
     broken.pointTypes.mr.cents = "two";
     assert.ok(validateCatalogue(broken).some((p) => /odd value in cents/.test(p)));
+  });
+});
+
+describe("preferred points", () => {
+  const wallet = walletCards([{ id: "amex-cobalt" }, { id: "td-aeroplan-vi" }, { id: "cibc-dividend-vi" }]);
+  const known = { store: "loblaw", currency: "cad", amex: "yes",
+    "cap:amex-cobalt:eats": "under", "cap:td-aeroplan-vi:accel": "under" };
+
+  test("Membership Rewards moves to Aeroplan 1 to 1; nothing moves the other way", () => {
+    assert.equal(transferRatio("mr", "aeroplan"), 1);
+    assert.equal(transferRatio("aeroplan", "mr"), 0);
+    assert.equal(transferRatio("aeroplan", "aeroplan"), 1);
+    assert.equal(transferRatio("scene", "aeroplan"), 0);
+  });
+
+  test("with Aeroplan preferred, the Cobalt earns Aeroplan and joins that group first", () => {
+    const result = recommend(wallet, "groceries", known, { grouped: true, preferred: "aeroplan" });
+    assert.equal(result.groups[0].points, "aeroplan");
+    assert.deepEqual(result.groups[0].cards.map((c) => c.card.id), ["amex-cobalt", "td-aeroplan-vi"]);
+    const cobalt = result.groups[0].cards[0];
+    assert.equal(cobalt.rate, 5);
+    assert.equal(cobalt.card.convertedFrom, "mr");
+    assert.ok(!result.groups.some((g) => g.points === "mr"));
+  });
+
+  test("it uses Aeroplan's value, so one number moves both", () => {
+    const result = recommend(wallet, "groceries", known,
+      { grouped: false, preferred: "aeroplan", values: { aeroplan: 1, mr: 5 } });
+    const cobalt = result.groups[0].cards.find((c) => c.card.id === "amex-cobalt");
+    assert.equal(cobalt.score, 5);
+  });
+
+  test("a preference never changes a card that cannot move", () => {
+    const [dividend] = asPreferred(walletCards([{ id: "cibc-dividend-vi" }]), "aeroplan");
+    assert.equal(dividend.points, "cash");
+    assert.equal(dividend.convertedFrom, undefined);
+    const same = recommend(wallet, "groceries", known, { grouped: true, preferred: "" });
+    assert.ok(same.groups.some((g) => g.points === "mr"));
+  });
+
+  test("validation rejects a transfer to nowhere or an odd ratio", () => {
+    const broken = structuredClone(SHIPPED);
+    broken.pointTypes.mr.transfers = { "air-miles": 1, aeroplan: -1 };
+    const problems = validateCatalogue(broken);
+    assert.ok(problems.some((p) => /odd transfer to air-miles/.test(p)));
+    assert.ok(problems.some((p) => /odd transfer to aeroplan/.test(p)));
   });
 });
 

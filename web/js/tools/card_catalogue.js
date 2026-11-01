@@ -19,6 +19,9 @@
 //     usual good way (Aeroplan and Membership Rewards for flights, Scene+
 //     and Avion at a fixed travel rate, PC Optimum at the till). People can
 //     change it on the page; cash back is always 1 cent per percent.
+//     transfers: { otherPointTypeId: ratio } - what one point becomes when
+//     moved to another program in the list (Membership Rewards to Aeroplan
+//     is 1). Used when someone picks preferred points on the page.
 //   cards: [card]
 //
 // A card:

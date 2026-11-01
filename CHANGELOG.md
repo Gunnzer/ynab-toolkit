@@ -11,6 +11,11 @@ before or as part of the push itself.
 
 ## 2026-11-01
 
+**Card Rewards: preferred points** (`pages/cardrewards.js`, `tools/card_rewards.js`, `tools/card_catalogue.js`, `data/cards.json`, `store.js`, `app.css`, tests, `CLAUDE.md`)
+* A Preferred points picker at the bottom of the page. Pick the points you collect (say Aeroplan) and any card whose points can be moved into them counts as them, at the transfer rate and their value: Amex Membership Rewards moves to Aeroplan 1 to 1, so the Cobalt shows as 5x Aeroplan.
+* Preferred cards are listed first; the answer at the top is still the best card overall, so it never hides a better deal elsewhere.
+* Transfer rates live in the card data, so the monthly check keeps them current.
+
 **Card Rewards: value % explained** (`pages/cardrewards.js`, `app.css`, `CLAUDE.md`)
 * Ranking by value, each card's percentage now says "back" under it and shows the working on its own line: "5x Amex Membership Rewards × 2¢ = 10¢ per $1", with what the amount earns on the line below ("600 points, worth $12.00").
 

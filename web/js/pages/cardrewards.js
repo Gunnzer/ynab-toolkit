@@ -9,7 +9,7 @@ import { browserFetchJson, loadCatalogue } from "../tools/card_feed.js";
 import {
   TARGET_CONFIDENCE, UNSURE, centsPerPoint, daysSince, describeEarn, explain,
   formatEarned, formatRate, formatValue, formatWorth, groupName, groupUnit,
-  purchaseLabel, recommend, shortName, walletCards,
+  purchaseLabel, recommend, shortName, transferRatio, walletCards,
 } from "../tools/card_rewards.js";
 import {
   button, card, checkbox, clear, customDialog, dateLabel, el, field, hint, icon,
@@ -26,6 +26,7 @@ export function cardRewardsPage(app) {
   if (settings.rankBy !== "points") settings.rankBy = "value";
   if (typeof settings.grouped !== "boolean") settings.grouped = true;
   if (!settings.values || typeof settings.values !== "object") settings.values = {};
+  if (typeof settings.preferred !== "string") settings.preferred = "";
 
   // Answers belong to one purchase, so they are not saved: tomorrow's
   // groceries may be at a different store.
@@ -148,7 +149,19 @@ export function cardRewardsPage(app) {
     el("div", { class: "card-row reward-feed" }, feedStatus, updateButton),
     hint("A card that is missing can be added by hand, or ask for it to be " +
       "added to the built-in list."));
-  root.append(askHost, resultsHost, walletCard);
+  const preferredSelect = el("select", { "aria-label": "Preferred points" });
+  preferredSelect.addEventListener("change", () => {
+    settings.preferred = preferredSelect.value;
+    store.save();
+    renderWallet();
+    render();
+  });
+  const preferredHint = el("p", { class: "hint" });
+  const preferredCard = card(
+    sectionTitle("Preferred points"),
+    el("div", { class: "reward-preferred" }, preferredSelect),
+    preferredHint);
+  root.append(askHost, resultsHost, walletCard, preferredCard);
 
   let feed = null;
 
@@ -201,6 +214,7 @@ export function cardRewardsPage(app) {
       measure: settings.rankBy,
       grouped: settings.grouped,
       values: settings.values,
+      preferred: settings.preferred,
     }) : null;
     paint();
   }
@@ -210,8 +224,10 @@ export function cardRewardsPage(app) {
   function paint() {
     // With no cards yet, adding some is the only useful thing to do, so
     // that card comes first; once there are cards it moves to the end.
-    if (settings.wallet.length) root.append(walletCard);
+    if (settings.wallet.length) root.append(walletCard, preferredCard);
     else root.insertBefore(walletCard, pickCard);
+    // Nothing to prefer between until there are cards.
+    preferredCard.hidden = !settings.wallet.length;
     renderAsk();
     renderResults();
   }
@@ -228,7 +244,13 @@ export function cardRewardsPage(app) {
     const kind = last.confidence >= TARGET_CONFIDENCE ? "ok" : pct >= 70 ? "caution" : "warn";
     const body = [];
     const spend = amount();
-    const top = last.groups[0]?.cards[0];
+    // The best card overall, not just the first group's: with preferred
+    // points the preferred group leads, but the headline must not hide a
+    // better card in another program.
+    const top = last.groups.map((g) => g.cards[0])
+      .filter(Boolean)
+      .sort((a, b) => Number(b.accepted) - Number(a.accepted) || b.score - a.score ||
+        Number(b.card.points === settings.preferred) - Number(a.card.points === settings.preferred))[0];
 
     // By points it is "most points", not "best": raw numbers across
     // programs are not worth the same (10 PC Optimum points are a cent).
@@ -370,13 +392,24 @@ export function cardRewardsPage(app) {
         const perDollar = Math.round(stat.rate * centsPerPoint(c.points, settings.values) * 100) / 100;
         parts.push(`${formatRate(c.points, stat.rate)} ${typeName} \u00d7 ${cents(c.points)} = ${perDollar}\u00a2 per $1`);
       } else if (always || !settings.grouped) parts.push(typeName);
+      if (c.convertedFrom) parts.push(movedNote(c));
       if (spend) parts.push(cash ? `${formatWorth(c.points, stat.rate, spend, settings.values)} back on ${formatWorth("cash", 100, spend)}` : `${formatEarned(c.points, stat.rate, spend)}, worth ${formatWorth(c.points, stat.rate, spend, settings.values)}`);
     } else {
       if (always || !settings.grouped) parts.push(typeName);
+      if (c.convertedFrom) parts.push(movedNote(c));
       if (!cash) parts.push(`worth about ${formatValue(c.points, stat.rate, settings.values)}`);
       if (spend) parts.push(formatEarned(c.points, stat.rate, spend));
     }
     return parts;
+  }
+
+  function movedNote(c) {
+    return `Earns ${groupName(c.convertedFrom)}, moved to ${groupName(c.points)} ` +
+      `at ${ratioLabel(c.ratio)}`;
+  }
+
+  function ratioLabel(ratio) {
+    return ratio === 1 ? "1 to 1" : `1 to ${Math.round(ratio * 100) / 100}`;
   }
 
   /** One line per part: the working, then what this purchase earns. */
@@ -425,7 +458,13 @@ export function cardRewardsPage(app) {
         grid.append(el("label", { class: "reward-value-row" },
           el("span", { class: "reward-value-name" },
             el("span", { text: groupName(points) }),
-            el("span", { class: "hint", text: `Typical ${typical}\u00a2` })),
+            el("span", {
+              class: "hint",
+              text: settings.preferred && points !== settings.preferred &&
+                transferRatio(points, settings.preferred) > 0
+                ? `Counted as ${groupName(settings.preferred)} while that is preferred`
+                : `Typical ${typical}\u00a2`,
+            })),
           el("span", { class: "reward-value-input" }, input, el("span", { class: "hint", text: "\u00a2" }))));
       };
       held.forEach(addRow);
@@ -480,6 +519,36 @@ export function cardRewardsPage(app) {
     }
     addSelect.value = "";
     addButton.disabled = true;
+    renderPreferred(cards);
+  }
+
+  function renderPreferred(cards) {
+    clear(preferredSelect);
+    preferredSelect.append(el("option", { value: "", text: "No preference" }));
+    // Kinds you hold first, since those are the ones worth choosing.
+    const held = [...new Set(cards.map((c) => c.points))].filter((p) => POINT_TYPES[p]);
+    const rest = Object.keys(POINT_TYPES).filter((p) => !held.includes(p));
+    for (const points of [...held, ...rest]) {
+      preferredSelect.append(el("option", { value: points, text: groupName(points) }));
+    }
+    if (settings.preferred && !POINT_TYPES[settings.preferred] && CARDS.length) settings.preferred = "";
+    preferredSelect.value = settings.preferred || "";
+
+    const preferred = settings.preferred;
+    if (!preferred) {
+      preferredHint.textContent = "Pick the points you collect. Cards whose points " +
+        "can be moved into them are counted as them, at the transfer rate and " +
+        "their value, and their cards are listed first.";
+      return;
+    }
+    const moved = cards.filter((c) => c.points !== preferred && transferRatio(c.points, preferred) > 0);
+    const name = groupName(preferred);
+    preferredHint.textContent = moved.length
+      ? moved.map((c) => `${shortName(c)} earns ${groupName(c.points)}, counted as ${name} ` +
+        `(${ratioLabel(transferRatio(c.points, preferred))}).`).join(" ") +
+        ` ${name} cards are listed first; the top answer is still the best card overall.`
+      : `None of your other cards' points move to ${name}, so this only lists ` +
+        `${name} cards first.`;
   }
 
   // A card dropped from the downloaded list (discontinued, usually). Kept
@@ -511,9 +580,11 @@ export function cardRewardsPage(app) {
   function walletRow(entry, resolved, index) {
     // One short line, so every row is the same height; the long forms are
     // in Details.
+    const moves = settings.preferred && resolved.points !== settings.preferred &&
+      transferRatio(resolved.points, settings.preferred) > 0;
     const meta = [
       NETWORK_SHORT[resolved.network],
-      groupName(resolved.points),
+      moves ? `Moves to ${groupName(settings.preferred)}` : groupName(resolved.points),
       resolved.annualFee ? `$${Math.round(resolved.annualFee)}/yr` : "No fee",
       resolved.fxFee ? null : "No FX fee",
     ].filter(Boolean).join(" \u00b7 ");

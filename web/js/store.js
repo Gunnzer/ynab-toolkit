@@ -162,6 +162,9 @@ export const DEFAULTS = {
     grouped: true,
     // Point type id -> cents per point, overriding the typical value.
     values: {},
+    // A point type id, or "" for none: points that transfer into it are
+    // counted as it, and its cards are listed first.
+    preferred: "",
   },
   duplicates: {
     since: "",

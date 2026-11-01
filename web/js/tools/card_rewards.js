@@ -133,6 +133,11 @@ export function validateCatalogue(data) {
     if (type?.cents !== undefined && !(typeof type.cents === "number" && type.cents >= 0 && type.cents < 100)) {
       problems.push(`Point type ${id} has an odd value in cents.`);
     }
+    for (const [to, ratio] of Object.entries(type?.transfers || {})) {
+      if (!types[to] || to === id || !(typeof ratio === "number" && ratio > 0 && ratio <= 10)) {
+        problems.push(`Point type ${id} has an odd transfer to ${to}.`);
+      }
+    }
   }
   if (!Array.isArray(data.cards) || !data.cards.length) {
     problems.push("There are no cards.");
@@ -419,6 +424,36 @@ export function formatWorth(points, rate, amount, values) {
     .format(amount * rate * centsPerPoint(points, values) / 100);
 }
 
+/** How many `to` points one `from` point becomes; 0 when it cannot move. */
+export function transferRatio(from, to) {
+  if (!from || !to) return 0;
+  if (from === to) return 1;
+  const ratio = Number(POINT_TYPES[from]?.transfers?.[to]);
+  return ratio > 0 ? ratio : 0;
+}
+
+/**
+ * Cards as they earn for someone who moves every point they can into
+ * `preferred`: a card whose points transfer there is treated as earning
+ * the preferred points, at its rates times the transfer ratio, and keeps
+ * where they came from (`convertedFrom`, `ratio`) for the page to say so.
+ */
+export function asPreferred(cards, preferred) {
+  if (!preferred) return cards;
+  return cards.map((card) => {
+    const ratio = transferRatio(card.points, preferred);
+    if (!ratio || card.points === preferred) return card;
+    return {
+      ...card,
+      points: preferred,
+      convertedFrom: card.points,
+      ratio,
+      base: card.base * ratio,
+      earn: card.earn.map((rule) => ({ ...rule, rate: rule.rate * ratio })),
+    };
+  });
+}
+
 function evaluate(cards, purchase, answers, questions, view) {
   const all = scenarios(questions, purchase, answers);
   const outcomes = all.map((s) => ({
@@ -469,13 +504,18 @@ function evaluate(cards, purchase, answers, questions, view) {
     byType.get(key).push(stat);
   }
   const groups = [...byType.entries()].map(([points, list]) => {
+    const preferred = (stat) => Number(Boolean(view.preferred) && stat.card.points === view.preferred);
     list.sort((a, b) => Number(b.accepted) - Number(a.accepted) || b.expected - a.expected ||
-      b.score - a.score || a.card.name.localeCompare(b.card.name));
+      b.score - a.score || preferred(b) - preferred(a) || a.card.name.localeCompare(b.card.name));
     return view.grouped
       ? { points, name: groupName(points), unit: groupUnit(points), cards: list }
       : { points: null, name: "Your cards", unit: null, cards: list };
   });
-  groups.sort((a, b) => Number(b.cards[0].accepted) - Number(a.cards[0].accepted) ||
+  // Preferred points lead when grouped: that is the program being chosen
+  // between; everything else is the comparison.
+  const first = (group) => Number(Boolean(view.preferred) && group.points === view.preferred);
+  groups.sort((a, b) => first(b) - first(a) ||
+    Number(b.cards[0].accepted) - Number(a.cards[0].accepted) ||
     b.cards[0].score - a.cards[0].score || b.cards[0].expected - a.cards[0].expected ||
     a.name.localeCompare(b.name));
 
@@ -503,17 +543,21 @@ function evaluate(cards, purchase, answers, questions, view) {
  * that is, plus the question to ask next - null once it is at least
  * TARGET_CONFIDENCE sure, or when no question left could change anything.
  *
- * view: { measure: "value" | "points", grouped, values }
+ * view: { measure: "value" | "points", grouped, values, preferred }
  *   value ranks by what the points are worth (centsPerPoint), points by the
  *   raw number. grouped keeps one list per point type; ungrouped is one
  *   list. How sure always means "the top of each list shown is right".
+ *   preferred: a point type id; cards whose points move there count as it
+ *   (asPreferred), and its group comes first.
  */
 export function recommend(cards, purchase, answers = {}, view = {}) {
   const settings = {
     measure: view.measure === "points" ? "points" : "value",
     grouped: view.grouped !== false,
     values: view.values || {},
+    preferred: view.preferred && POINT_TYPES[view.preferred] ? view.preferred : "",
   };
+  cards = asPreferred(cards, settings.preferred);
   const questions = questionsFor(purchase, cards);
   const now = evaluate(cards, purchase, answers, questions, settings);
 
