@@ -350,7 +350,7 @@ export function budgetPage(app) {
 
     if (!accounts.length) {
       emptyRow(accountsTable, !state.hasBudgetData
-        ? "Connect and choose a budget on the Setup page first."
+        ? "Connect and choose a budget on the Settings page first."
         : owner === "all"
           ? "No open accounts in this budget."
           : "No open accounts match that filter.");
@@ -380,7 +380,7 @@ export function budgetPage(app) {
   function renderCategories() {
     if (!state.hasBudgetData) {
       emptyRow(categoryTable,
-        "No categories loaded. Connect and choose a budget on the Setup page.");
+        "No categories loaded. Connect and choose a budget on the Settings page.");
       categoryStatus.textContent = "";
       return;
     }
@@ -493,9 +493,9 @@ export function budgetPage(app) {
   }
 
   async function load() {
-    if (!state.token) return log.write("Connect on the Setup page first.", "error");
+    if (!state.token) return log.write("Connect on the Settings page first.", "error");
     if (!state.budgetId) {
-      return log.write("Select a budget on the Setup page first.", "error");
+      return log.write("Select a budget on the Settings page first.", "error");
     }
     if (!/^\d{4}-\d{2}$/.test(monthInput.value)) {
       return log.write("Pick a valid month.", "error");

@@ -2,7 +2,7 @@
 
 import { AppState } from "./state.js";
 import { requestPersistence } from "./store.js";
-import { alertDialog, clear, el, getPageIntro, icon, setPill } from "./ui.js";
+import { alertDialog, clear, customDialog, el, getPageIntro, icon, setPill } from "./ui.js";
 
 import { homePage } from "./pages/home.js";
 import { setupPage } from "./pages/setup.js";
@@ -20,37 +20,127 @@ import { upcomingPage } from "./pages/upcoming.js";
 import { categorizePage } from "./pages/categorize.js";
 import { cardRewardsPage } from "./pages/cardrewards.js";
 
-// Home first, then the daily tools. Setup is pinned to the sidebar footer.
+// The app is organised into a few spaces, each holding related tools as
+// tabs (at explicit user request: 14 separate menu entries were
+// overwhelming, especially on a phone). Following Material's 3-5
+// destinations rule and YNAB's own handful of spaces: the sidebar and the
+// phone's bottom bar list spaces, and a row of tabs under the title lists
+// the space's tools. Every page keeps its own #/id address, so old links
+// and bookmarks still land on the right tab.
+//
+// `group`/`groupLabel` name a page's space; Setup's tool on/off list reads
+// them too, so a page only ever changes space here.
 // `key` is the flag under tools.enabled; pages without one are always shown.
+export const SPACES = [
+  { id: "home", title: "Home", icon: "home", tabs: [{ page: "home" }] },
+  {
+    id: "budget", title: "Budget", icon: "chart", tabs: [
+      { page: "budget", label: "This month" },
+      { page: "classic-budget", label: "My plan" },
+      { page: "autoassign", label: "Auto Assign" },
+      { page: "rtatracker", label: "Ready to Assign" },
+    ],
+  },
+  {
+    id: "transactions", title: "Transactions", short: "Activity", icon: "check", tabs: [
+      { page: "categorize", label: "To review" },
+      { page: "bank", label: "Import" },
+      { page: "duplicates", label: "Duplicates" },
+    ],
+  },
+  {
+    // Reports' own five tabs are listed here directly (`tab`), so there is
+    // only ever one row of tabs, never a second row inside the page.
+    id: "reports", title: "Reports", icon: "trend", tabs: [
+      { page: "reports", tab: "spending", label: "Spending" },
+      { page: "reports", tab: "budget", label: "Budget vs actual" },
+      { page: "reports", tab: "trends", label: "Trends" },
+      { page: "reports", tab: "recurring", label: "Recurring" },
+      { page: "reports", tab: "cashflow", label: "Cash flow" },
+      { page: "upcoming", label: "Upcoming bills" },
+      { page: "spendingexport", label: "Export" },
+    ],
+  },
+  {
+    id: "together", title: "Together", icon: "split", tabs: [
+      { page: "shared", label: "Shared Expenses" },
+      { page: "splitsheet", label: "Bill Splitting" },
+    ],
+  },
+  // `short` is the bottom bar's label, where a phone has about 75px a slot.
+  { id: "cards", title: "Card Rewards", short: "Cards", icon: "wallet", tabs: [{ page: "cardrewards" }] },
+];
+
+// Spaces shown in the phone's bottom bar before anyone picks their own;
+// the rest sit under More.
+export const DEFAULT_BAR = ["home", "budget", "transactions", "cards"];
+
 export const PAGES = [
   {
     id: "home", title: "Home", icon: "home", build: homePage,
   },
-  // Each group prints as a plain section label in the sidebar with its
-  // members listed underneath, rather than a flat list of eight separate
-  // nav entries. Setup's tool on/off list (setup.js) reads the same
-  // group/groupLabel fields and groups its checkboxes to match, so there
-  // is only one place that decides who's in which group.
   {
     id: "budget", title: "YNAB Budget", icon: "chart", key: "budgetOverview",
     build: budgetPage,
     blurb: "See where a month stands: what is left to assign, what is " +
       "overspent, and what every category holds.",
-    group: "info", groupLabel: "YNAB Info & Reporting",
+    group: "budget", groupLabel: "Budget",
   },
   {
     id: "classic-budget", title: "Classic Budget", icon: "sheet",
     key: "classicBudgetOverview", build: classicBudgetPage,
     blurb: "Your categories with a plan of your own next to them: set what " +
       "you meant to spend, and see whether a category ran over it.",
-    group: "info", groupLabel: "YNAB Info & Reporting",
+    group: "budget", groupLabel: "Budget",
+  },
+  {
+    id: "autoassign", title: "Auto Assign", icon: "fill", key: "autoAssign",
+    build: autoAssignPage,
+    blurb: "Empty a holding category into your targeted categories, in the " +
+      "priority order you set.",
+    group: "budget", groupLabel: "Budget",
+  },
+  {
+    id: "rtatracker", title: "RTA Tracker", icon: "pulse", key: "rtaTracker",
+    build: rtaTrackerPage,
+    blurb: "Rebuilds Ready to Assign month by month, finds when it went " +
+      "negative, and explains each month line by line.",
+    group: "budget", groupLabel: "Budget",
+  },
+  {
+    id: "categorize", title: "Categorize", icon: "check", key: "categorize",
+    build: categorizePage,
+    blurb: "Transactions with no category or not approved yet, with a " +
+      "category suggested from your history. Approve in bulk, with undo.",
+    group: "transactions", groupLabel: "Transactions",
+  },
+  {
+    id: "bank", title: "Bank Import", icon: "upload", key: "bankImport",
+    build: bankImportPage,
+    blurb: "Turn a bank export into a CSV that YNAB can import, tidying " +
+      "payee names on the way.",
+    group: "transactions", groupLabel: "Transactions",
+  },
+  {
+    id: "duplicates", title: "Duplicates", icon: "copies", key: "duplicates",
+    build: duplicatesPage,
+    blurb: "Find transactions imported twice and flag them for review. " +
+      "Never deletes anything.",
+    group: "transactions", groupLabel: "Transactions",
   },
   {
     id: "reports", title: "Reports", icon: "trend", key: "reports",
     build: reportsPage,
     blurb: "Spending by category and payee, budget vs actual, 12-month " +
       "trends, recurring charges and cash flow.",
-    group: "info", groupLabel: "YNAB Info & Reporting",
+    group: "reports", groupLabel: "Reports",
+  },
+  {
+    id: "upcoming", title: "Upcoming Bills", icon: "calendar", key: "upcoming",
+    build: upcomingPage,
+    blurb: "What is due in the next few weeks, and whether each account " +
+      "covers it before the next money comes in.",
+    group: "reports", groupLabel: "Reports",
   },
   {
     id: "spendingexport", title: "Spending Export", icon: "download",
@@ -58,77 +148,33 @@ export const PAGES = [
     blurb: "Export one person's spending as a horizontal spreadsheet: one " +
       "row per month, one column per category, $0 filled in for a month " +
       "with no activity.",
-    group: "info", groupLabel: "YNAB Info & Reporting",
-  },
-  {
-    id: "rtatracker", title: "RTA Tracker", icon: "pulse", key: "rtaTracker",
-    build: rtaTrackerPage,
-    blurb: "Rebuilds Ready to Assign month by month, finds when it went " +
-      "negative, and explains each month line by line.",
-    group: "tracking", groupLabel: "Tracking",
-  },
-  {
-    id: "upcoming", title: "Upcoming Bills", icon: "calendar", key: "upcoming",
-    build: upcomingPage,
-    blurb: "What is due in the next few weeks, and whether each account " +
-      "covers it before the next money comes in.",
-    group: "tracking", groupLabel: "Tracking",
+    group: "reports", groupLabel: "Reports",
   },
   {
     id: "shared", title: "Shared Expenses", icon: "split", key: "sharedExpenses",
     build: sharedExpensesPage,
     blurb: "Split transactions in your shared categories between two people, " +
       "as native YNAB splits.",
-    group: "together", groupLabel: "YNAB Together",
+    group: "together", groupLabel: "Together",
   },
   {
     id: "splitsheet", title: "Bill Splitting", icon: "sheet", key: "splitSheet",
     build: splitSheetPage,
     blurb: "Work out whose expense each transaction was and export one row " +
       "per expense for a shared expense tracker.",
-    group: "together", groupLabel: "YNAB Together",
-  },
-  // Bank Import and Duplicates together under "Tools", at explicit user
-  // request: both work on transactions coming in rather than on the budget.
-  {
-    id: "bank", title: "Bank Import", icon: "upload", key: "bankImport",
-    build: bankImportPage,
-    blurb: "Turn a bank export into a CSV that YNAB can import, tidying " +
-      "payee names on the way.",
-    group: "tools", groupLabel: "Tools",
-  },
-  {
-    id: "categorize", title: "Categorize", icon: "check", key: "categorize",
-    build: categorizePage,
-    blurb: "Transactions with no category or not approved yet, with a " +
-      "category suggested from your history. Approve in bulk, with undo.",
-    group: "tools", groupLabel: "Tools",
+    group: "together", groupLabel: "Together",
   },
   {
     id: "cardrewards", title: "Card Rewards", icon: "wallet", key: "cardRewards",
     build: cardRewardsPage,
-    blurb: "Pick what you are buying and see which of your credit cards " +
-      "earns the most points for it, grouped by the kind of points.",
-    group: "tools", groupLabel: "Tools",
-  },
-  {
-    id: "duplicates", title: "Duplicates", icon: "copies", key: "duplicates",
-    build: duplicatesPage,
-    blurb: "Find transactions imported twice and flag them for review. " +
-      "Never deletes anything.",
-    group: "tools", groupLabel: "Tools",
-  },
-  {
-    id: "autoassign", title: "Auto Assign", icon: "fill", key: "autoAssign",
-    build: autoAssignPage,
-    blurb: "Empty a holding category into your targeted categories, in the " +
-      "priority order you set.",
-    group: "cleanup", groupLabel: "Cleanup",
+    blurb: "Search for a shop and see which of your credit cards gives you " +
+      "the most back there.",
+    group: "cards", groupLabel: "Card Rewards",
   },
 ];
 
 export const SETUP_PAGE = {
-  id: "setup", title: "Setup", icon: "settings", build: setupPage,
+  id: "setup", title: "Settings", icon: "settings", build: setupPage,
 };
 
 export const TOGGLEABLE = PAGES.filter((page) => page.key);
@@ -140,6 +186,9 @@ class App {
     this.busyCount = 0;
 
     this.nav = document.getElementById("nav");
+    this.bottomNav = document.getElementById("bottom-nav");
+    this.spaceTabs = document.getElementById("space-tabs");
+    this.topbar = document.querySelector(".topbar");
     this.navSetup = document.getElementById("nav-setup");
     this.sidebar = document.querySelector(".sidebar");
     this.sidebarToggle = document.getElementById("sidebar-toggle");
@@ -174,6 +223,12 @@ class App {
       this.setStatus("Re-read from YNAB.");
       this.refresh();
     });
+
+    // Sticky bars under the top bar (a page's action row) need to know how
+    // tall it is, and the row of tabs makes that vary by space.
+    new ResizeObserver(() => {
+      document.documentElement.style.setProperty("--topbar-height", `${this.topbar.offsetHeight}px`);
+    }).observe(this.topbar);
 
     this.state.subscribe(() => this.refreshChrome());
     this.state.store.subscribe(() => this.buildNav());
@@ -215,55 +270,170 @@ class App {
     this.sidebarToggle.title = collapsed ? "Expand sidebar" : "Collapse sidebar";
   }
 
-  // Plain always-expanded section labels above each group's own full-size
-  // nav items - the same look YNAB's own sidebar uses ("BUDGET", "ALL
-  // ACCOUNTS", ...) - rather than a click/hover-to-open flyout menu, which
-  // hid a page's own item behind an extra step. `.sidebar-section` already
-  // existed for the single "Tools" label above the whole list; reused here
-  // per group instead of inventing a second heading style.
-  buildNav() {
-    const render = (host, pages) => {
-      clear(host);
-      const doneGroups = new Set();
-      for (const page of pages) {
-        if (page.group) {
-          if (doneGroups.has(page.group)) continue;
-          doneGroups.add(page.group);
-          host.append(el("p", {
-            class: "sidebar-section",
-            text: page.groupLabel || page.title,
-          }));
-          for (const member of pages.filter((p) => p.group === page.group)) {
-            host.append(this.buildNavItem(member));
-          }
-          continue;
-        }
-        host.append(this.buildNavItem(page));
-      }
-    };
-    render(this.nav, this.visiblePages());
-    render(this.navSetup, [SETUP_PAGE]);
+  // ---------- spaces ----------
+
+  pageById(id) {
+    return [...PAGES, SETUP_PAGE].find((page) => page.id === id) || null;
   }
 
-  buildNavItem(page) {
+  pageVisible(id) {
+    const page = this.pageById(id);
+    return Boolean(page) && (!page.key || this.toolEnabled(page.key));
+  }
+
+  /** A space's tabs whose tool is switched on. */
+  spaceTabsFor(space) {
+    return space.tabs.filter((tab) => this.pageVisible(tab.page));
+  }
+
+  /** Spaces with at least one tool switched on, in order. */
+  visibleSpaces() {
+    return SPACES.filter((space) => this.spaceTabsFor(space).length);
+  }
+
+  spaceOfPage(id) {
+    return SPACES.find((space) => space.tabs.some((tab) => tab.page === id)) || null;
+  }
+
+  /** Whether `tab` is the one on screen. */
+  tabActive(tab) {
+    if (this.current !== tab.page) return false;
+    return !tab.tab || (this.state.store.get("reports.reportTab", "spending") || "spending") === tab.tab;
+  }
+
+  openTab(tab) {
+    if (tab.tab) {
+      // Reports' own tabs: the page reads which one to show from here.
+      this.state.store.set("reports.reportTab", tab.tab);
+      if (this.current === tab.page) return this.refresh();
+    }
+    this.go(tab.page);
+  }
+
+  /** A space opens where it was last left, else on its first tab. */
+  openSpace(space) {
+    const tabs = this.spaceTabsFor(space);
+    const last = (this.state.store.get("nav.last", {}) || {})[space.id];
+    const remembered = last && tabs.find((t) => t.page === last.page && (t.tab || "") === (last.tab || ""));
+    this.openTab(remembered || tabs[0]);
+  }
+
+  rememberTab() {
+    const space = this.spaceOfPage(this.current);
+    if (!space) return;
+    const tab = space.tabs.find((t) => this.tabActive(t));
+    if (!tab) return;
+    const last = { ...(this.state.store.get("nav.last", {}) || {}) };
+    if (last[space.id]?.page === tab.page && (last[space.id]?.tab || "") === (tab.tab || "")) return;
+    last[space.id] = { page: tab.page, tab: tab.tab || "" };
+    this.state.store.set("nav.last", last);
+  }
+
+  /** The spaces in the phone's bottom bar: up to four, the rest under More. */
+  barSpaces() {
+    const visible = this.visibleSpaces();
+    const chosen = (this.state.store.get("nav.bar", null) || DEFAULT_BAR)
+      .map((id) => visible.find((space) => space.id === id))
+      .filter(Boolean);
+    for (const space of visible) {
+      if (chosen.length >= 4) break;
+      if (!chosen.includes(space)) chosen.push(space);
+    }
+    return chosen.slice(0, 4);
+  }
+
+  // The sidebar (wide screens) lists spaces; the bottom bar (phones and
+  // tablets, see app.css) lists four of them plus More. Both are rebuilt on
+  // every page change and settings change, which is cheap at this size.
+  buildNav() {
+    const current = this.current === SETUP_PAGE.id ? null : this.spaceOfPage(this.current);
+
+    clear(this.nav);
+    for (const space of this.visibleSpaces()) {
+      this.nav.append(this.navButton(space.title, space.icon, space === current, () => this.openSpace(space)));
+    }
+    clear(this.navSetup).append(this.navButton(SETUP_PAGE.title, SETUP_PAGE.icon,
+      this.current === SETUP_PAGE.id, () => this.go(SETUP_PAGE.id)));
+
+    const bar = this.barSpaces();
+    clear(this.bottomNav);
+    for (const space of bar) {
+      this.bottomNav.append(this.barButton(space.short || space.title, space.icon, space === current, () => this.openSpace(space)));
+    }
+    const inMore = !current || !bar.includes(current);
+    this.bottomNav.append(this.barButton("More", "more", inMore, () => this.openMore()));
+
+    this.buildSpaceTabs(current);
+  }
+
+  buildSpaceTabs(space) {
+    clear(this.spaceTabs);
+    const tabs = space ? this.spaceTabsFor(space) : [];
+    // One tool in the space: its title says it all, no tab row needed.
+    this.spaceTabs.hidden = tabs.length < 2;
+    if (tabs.length < 2) return;
+    for (const tab of tabs) {
+      const active = this.tabActive(tab);
+      this.spaceTabs.append(el("button", {
+        type: "button",
+        class: `space-tab${active ? " is-active" : ""}`,
+        role: "tab",
+        "aria-selected": String(active),
+        text: tab.label || this.pageById(tab.page).title,
+        onClick: () => this.openTab(tab),
+      }));
+    }
+    // Keep the open tab in view when the row scrolls sideways on a phone.
+    this.spaceTabs.querySelector(".is-active")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }
+
+  navButton(text, iconName, active, onClick) {
     return el("button", {
       type: "button",
       class: "nav-item",
-      "data-page": page.id,
-      title: page.title,
-      "aria-current": this.current === page.id ? "page" : null,
-      onClick: () => this.go(page.id),
-    }, icon(page.icon), el("span", { text: page.title }));
+      title: text,
+      "aria-current": active ? "page" : null,
+      onClick,
+    }, icon(iconName), el("span", { text }));
+  }
+
+  barButton(text, iconName, active, onClick) {
+    return el("button", {
+      type: "button",
+      class: `bottom-nav-item${active ? " is-active" : ""}`,
+      "aria-current": active ? "page" : null,
+      onClick,
+    }, icon(iconName, { size: 22 }), el("span", { text }));
+  }
+
+  /** The spaces that did not fit in the bottom bar, plus Settings. */
+  openMore() {
+    const bar = this.barSpaces();
+    const rest = this.visibleSpaces().filter((space) => !bar.includes(space));
+    const close = () => document.getElementById("dialog").dispatchEvent(new Event("cancel"));
+    customDialog("More", (body) => {
+      const list = el("div", { class: "more-list" });
+      const item = (text, iconName, onClick) => el("button", {
+        type: "button",
+        class: "more-item",
+        onClick: () => {
+          close();
+          onClick();
+        },
+      }, icon(iconName), el("span", { text }));
+      for (const space of rest) list.append(item(space.title, space.icon, () => this.openSpace(space)));
+      list.append(item(SETUP_PAGE.title, SETUP_PAGE.icon, () => this.go(SETUP_PAGE.id)));
+      body.append(list);
+    }, { confirmText: "Close", hideCancel: true, sheet: true });
   }
 
   routeFromHash() {
     const id = (location.hash || "").replace(/^#\/?/, "") || null;
-    const known = [...PAGES, SETUP_PAGE].some((page) => page.id === id);
-    this.show(known ? id : this.defaultPage());
+    this.show(this.pageById(id) ? id : this.defaultPage());
   }
 
   defaultPage() {
-    // Home when there is something to come home to, Setup otherwise.
+    // Home when there is something to come home to, Settings otherwise.
     return this.state.token && this.state.budgetId ? "home" : "setup";
   }
 
@@ -273,18 +443,23 @@ class App {
   }
 
   show(id) {
-    const page = [...PAGES, SETUP_PAGE].find((entry) => entry.id === id);
+    const page = this.pageById(id);
     if (!page) return this.show(this.defaultPage());
 
     // A tool switched off while open falls back to Home.
     if (page.key && !this.toolEnabled(page.key)) return this.go("home");
 
     this.current = id;
-    this.title.textContent = page.title;
+    // A space with several tabs is titled by the space; the tab row says
+    // which tool. A single-tool space is titled by the tool.
+    const space = this.spaceOfPage(id);
+    const spaceTitle = space && this.spaceTabsFor(space).length > 1 ? space.title : page.title;
+    this.title.textContent = spaceTitle;
     document.title = `${page.title} - YNAB Toolkit`;
 
     clear(this.pageHost).append(page.build(this));
     this.pageHost.focus({ preventScroll: true });
+    this.rememberTab();
     this.buildNav();
     this.refreshChrome();
   }
@@ -426,7 +601,8 @@ class App {
     const intro = getPageIntro();
     // The page-specific description used to sit visibly at the top of every
     // page; it now only shows up here, for whichever page is open.
-    const pageSection = intro ? `${this.title.textContent}\n${intro}\n\n` : "";
+    const pageTitle = this.pageById(this.current)?.title || this.title.textContent;
+    const pageSection = intro ? `${pageTitle}\n${intro}\n\n` : "";
 
     alertDialog("YNAB Toolkit",
       pageSection +
@@ -434,12 +610,12 @@ class App {
       "settings never leave this device, and the only requests made are to " +
       "api.ynab.com with your own token.\n\n" +
       "Getting started\n" +
-      "Open Setup and paste a YNAB personal access token. Create one at " +
+      "Open Settings and paste a YNAB personal access token. Create one at " +
       "ynab.com under Account Settings > Developer Settings > New Token. " +
       "Then pick your budget.\n\n" +
       "Keeping your settings\n" +
       "Settings live in this browser's storage, which clearing browsing " +
-      "data will erase. Use Back up settings on the Setup page to save them " +
+      "data will erase. Use Back up settings on the Settings page to save them " +
       "to a file you can restore here or on another machine.\n\n" +
       "YNAB allows 200 API requests per hour per token.");
   }

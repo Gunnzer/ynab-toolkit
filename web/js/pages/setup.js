@@ -22,7 +22,7 @@ export function setupPage(app) {
   const log = logPane(LOG_EMPTY);
 
   root.append(pageHeading(
-    "Setup",
+    "Settings",
     "Connect to YNAB and pick a budget. Everything runs in your browser: " +
     "your token is never sent anywhere except api.ynab.com."));
 
@@ -482,7 +482,7 @@ export function setupPage(app) {
         onClick: async () => {
           try {
             await navigator.clipboard.writeText(code);
-            status.textContent = "Copied. On the other device: Setup, Receive from another device, paste.";
+            status.textContent = "Copied. On the other device: Settings, Receive from another device, paste.";
           } catch {
             box.select();
             status.textContent = "Could not copy automatically - it is selected, copy it by hand.";

@@ -253,7 +253,7 @@ export class AppState {
   requireClient() {
     if (!this.token) {
       throw new Error(
-        "No access token yet. Open Setup, paste your YNAB personal access " +
+        "No access token yet. Open Settings, paste your YNAB personal access " +
         "token and press Connect.");
     }
     return this.client();

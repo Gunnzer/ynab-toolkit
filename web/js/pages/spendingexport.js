@@ -87,7 +87,7 @@ export function spendingExportPage(app) {
   });
   const earliestNote = hint(state.firstBudgetMonth
     ? `This budget's data starts ${monthLabelLong(state.firstBudgetMonth)}.`
-    : "Connect on the Setup page to limit this list to when your budget " +
+    : "Connect on the Settings page to limit this list to when your budget " +
       "actually starts.");
 
   const inflowBox = checkbox("Include income and refunds",
@@ -130,11 +130,11 @@ export function spendingExportPage(app) {
 
   async function reload() {
     if (!state.token || !state.budgetId) {
-      return log.write("Connect and choose a budget on the Setup page first.",
+      return log.write("Connect and choose a budget on the Settings page first.",
         "error");
     }
     if (!state.hasBudgetData) {
-      return log.write("Data is not loaded. Open Setup and press Reload data.",
+      return log.write("Data is not loaded. Open Settings and press Reload data.",
         "error");
     }
 
@@ -165,7 +165,7 @@ export function spendingExportPage(app) {
       clear(previewTable.querySelector("thead"));
       previewTable.columns = [{}];
       clear(previewTable.tbody);
-      emptyRow(previewTable, "Connect and choose a budget on the Setup page to see your history.");
+      emptyRow(previewTable, "Connect and choose a budget on the Settings page to see your history.");
       summaryNote.textContent = "";
       saveButton.disabled = true;
       copyButton.disabled = true;
@@ -184,7 +184,7 @@ export function spendingExportPage(app) {
     if (!categories.length) {
       summaryNote.textContent =
         `${who} owns no categories yet - set up group prefixes or account ` +
-        "tags on the Setup page first.";
+        "tags on the Settings page first.";
       saveButton.disabled = true;
       copyButton.disabled = true;
       return;

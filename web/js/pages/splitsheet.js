@@ -1085,11 +1085,11 @@ export function splitSheetPage(app) {
       }
     } else {
       if (!state.token || !state.budgetId) {
-        return log.write("Connect and choose a budget on the Setup page first.",
+        return log.write("Connect and choose a budget on the Settings page first.",
           "error");
       }
       if (!state.hasBudgetData) {
-        return log.write("Categories are not loaded. Open Setup and press " +
+        return log.write("Categories are not loaded. Open Settings and press " +
           "Reload categories.", "error");
       }
 

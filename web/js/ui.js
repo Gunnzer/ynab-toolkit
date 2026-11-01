@@ -89,6 +89,10 @@ const ICONS = {
   wallet:
     '<rect x="3.5" y="6" width="17" height="13" rx="2.5"/>' +
     '<path d="M3.5 10h17"/><path d="M15.5 14.5h1.5"/>',
+  more:
+    '<circle cx="6" cy="12" r="1.4" fill="currentColor" stroke="none"/>' +
+    '<circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/>' +
+    '<circle cx="18" cy="12" r="1.4" fill="currentColor" stroke="none"/>',
   layout:
     '<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/>' +
     '<rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/>' +
@@ -352,12 +356,16 @@ const dialog = () => document.getElementById("dialog");
  */
 function openDialog(title, build, {
   confirmText = "OK", cancelText = "Cancel", hideCancel = false, wide = false,
+  sheet = false,
 } = {}) {
   const node = dialog();
   const form = node.querySelector("form");
   const cancel = document.getElementById("dialog-cancel");
 
   node.classList.toggle("is-wide", wide);
+  // On a phone a sheet rises from the bottom, within thumb reach; on a wide
+  // screen it is the ordinary centred dialog.
+  node.classList.toggle("is-sheet", sheet);
   document.getElementById("dialog-title").textContent = title;
   const body = clear(document.getElementById("dialog-body"));
   const result = build ? build(body) : null;

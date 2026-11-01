@@ -573,7 +573,7 @@ const SETTLE_PILL = {
 
 async function settleWidget(body, size, ctx, app) {
   if (!app.state.peopleNamed) {
-    body.append(hint("Name the two people in Setup to see settle ups here."));
+    body.append(hint("Name the two people in Settings to see settle ups here."));
     return;
   }
   const cycles = await ctx.settle();
@@ -897,7 +897,7 @@ function toolLinksFields(body, config, app) {
     const box = el("input", { type: "checkbox" });
     box.checked = chosen ? chosen.has(page.id) : on;
     return [page.id, box, el("label", { class: `checkbox ${on ? "" : "is-off"}`.trim() }, box,
-      el("span", { text: on ? page.title : `${page.title} (switched off in Setup)` }))];
+      el("span", { text: on ? page.title : `${page.title} (switched off in Settings)` }))];
   });
   body.append(el("label", { class: "field-label", text: "Links" }),
     el("div", { class: "settings-checks" }, ...boxes.map(([, , label]) => label)));

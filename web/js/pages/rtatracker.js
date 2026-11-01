@@ -549,9 +549,9 @@ export function rtaTrackerPage(app) {
   }
 
   async function rebuild() {
-    if (!state.token) return log.write("Connect on the Setup page first.", "error");
+    if (!state.token) return log.write("Connect on the Settings page first.", "error");
     if (!state.budgetId) {
-      return log.write("Select a budget on the Setup page first.", "error");
+      return log.write("Select a budget on the Settings page first.", "error");
     }
 
     log.clearLog();

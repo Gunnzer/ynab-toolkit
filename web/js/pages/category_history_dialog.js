@@ -28,7 +28,7 @@ export function categoryLink(app, category, { text = category.name, focusMonth, 
 export async function openCategoryHistory(app, category, { focusMonth = localMonth(), log } = {}) {
   const state = app.state;
   if (!state.token || !state.budgetId) {
-    log?.write("Connect and choose a budget on the Setup page first.", "error");
+    log?.write("Connect and choose a budget on the Settings page first.", "error");
     return;
   }
   const loaded = await app.run(() => state.loadAllTransactions(), { log });

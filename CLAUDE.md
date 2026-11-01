@@ -166,39 +166,7 @@ test file in `web/tests/`.
 
 ## Core infrastructure
 
-- **`main.js`** - `PAGES` array (id, title, icon, optional `key` for the
-  Setup tool-toggle and optional `group`/`groupLabel` for a sidebar
-  section), the `App` class (routing via `go`/`show`,
-  `buildNav`, `visiblePages`/`toolEnabled`, and `run(job, {log, buttons})` -
-  the standard wrapper every page uses for an async action: sets busy state,
-  disables the passed buttons, logs errors, always re-enables in `finally`).
-  Five groups cover every toggleable tool (at explicit user request):
-  `"info"` → **YNAB Info & Reporting** (YNAB Budget, Classic Budget,
-  Reports, Spending Export), `"tracking"` → **Tracking** (RTA Tracker,
-  Upcoming Bills), `"together"` → **YNAB Together** (Shared Expenses, Bill
-  Splitting), `"tools"` → **Tools** (Bank Import, Categorize, Duplicates -
-  Bank Import and Duplicates moved together at explicit user request, both
-  being about transactions coming in),
-  `"cleanup"` → **Cleanup** (Auto Assign). Group order in the sidebar
-  follows each group's first appearance in the `PAGES` array, not
-  alphabetical or insertion-into-a-Set order. There is no separate
-  "Tools" label above the whole list any more (`index.html` used to have
-  one above Home) - with a "Tools" group it would have shown twice, so
-  Home now sits on its own above the first group. `buildNav()` renders each group as a plain `.sidebar-section`
-  label (the same style already used for the single "Tools" heading above
-  the whole list) with the group's own pages listed underneath as regular
-  full-size `nav-item` buttons - like YNAB's own sidebar, at explicit user
-  request. A hover/click flyout menu (`buildNavGroup()`) was tried first and
-  removed - it hid a page behind an extra step instead of always showing it.
-  `groupIcon` and the flyout's CSS (`.nav-flyout`, `.nav-item-parent`,
-  `.nav-caret`, `.nav-item-wrap`) were removed with it, since nothing reads
-  them any more. **`setup.js`'s "Tools" card mirrors the same grouping** rather
-  than listing all eight toggles flat - it reads each page's own
-  `group`/`groupLabel` (deduping by `page.group || page.id` so an
-  ungrouped future page still gets its own "Other" heading instead of being
-  silently dropped) rather than hardcoding the three group names a second
-  time, so a page's group only ever needs to change in one place
-  (`PAGES` here) to move it in both the sidebar and Setup at once.
+- **`main.js`** - `SPACES`, `PAGES` and the `App` class. **Spaces (at explicit user request: "less tools all over the place... overwhelming, especially on mobile"):** the 14 tools are grouped into six spaces - Home, Budget (This month / My plan / Auto Assign / Ready to Assign), Transactions (To review / Import / Duplicates), Reports (Spending / Budget vs actual / Trends / Recurring / Cash flow / Upcoming bills / Export), Together (Shared Expenses / Bill Splitting), Card Rewards - following Material's 3-5 destinations rule and YNAB's own handful of spaces. `SPACES[].tabs` lists `{ page, label, tab? }`; `tab` is one of Reports' own tabs (`reports.reportTab`), so Reports shows its five tabs in the same single row as Upcoming bills and Export - `report_tabs.js` no longer draws a tab bar of its own, it only shows the pane `reports.reportTab` names. Every page keeps its `#/id` route, so old links and Home's links land on the right tab (`spaceOfPage()`). The sidebar (wide screens) lists visible spaces (a space with every tool switched off disappears) plus Settings in the footer; the row of tabs is `#space-tabs` inside the sticky top bar (hidden for a one-tool space); at 900px and below the sidebar is hidden and `#bottom-nav` shows four spaces (`barSpaces()`: `nav.bar` setting, else `DEFAULT_BAR` = Home, Budget, Transactions, Card Rewards, topped up from the rest) plus More, which opens a bottom sheet (`customDialog(..., { sheet: true })`, `.dialog.is-sheet`) with the other spaces and Settings. A space's bar label is `short` when the title will not fit about 75px (Transactions shows "Activity", Card Rewards "Cards"). Opening a space returns to the tab last used there (`nav.last`, written by `rememberTab()`). The top bar's title is the space for a multi-tool space and the tool otherwise; Help still names the tool. `.page-actions` sticks below the top bar at `var(--topbar-height)`, which a `ResizeObserver` sets from the top bar's real height (the tab row makes it vary). `group`/`groupLabel` on each page name its space; `setup.js`'s Tools card groups its on/off switches by them, so moving a tool between spaces is a one-line change here. `run(job, {log, buttons})` is the standard wrapper every page uses for an async action: sets busy state, disables the passed buttons, logs errors, always re-enables in `finally`. The page formerly called Setup is titled **Settings** everywhere a person reads it (its id and file are still `setup`).
 - **`state.js`** (`AppState`) - the connected client, the loaded budget
   (groups/accounts/transactions), and helpers like `personName(which)`,
   `categoryName(id)`, `withPeople(settings)`. `withPeople()` is the one place
@@ -417,11 +385,11 @@ node --test web/tests/tools.test.js   # one file
 **Responsive breakpoints (`app.css`, bottom "Responsive" section):** two
 tiers, tablet at `max-width: 900px` then phone at `max-width: 560px` (a
 phone always matches both - the 560px rules only add to or override the
-900px ones, never replace the whole approach). 900px turns the sidebar
-into a wrapping horizontal top bar; that's as far as tablet needs to go.
+900px ones, never replace the whole approach). 900px hides the sidebar
+and shows the bottom bar of spaces instead (see `main.js` above), and turns
+`customDialog(..., { sheet: true })` into a sheet rising from the bottom.
 560px is for what only breaks once the viewport itself gets phone-narrow:
-nav items shrink further so a full tool list wraps to two rows instead of
-three or four, `--gutter`/card padding/stat-card padding all tighten,
+`--gutter`/card padding/stat-card padding all tighten,
 table cells get denser (no attempt to reflow a wide table into cards -
 `.table-wrap`'s existing horizontal scroll is the mobile answer for
 Reports'/Bill Splitting's many-column tables, since a card layout would

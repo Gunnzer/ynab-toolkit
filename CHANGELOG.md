@@ -11,6 +11,12 @@ before or as part of the push itself.
 
 ## 2026-11-01
 
+**Fewer places to go: tools grouped into spaces** (`main.js`, `index.html`, `ui.js`, `app.css`, `pages/report_tabs.js`, `pages/setup.js`, every page's "Setup" wording, `CLAUDE.md`)
+* The 14 tools now live in six spaces: Home, Budget, Transactions, Reports, Together and Card Rewards. Each space shows its tools as a row of tabs under the title (Budget: This month, My plan, Auto Assign, Ready to Assign; Reports: its five reports plus Upcoming bills and Export).
+* On a phone or tablet the menu is a bar along the bottom with Home, Budget, Activity, Cards and More; More opens a sheet with Reports, Together and Settings. The old menu that filled the top of the screen is gone.
+* A space opens on the tab you last used there. Old links and bookmarks still go to the right place.
+* Setup is now called Settings.
+
 **Card Rewards: remembers your cap answers** (`pages/cardrewards.js`, `tools/card_rewards.js`, `store.js`, tests, `CLAUDE.md`)
 * Answering "have you already put $25,000 on your Momentum this year?" is now remembered until Dec 31 (a monthly cap until the end of the month), on every shop, instead of being asked again each visit.
 * It shows as "Scotia Momentum VI past cap, until Dec 31"; tap its x to change it. "Not sure" is not remembered, and Start over keeps these.

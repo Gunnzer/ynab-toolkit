@@ -161,7 +161,7 @@ export function reportsPage(app) {
     field("From month", rangeFromInput), field("To month", rangeToInput));
   const earliestNote = hint(state.firstBudgetMonth
     ? `This budget's data starts ${monthLabelLong(state.firstBudgetMonth)}.`
-    : "Connect on the Setup page to limit this list to when your budget " +
+    : "Connect on the Settings page to limit this list to when your budget " +
       "actually starts.");
 
   function currentMode() {
@@ -333,7 +333,7 @@ export function reportsPage(app) {
   async function chooseCategories() {
     const groups = state.groups(true);
     if (!groups.length) {
-      return log.write("Load a budget on the Setup page first.", "warn");
+      return log.write("Load a budget on the Settings page first.", "warn");
     }
     const current = new Set(settings[categoryIdsKey()] || []);
     const total = state.flatCategories(true).length;
@@ -618,11 +618,11 @@ export function reportsPage(app) {
    */
   async function reload() {
     if (!state.token || !state.budgetId) {
-      return log.write("Connect and choose a budget on the Setup page first.",
+      return log.write("Connect and choose a budget on the Settings page first.",
         "error");
     }
     if (!state.hasBudgetData) {
-      return log.write("Data is not loaded. Open Setup and press Reload data.",
+      return log.write("Data is not loaded. Open Settings and press Reload data.",
         "error");
     }
 
@@ -707,7 +707,7 @@ export function reportsPage(app) {
 
     if (!entries) {
       clear(statGrid).append(card(hint(
-        "Connect and choose a budget on the Setup page to see your history.")));
+        "Connect and choose a budget on the Settings page to see your history.")));
       for (const node of [monthTable, groupTable, categoryTable, payeeTable]) {
         emptyRow(node, "Nothing yet.");
       }

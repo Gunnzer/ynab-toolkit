@@ -102,10 +102,10 @@ export function categorizePage(app) {
 
   async function load() {
     if (!state.token || !state.budgetId) {
-      return log.write("Connect and choose a budget on the Setup page first.", "error");
+      return log.write("Connect and choose a budget on the Settings page first.", "error");
     }
     if (!state.hasBudgetData) {
-      return log.write("Categories are not loaded. Open Setup and press Reload data.", "error");
+      return log.write("Categories are not loaded. Open Settings and press Reload data.", "error");
     }
     const result = await app.run(() => state.loadAllTransactions(), { log });
     if (!result) return;

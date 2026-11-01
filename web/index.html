@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>YNAB Toolkit</title>
 <meta name="description" content="Utilities for the parts of YNAB that need doing by hand.">
 <meta name="color-scheme" content="light">
@@ -21,9 +21,9 @@
       <span class="brand-mark" aria-hidden="true">&#9673;</span>
       <span class="brand-name">YNAB Toolkit</span>
     </div>
-    <nav id="nav" class="nav" aria-label="Tools"></nav>
+    <nav id="nav" class="nav" aria-label="Spaces"></nav>
     <div class="sidebar-footer">
-      <nav id="nav-setup" class="nav" aria-label="Setup"></nav>
+      <nav id="nav-setup" class="nav" aria-label="Settings"></nav>
       <button id="sidebar-toggle" class="sidebar-toggle" type="button"
         aria-label="Collapse sidebar" title="Collapse sidebar"></button>
     </div>
@@ -42,6 +42,9 @@
         </button>
         <button id="help-button" class="btn btn-small" type="button">Help</button>
       </div>
+      <div class="space-tabs-wrap">
+        <div id="space-tabs" class="space-tabs" role="tablist" aria-label="Tools in this space" hidden></div>
+      </div>
     </header>
 
     <main id="page" class="page" tabindex="-1"></main>
@@ -54,6 +57,8 @@
     </footer>
   </div>
 </div>
+
+<nav id="bottom-nav" class="bottom-nav" aria-label="Spaces"></nav>
 
 <dialog id="dialog" class="dialog">
   <form method="dialog">

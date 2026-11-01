@@ -77,7 +77,7 @@ export function budgetActualReport(app, { settings, store }) {
 
   async function load() {
     if (!state.token || !state.budgetId) {
-      return log.write("Connect and choose a budget on the Setup page first.", "error");
+      return log.write("Connect and choose a budget on the Settings page first.", "error");
     }
     const current = localMonth();
     const months = ba.fullMonthsBefore(current, Number(settings.bvaMonths || 6));

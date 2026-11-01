@@ -155,7 +155,7 @@ export function autoAssignPage(app) {
 
   async function addGroups() {
     if (!state.hasBudgetData) {
-      return log.write("Load a budget on the Setup page first.", "warn");
+      return log.write("Load a budget on the Settings page first.", "warn");
     }
     const existing = new Set(settings.groupIds || []);
     const available = state.groups().filter((group) => !existing.has(group.id));
@@ -230,8 +230,8 @@ export function autoAssignPage(app) {
   }
 
   function validate() {
-    if (!state.token) throw new Error("Connect on the Setup page first.");
-    if (!state.budgetId) throw new Error("Select a budget on the Setup page first.");
+    if (!state.token) throw new Error("Connect on the Settings page first.");
+    if (!state.budgetId) throw new Error("Select a budget on the Settings page first.");
     if (!settings.holdingCategoryId) throw new Error("Choose a holding category first.");
     if (!(settings.groupIds || []).length) {
       throw new Error("Add at least one category group to fund.");

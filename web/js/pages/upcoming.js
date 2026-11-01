@@ -87,7 +87,7 @@ export function upcomingPage(app) {
 
   async function load() {
     if (!state.token || !state.budgetId) {
-      return log.write("Connect and choose a budget on the Setup page first.", "error");
+      return log.write("Connect and choose a budget on the Settings page first.", "error");
     }
     log.clearLog();
     const result = await app.run(() => loadForecast(state, { days: Number(settings.days || 30) }), { log });

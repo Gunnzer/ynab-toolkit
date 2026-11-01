@@ -129,7 +129,7 @@ export function classicBudgetPage(app) {
 
   async function setPlannedAmounts() {
     if (!state.hasBudgetData) {
-      return log.write("Load a budget on the Setup page first.", "warn");
+      return log.write("Load a budget on the Settings page first.", "warn");
     }
     const current = plannedMap();
 
@@ -286,7 +286,7 @@ export function classicBudgetPage(app) {
     renderOverbudget();
     if (!state.hasBudgetData) {
       emptyRow(categoryTable,
-        "No categories loaded. Connect and choose a budget on the Setup page.");
+        "No categories loaded. Connect and choose a budget on the Settings page.");
       categoryStatus.textContent = "";
       return;
     }
@@ -369,9 +369,9 @@ export function classicBudgetPage(app) {
   }
 
   async function load() {
-    if (!state.token) return log.write("Connect on the Setup page first.", "error");
+    if (!state.token) return log.write("Connect on the Settings page first.", "error");
     if (!state.budgetId) {
-      return log.write("Select a budget on the Setup page first.", "error");
+      return log.write("Select a budget on the Settings page first.", "error");
     }
     if (!/^\d{4}-\d{2}$/.test(monthInput.value)) {
       return log.write("Pick a valid month.", "error");

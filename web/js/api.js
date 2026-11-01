@@ -11,7 +11,7 @@ const STATUS_HELP = {
   401:
     "Your access token was not accepted.\n\n" +
     "Generate a fresh one at ynab.com > Account Settings > Developer " +
-    "Settings > New Token, then paste it on the Setup page.",
+    "Settings > New Token, then paste it on the Settings page.",
   403:
     "Access forbidden. This usually means the token belongs to a " +
     "subscription that has lapsed, or the token was revoked.",
@@ -42,7 +42,7 @@ export class YnabClient {
 
   async request(method, path, { params, body } = {}) {
     if (!this.token) {
-      throw new YnabError("No access token set. Enter one on the Setup page.");
+      throw new YnabError("No access token set. Enter one on the Settings page.");
     }
 
     const url = new URL(BASE_URL + path);

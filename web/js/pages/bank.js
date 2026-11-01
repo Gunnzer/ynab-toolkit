@@ -558,7 +558,7 @@ export function bankImportPage(app) {
     const accounts = (state.accounts || []).filter((a) => !a.deleted && !a.closed);
     const options = [{
       value: "",
-      label: accounts.length ? "(choose an account)" : "(load a budget on Setup first)",
+      label: accounts.length ? "(choose an account)" : "(load a budget in Settings first)",
     }].concat(accounts.map((a) => ({ value: a.id, label: a.name })));
     const current = accountSelect.value;
     accountSelect.replaceChildren(
@@ -573,9 +573,9 @@ export function bankImportPage(app) {
     if (!converted || !converted.rows.length) {
       return log.write("Convert a file first.", "warn");
     }
-    if (!state.token) return log.write("Connect on the Setup page first.", "error");
+    if (!state.token) return log.write("Connect on the Settings page first.", "error");
     if (!state.budgetId) {
-      return log.write("Select a budget on the Setup page first.", "error");
+      return log.write("Select a budget on the Settings page first.", "error");
     }
     renderAccountOptions();
     const accountId = accountSelect.value;
@@ -624,7 +624,7 @@ export function bankImportPage(app) {
   async function undoLastPush() {
     const backup = lastPushes()[state.budgetId];
     if (!backup) return;
-    if (!state.token) return log.write("Connect on the Setup page first.", "error");
+    if (!state.token) return log.write("Connect on the Settings page first.", "error");
 
     const confirmed = await confirmDialog("Undo last push",
       `Delete the ${backup.count} transaction(s) pushed to ` +

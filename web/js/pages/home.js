@@ -28,10 +28,10 @@ const NARROW = "(max-width: 560px)";
 
 function connectionStatus(state) {
   if (!state.token) {
-    return { text: "Add your YNAB access token in Setup to get started.", pill: ["Not connected", "muted"] };
+    return { text: "Add your YNAB access token in Settings to get started.", pill: ["Not connected", "muted"] };
   }
   if (state.connection === "failed") {
-    return { text: "YNAB would not accept that token. Check it in Setup.", pill: ["Connection failed", "error"] };
+    return { text: "YNAB would not accept that token. Check it in Settings.", pill: ["Connection failed", "error"] };
   }
   if (!state.hasBudgetData) {
     return {
@@ -60,7 +60,7 @@ export function homePage(app) {
     root.append(card(el("div", { class: "card-row" },
       pill(problem.pill[0], problem.pill[1]),
       el("span", { class: "grow", text: problem.text }),
-      button("Open Setup", { accent: true, onClick: () => app.go("setup") }))));
+      button("Open Settings", { accent: true, onClick: () => app.go("setup") }))));
   }
 
   // ---------- layout ----------
@@ -364,7 +364,7 @@ export function homePage(app) {
             el("span", { class: "hint", text: available
               ? widget.blurb
               : widget.tool && !app.toolEnabled(widget.tool)
-                ? `${widget.blurb} Turn on ${page} in Setup to use it.`
+                ? `${widget.blurb} Turn on ${page} in Settings to use it.`
                 : `${widget.blurb} Needs a budget loaded.` }))));
       }
       body.append(hint("Tick what shows on Home. New ones go at the end, at their usual size. " +

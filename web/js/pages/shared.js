@@ -43,7 +43,7 @@ export function sharedExpensesPage(app) {
     const value = Number(settings.person1Ratio);
     if (!Number.isFinite(value) || value < 0 || value > 1) {
       throw new Error(
-        "Set each person's share of shared expenses on the Setup page first.");
+        "Set each person's share of shared expenses on the Settings page first.");
     }
     return value;
   }
@@ -52,7 +52,7 @@ export function sharedExpensesPage(app) {
     const percent = Number(settings.person1Ratio) * 100;
     if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
       splitLine.hidden = true;
-      ratioError.textContent = "Set the split on the Setup page.";
+      ratioError.textContent = "Set the split on the Settings page.";
       ratioError.className = "hint is-error";
       ratioError.hidden = false;
       return;
@@ -194,7 +194,7 @@ export function sharedExpensesPage(app) {
 
   function commitRule() {
     if (!state.hasBudgetData) {
-      return setBuilderStatus("Load a budget on the Setup page first.", "error");
+      return setBuilderStatus("Load a budget on the Settings page first.", "error");
     }
     const sharedCategory = pickShared.getCategory();
     const first = pickP1.getCategory();
@@ -469,8 +469,8 @@ export function sharedExpensesPage(app) {
   }
 
   function validate() {
-    if (!state.token) throw new Error("Connect on the Setup page first.");
-    if (!state.budgetId) throw new Error("Select a budget on the Setup page first.");
+    if (!state.token) throw new Error("Connect on the Settings page first.");
+    if (!state.budgetId) throw new Error("Select a budget on the Settings page first.");
     const complete = rules.filter(shared.isComplete);
     if (!complete.length) {
       throw new Error("Add at least one shared category mapping before running.");
