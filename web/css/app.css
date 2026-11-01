@@ -2090,6 +2090,9 @@ td .btn-small { min-height: 28px; padding: 0 9px; font-size: 12.5px; }
 .bottom-nav-item.is-active { color: var(--accent); }
 .bottom-nav-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
+.page-settings-button { gap: 6px; }
+.page-settings-button[hidden] { display: none; }
+
 .more-list { display: flex; flex-direction: column; gap: 2px; }
 .more-item {
   display: flex;
@@ -2178,6 +2181,8 @@ td .btn-small { min-height: 28px; padding: 0 9px; font-size: 12.5px; }
   :root { --gutter: 14px; --control-height: 40px; }
 
   .topbar-inner { height: 48px; gap: 8px; }
+  .page-settings-button span { display: none; }
+  .page-settings-button { padding: 0 9px; }
   .topbar h1 {
     font-size: 15.5px;
     overflow: hidden;
