@@ -458,6 +458,10 @@ function evaluate(cards, purchase, answers, questions, view) {
   const all = scenarios(questions, purchase, answers);
   const outcomes = all.map((s) => ({
     p: s.p,
+    // A scenario where some cap is already used up. Its lower rate is
+    // explained by the cap's own line, so it is left out of the "could be
+    // x to y" range, which is for doubts about the shop itself.
+    capped: Object.entries(s.answers).some(([id, value]) => id.startsWith("cap:") && value === "over"),
     earn: cards.map((card) => earnFor(card, purchase, s.answers, questions)),
   }));
   // What one unit of each card's rate counts for: 1 when comparing raw
@@ -468,12 +472,14 @@ function evaluate(cards, purchase, answers, questions, view) {
     let pAccepted = 0;
     let expected = 0;
     const rates = new Map();
+    const uncapped = new Set();
     for (const o of outcomes) {
       const e = o.earn[i];
       if (!e.accepted) continue;
       pAccepted += o.p;
       expected += o.p * e.rate * factor[i];
       rates.set(e.rate, (rates.get(e.rate) || 0) + o.p);
+      if (!o.capped) uncapped.add(e.rate);
     }
     let shownRate = card.base;
     let best = -1;
@@ -483,7 +489,7 @@ function evaluate(cards, purchase, answers, questions, view) {
         shownRate = rate;
       }
     }
-    const values = [...rates.keys()];
+    const values = uncapped.size ? [...uncapped] : [...rates.keys()];
     return {
       card,
       index: i,
@@ -542,6 +548,7 @@ function evaluate(cards, purchase, answers, questions, view) {
  * The whole answer for a purchase: cards ranked (best first) and how sure
  * that is, plus the question to ask next - null once it is at least
  * TARGET_CONFIDENCE sure, or when no question left could change anything.
+ * Once sure enough, the question that would still help is `optional`.
  *
  * view: { measure: "value" | "points", grouped, values, preferred }
  *   value ranks by what the points are worth (centsPerPoint), points by the
@@ -561,8 +568,11 @@ export function recommend(cards, purchase, answers = {}, view = {}) {
   const questions = questionsFor(purchase, cards);
   const now = evaluate(cards, purchase, answers, questions, settings);
 
-  let next = null;
-  if (cards.length && now.confidence < TARGET_CONFIDENCE - 1e-9) {
+  // The most useful question left. Asked when under TARGET_CONFIDENCE;
+  // past it, only offered (`optional`), so someone who wants to be fully
+  // sure can still answer it.
+  let best = null;
+  if (cards.length && now.confidence < 1 - 1e-9) {
     let bestGain = 1e-6;
     for (const q of questions) {
       if (answers[q.id] !== undefined) continue;
@@ -573,10 +583,13 @@ export function recommend(cards, purchase, answers = {}, view = {}) {
       const gain = after - now.confidence;
       if (gain > bestGain + 1e-9) {
         bestGain = gain;
-        next = q;
+        best = q;
       }
     }
   }
+  const sureEnough = now.confidence >= TARGET_CONFIDENCE - 1e-9;
+  const next = sureEnough ? null : best;
+  const optional = sureEnough ? best : null;
 
   const asked = questions.filter((q) => answers[q.id] !== undefined).map((q) => ({
     question: q,
@@ -588,7 +601,7 @@ export function recommend(cards, purchase, answers = {}, view = {}) {
       })(),
   }));
 
-  return { ...now, next, asked, questions, view: settings };
+  return { ...now, next, optional, asked, questions, view: settings };
 }
 
 /** Why a card's rate is what it is, in words, for the result list. */
@@ -602,7 +615,7 @@ export function explain(stat, purchase, answers) {
   }
   if (stat.min !== stat.max) {
     lines.push(`Could be ${formatRate(card.points, stat.min)} to ${formatRate(card.points, stat.max)} ` +
-      "depending on the answers still open.");
+      "depending on the questions not answered yet.");
   }
   if (stat.pAccepted < 0.999 && stat.pAccepted >= 0.5) {
     lines.push(`${Math.round((1 - stat.pAccepted) * 100)}% chance it is not accepted here.`);

@@ -1924,6 +1924,8 @@ td .btn-small { min-height: 28px; padding: 0 9px; font-size: 12.5px; }
 .reward-meter.is-ok > span { background: var(--ok); }
 
 .reward-question { margin: 18px 0 10px; font-size: 15px; font-weight: 600; }
+.reward-optional { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 10px; }
+.reward-optional .hint { margin: 0; flex: 1 1 240px; }
 
 /* A text-only action that should not compete with the real choices next to
    it ("Not sure", "Check for updates"). Still a full-height tap target. */

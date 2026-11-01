@@ -11,6 +11,11 @@ before or as part of the push itself.
 
 ## 2026-11-01
 
+**Card Rewards: says what it is still unsure about** (`pages/cardrewards.js`, `tools/card_rewards.js`, `tools/merchants.js`, `app.css`, tests, `CLAUDE.md`)
+* Once it is sure enough it now says what is left ("Still open: have you already put $80,000 on your TD Aeroplan VI this year?") with an "Answer it" button to get closer to 100%, instead of a bare "90% sure".
+* No more vague "Could be 1% to 4%" when the only doubt is a spending cap; the cap already has its own line.
+* A shop picked from the search counts as Canadian dollars, and the answers it fills in no longer show as chips.
+
 **Card Rewards: search by shop** (`pages/cardrewards.js`, `tools/merchants.js`, `app.css`, `tests/merchants.test.js`, `CLAUDE.md`)
 * A "Where are you shopping?" search at the top: type a few letters ("dolla", "costco", "timmies", "sdm") and tap the shop, or press Enter for the top match. About 120 common Canadian shops, nicknames included.
 * Picking a shop sets what you are buying and answers what the shop already settles (which grocery chain, which gas station, Air Canada or not, Costco only taking Mastercard), so those questions are skipped. Dollar stores and Walmart count as everything else, the way card networks code them.

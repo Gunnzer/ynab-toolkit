@@ -35,6 +35,8 @@ export function cardRewardsPage(app) {
   let last = null;
   // The shop picked from the search, if any. Page state like the answers.
   let shop = null;
+  // "Answer it" pressed on the optional question shown once sure enough.
+  let showOptional = false;
 
   const root = el("div", { class: "page-body" });
   root.append(pageHeading(
@@ -289,6 +291,7 @@ export function cardRewardsPage(app) {
   }
 
   function render() {
+    showOptional = false;
     const cards = walletCards(settings.wallet);
     last = cards.length ? recommend(cards, settings.purchase, answers, {
       measure: settings.rankBy,
@@ -361,30 +364,54 @@ export function cardRewardsPage(app) {
         "aria-valuenow": String(pct),
       }, el("span", { style: `width: ${pct}%` }))));
 
+    const questionBlock = (q) => [
+      el("p", { class: "reward-question", text: q.text }),
+      el("div", { class: "reward-options" },
+        q.options.map((option) => button(option.label, {
+          onClick: () => answer(q.id, option.id),
+        })),
+        el("button", {
+          type: "button",
+          class: "reward-quiet",
+          text: "Not sure",
+          onClick: () => answer(q.id, UNSURE),
+        }))];
+
     if (last.next) {
-      const q = last.next;
-      body.push(
-        el("p", { class: "reward-question", text: q.text }),
-        el("div", { class: "reward-options" },
-          q.options.map((option) => button(option.label, {
-            onClick: () => answer(q.id, option.id),
-          })),
-          el("button", {
-            type: "button",
-            class: "reward-quiet",
-            text: "Not sure",
-            onClick: () => answer(q.id, UNSURE),
-          })));
+      body.push(...questionBlock(last.next));
+    } else if (last.optional && showOptional) {
+      body.push(...questionBlock(last.optional));
+    } else if (last.optional) {
+      // Sure enough to go with, but say what the rest of the doubt is
+      // (reported live: "90% sure" with no reason looked like it did not
+      // know the shop), and let it be answered anyway.
+      body.push(el("div", { class: "reward-optional" },
+        el("p", { class: "hint", text: `Sure enough to go with. Still open: ${last.optional.text}` }),
+        el("button", {
+          type: "button",
+          class: "reward-quiet",
+          text: "Answer it",
+          onClick: () => {
+            showOptional = true;
+            renderAsk();
+          },
+        })));
     } else {
-      body.push(hint(last.confidence >= TARGET_CONFIDENCE
-        ? "Sure enough: no more questions."
-        : "Nothing left to ask would change this, so this is as sure as it gets."));
+      body.push(hint(last.confidence >= 1 - 1e-9
+        ? "Sure: nothing left to ask."
+        : last.confidence >= TARGET_CONFIDENCE
+          ? "Sure enough: no more questions."
+          : "Nothing left to ask would change this, so this is as sure as it gets."));
     }
 
-    if (last.asked.length) {
+    // Answers the shop filled in are not shown: the shop's name already
+    // says them, and a "CAD" chip nobody chose is only noise.
+    const yours = last.asked.filter(({ question }) =>
+      !(shop && shop.answers[question.id] !== undefined && shop.answers[question.id] === answers[question.id]));
+    if (yours.length) {
       body.push(el("div", { class: "reward-asked" },
         el("span", { class: "hint", text: "Your answers:" }),
-        last.asked.map(({ question, answer: text }) => el("button", {
+        yours.map(({ question, answer: text }) => el("button", {
           type: "button",
           class: "reward-chip",
           title: `${question.text} Click to ask again.`,

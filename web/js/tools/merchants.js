@@ -10,10 +10,13 @@
 // networks code it, whatever is in the basket. Only well-known facts go
 // in `answers` - anything doubtful is left for the questions to ask.
 
-const GROCER = (name, store, aliases = []) => ({ name, purchase: "groceries", answers: { store }, aliases });
-const GAS = (name, station, aliases = []) => ({ name, purchase: "gas", answers: { station }, aliases });
-const DRUG = (name, pharmacy, aliases = []) => ({ name, purchase: "drugstore", answers: { pharmacy }, aliases });
-const AT = (purchase) => (name, aliases = []) => ({ name, purchase, answers: {}, aliases });
+// Every shop here charges Canadian dollars (bookings aside), so currency is
+// never a question once a shop is picked.
+const CAD = { currency: "cad" };
+const GROCER = (name, store, aliases = []) => ({ name, purchase: "groceries", answers: { ...CAD, store }, aliases });
+const GAS = (name, station, aliases = []) => ({ name, purchase: "gas", answers: { ...CAD, station }, aliases });
+const DRUG = (name, pharmacy, aliases = []) => ({ name, purchase: "drugstore", answers: { ...CAD, pharmacy }, aliases });
+const AT = (purchase) => (name, aliases = []) => ({ name, purchase, answers: { ...CAD }, aliases });
 
 const dining = AT("dining");
 const delivery = AT("delivery");
@@ -62,7 +65,7 @@ export const MERCHANTS = [
   other("Walmart", ["wal mart"]),
   other("Giant Tiger"),
   // Takes Amex since 2017 (Dollarama's own announcement).
-  { ...other("Dollarama", ["dollar store"]), answers: { amex: "yes" } },
+  { ...other("Dollarama", ["dollar store"]), answers: { ...CAD, amex: "yes" } },
   other("Dollar Tree", ["dollar store"]),
 
   GAS("Esso", "esso"),

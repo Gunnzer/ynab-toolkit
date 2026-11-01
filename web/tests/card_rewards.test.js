@@ -208,6 +208,28 @@ describe("ranking and questions", () => {
     }
   });
 
+  test("sure enough still offers the question that would help, without asking it", () => {
+    const wallet = walletCards([{ id: "scotia-momentum-vi" }, { id: "td-aeroplan-vi" }]);
+    const result = recommend(wallet, "groceries", { store: "grocer", currency: "cad" });
+    assert.ok(result.confidence >= TARGET_CONFIDENCE);
+    assert.equal(result.next, null);
+    assert.match(result.optional.id, /^cap:/);
+    const settled = recommend(wallet, "groceries", { store: "grocer", currency: "cad",
+      "cap:scotia-momentum-vi:four": "under", "cap:td-aeroplan-vi:accel": "under" });
+    assert.equal(settled.confidence, 1);
+    assert.equal(settled.optional, null);
+  });
+
+  test("a cap alone does not make a vague 'could be' range", () => {
+    const [momentum] = walletCards([{ id: "scotia-momentum-vi" }]);
+    const result = recommend([momentum], "groceries", { store: "grocer", currency: "cad" });
+    const stat = result.groups[0].cards[0];
+    assert.equal(stat.min, stat.max);
+    const lines = explain(stat, "groceries", { store: "grocer", currency: "cad" });
+    assert.ok(!lines.some((l) => /Could be/.test(l)));
+    assert.ok(lines.some((l) => /\$25,000/.test(l)));
+  });
+
   test("an empty wallet has nothing to say", () => {
     const result = recommend([], "groceries", {});
     assert.equal(result.groups.length, 0);
