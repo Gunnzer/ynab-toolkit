@@ -19,11 +19,6 @@ import { CARDS, POINT_TYPES, PURCHASES } from "./card_catalogue.js";
 export const TARGET_CONFIDENCE = 0.9;
 export const UNSURE = "unsure";
 
-// Grocery stores that code as a supermarket. Costco and Walmart code as a
-// warehouse club or discount store, so a card's grocery rate does not
-// apply there - they are treated as "everything else".
-const GROCERS = ["sobeys", "loblaw", "grocer"];
-
 const ALL = PURCHASES.map((p) => p.id);
 
 // Purchases nearly always made at home, in Canadian dollars.
@@ -34,69 +29,77 @@ const EVERYDAY = (p) => Object.fromEntries(
 export const QUESTIONS = [
   {
     id: "store",
+    unsure: "Store not sure",
     text: "Where are you buying groceries?",
     appliesTo: ["groceries"],
     options: [
-      { id: "loblaw", label: "Superstore, No Frills, Loblaws, Zehrs, Fortinos, Provigo or Maxi", prior: 0.3 },
-      { id: "sobeys", label: "Sobeys, Safeway, IGA, FreshCo or Foodland", prior: 0.2 },
-      { id: "grocer", label: "Another grocery store (Metro, Food Basics, Save-On-Foods, a local grocer)", prior: 0.3 },
-      { id: "costco", label: "Costco", prior: 0.1, category: "other", only: ["mastercard"] },
-      { id: "walmart", label: "Walmart, Giant Tiger or a dollar store", prior: 0.1, category: "other" },
+      { id: "loblaw", chip: "Loblaw store", label: "Superstore, No Frills, Loblaws, Zehrs, Fortinos, Provigo or Maxi", prior: 0.3 },
+      { id: "sobeys", chip: "Sobeys store", label: "Sobeys, Safeway, IGA, FreshCo or Foodland", prior: 0.2 },
+      { id: "grocer", chip: "Other grocer", label: "Another grocery store (Metro, Food Basics, Save-On-Foods, a local grocer)", prior: 0.3 },
+      // Costco and Walmart code as a warehouse club or discount store, not
+      // a supermarket, so no card's grocery rate applies there.
+      { id: "costco", chip: "Costco", label: "Costco", prior: 0.1, category: "other", only: ["mastercard"] },
+      { id: "walmart", chip: "Walmart or similar", label: "Walmart, Giant Tiger or a dollar store", prior: 0.1, category: "other" },
     ],
   },
   {
     id: "pharmacy",
+    unsure: "Drugstore not sure",
     text: "Which drugstore?",
     appliesTo: ["drugstore"],
     options: [
-      { id: "shoppers", label: "Shoppers Drug Mart or Pharmaprix", prior: 0.45 },
-      { id: "other-pharmacy", label: "Another drugstore (Rexall, London Drugs, Jean Coutu, independent)", prior: 0.55 },
+      { id: "shoppers", chip: "Shoppers", label: "Shoppers Drug Mart or Pharmaprix", prior: 0.45 },
+      { id: "other-pharmacy", chip: "Other drugstore", label: "Another drugstore (Rexall, London Drugs, Jean Coutu, independent)", prior: 0.55 },
     ],
   },
   {
     id: "station",
+    unsure: "Station not sure",
     text: "Which gas station?",
     appliesTo: ["gas"],
     options: [
-      { id: "esso", label: "Esso or Mobil", prior: 0.2 },
-      { id: "costco", label: "Costco gas", prior: 0.1, only: ["mastercard"] },
-      { id: "other-station", label: "Another station (Petro-Canada, Shell, Canadian Tire, Husky)", prior: 0.7 },
+      { id: "esso", chip: "Esso or Mobil", label: "Esso or Mobil", prior: 0.2 },
+      { id: "costco", chip: "Costco gas", label: "Costco gas", prior: 0.1, only: ["mastercard"] },
+      { id: "other-station", chip: "Other station", label: "Another station (Petro-Canada, Shell, Canadian Tire, Husky)", prior: 0.7 },
     ],
   },
   {
     id: "booking",
+    unsure: "Booking not sure",
     text: "What are you booking, and with whom?",
     appliesTo: ["travel"],
     options: [
-      { id: "air-canada", label: "Air Canada or Air Canada Vacations, booked directly", prior: 0.3 },
-      { id: "expedia", label: "Anything through Expedia For TD", prior: 0.05 },
-      { id: "other-travel", label: "Another airline, a hotel, or another travel site", prior: 0.65 },
+      { id: "air-canada", chip: "Air Canada direct", label: "Air Canada or Air Canada Vacations, booked directly", prior: 0.3 },
+      { id: "expedia", chip: "Expedia For TD", label: "Anything through Expedia For TD", prior: 0.05 },
+      { id: "other-travel", chip: "Other travel", label: "Another airline, a hotel, or another travel site", prior: 0.65 },
     ],
   },
   {
     id: "currency",
+    unsure: "Currency not sure",
     text: "What currency is it charged in?",
     appliesTo: ALL,
     options: [
-      { id: "cad", label: "Canadian dollars", prior: { ...EVERYDAY(0.99), default: 0.93, travel: 0.75 } },
-      { id: "usd", label: "US dollars", prior: { ...EVERYDAY(0.008), default: 0.05, travel: 0.15 } },
-      { id: "foreign", label: "Another currency", prior: { ...EVERYDAY(0.002), default: 0.02, travel: 0.1 } },
+      { id: "cad", chip: "CAD", label: "Canadian dollars", prior: { ...EVERYDAY(0.99), default: 0.93, travel: 0.75 } },
+      { id: "usd", chip: "USD", label: "US dollars", prior: { ...EVERYDAY(0.008), default: 0.05, travel: 0.15 } },
+      { id: "foreign", chip: "Other currency", label: "Another currency", prior: { ...EVERYDAY(0.002), default: 0.02, travel: 0.1 } },
     ],
   },
   {
     id: "amex",
+    unsure: "Amex not sure",
     text: "Does this place take American Express?",
     appliesTo: ALL,
     options: [
       {
-        id: "yes", label: "Yes",
+        id: "yes", chip: "Takes Amex", label: "Yes",
         prior: {
           default: 0.85, groceries: 0.97, delivery: 0.99, streaming: 0.99,
           drugstore: 0.97, travel: 0.97, gas: 0.92, transit: 0.92, bills: 0.92,
         },
       },
       {
-        id: "no", label: "No",
+        id: "no", chip: "No Amex", label: "No",
         prior: {
           default: 0.15, groceries: 0.03, delivery: 0.01, streaming: 0.01,
           drugstore: 0.03, travel: 0.03, gas: 0.08, transit: 0.08, bills: 0.08,
@@ -303,12 +306,13 @@ export function questionsFor(purchase, cards) {
       list.push({
         id,
         cap: true,
+        unsure: `${shortName(card)} cap not sure`,
         text: `This ${rule.cap.per}, have you already put ${spend} of ${rule.cap.label} ` +
-          `on your ${card.name}?`,
+          `on your ${shortName(card)}?`,
         appliesTo: [purchase],
         options: [
-          { id: "under", label: "No, still under", prior: 1 - over },
-          { id: "over", label: "Yes, I'm past it", prior: over },
+          { id: "under", chip: `${shortName(card)} under cap`, label: "No, still under", prior: 1 - over },
+          { id: "over", chip: `${shortName(card)} past cap`, label: "Yes, I'm past it", prior: over },
         ],
       });
     }
@@ -486,8 +490,11 @@ export function recommend(cards, purchase, answers = {}) {
   const asked = questions.filter((q) => answers[q.id] !== undefined).map((q) => ({
     question: q,
     answer: answers[q.id] === UNSURE
-      ? "Not sure"
-      : q.options.find((o) => o.id === answers[q.id])?.label || answers[q.id],
+      ? q.unsure || "Not sure"
+      : (() => {
+        const option = q.options.find((o) => o.id === answers[q.id]);
+        return option?.chip || option?.label || answers[q.id];
+      })(),
   }));
 
   return { ...now, next, asked, questions };
@@ -564,4 +571,34 @@ export function describeEarn(card) {
   });
   lines.push({ rate: formatRate(card.points, card.base), value: card.base, what: "Everything else", conditions: [] });
   return lines;
+}
+
+// Longest first, so "SimplyCash Preferred Card from American Express" loses
+// the whole "from American Express" before "American Express" alone is
+// considered.
+const SHORTEN = [
+  [/\s+Card\s+from\s+American\s+Express$/i, " (Amex)"],
+  [/\s+from\s+American\s+Express$/i, " (Amex)"],
+  [/^American\s+Express\s+/i, "Amex "],
+  [/^Scotiabank\s+/i, "Scotia "],
+  [/\s+American\s+Express(\s+Card)?$/i, " Amex"],
+  [/\s+Visa\s+Infinite\+?/i, " VI"],
+  [/\s+Mastercard$/i, ""],
+  [/\s+(Credit\s+)?Card$/i, ""],
+];
+
+/**
+ * A name that fits one line on a phone: the card's own `short` from the
+ * data file when it has one, otherwise the issuer's long form trimmed
+ * ("American Express Aeroplan Card" -> "Amex Aeroplan"). The full name is
+ * still shown on hover and in Details. Cards entered by hand keep their
+ * own name.
+ */
+export function shortName(card) {
+  if (card?.short) return card.short;
+  // A name typed in by hand is already the name its owner wants.
+  if (card?.custom) return String(card.name || "");
+  let name = String(card?.name || "").trim();
+  for (const [pattern, replacement] of SHORTEN) name = name.replace(pattern, replacement).trim();
+  return name || String(card?.name || "");
 }

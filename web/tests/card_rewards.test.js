@@ -6,8 +6,8 @@ import { readFileSync } from "node:fs";
 import { CARDS, CATALOGUE_CHECKED, PURCHASES, setCatalogue } from "../js/tools/card_catalogue.js";
 import {
   QUESTIONS, TARGET_CONFIDENCE, UNSURE, daysSince, describeEarn, earnFor, explain,
-  formatEarned, formatRate, normaliseCustom, questionsFor, recommend, validateCatalogue,
-  walletCards,
+  formatEarned, formatRate, normaliseCustom, questionsFor, recommend, shortName,
+  validateCatalogue, walletCards,
 } from "../js/tools/card_rewards.js";
 
 // The file the site serves and the app downloads every day.
@@ -164,7 +164,7 @@ describe("ranking and questions", () => {
     const result = recommend(mine, "groceries", answers);
     assert.notEqual(result.next?.id, "store");
     assert.ok(result.confidence < TARGET_CONFIDENCE);
-    assert.equal(result.asked[0].answer, "Not sure");
+    assert.equal(result.asked[0].answer, "Store not sure");
   });
 
   test("never asks something that cannot change the answer", () => {
@@ -198,6 +198,16 @@ describe("ranking and questions", () => {
     assert.equal(result.next, null);
   });
 
+  test("answers read on their own as short chips", () => {
+    const result = recommend(mine, "dining", { amex: "yes", currency: "cad", "cap:amex-cobalt:eats": "under" });
+    assert.deepEqual(result.asked.map((a) => a.answer).sort(),
+      ["CAD", "Amex Cobalt under cap", "Takes Amex"].sort());
+    for (const q of QUESTIONS) {
+      assert.ok(q.unsure, `${q.id} needs a short "not sure" chip`);
+      for (const o of q.options) assert.ok(o.chip && o.chip.length <= 24, `${q.id}/${o.id} chip`);
+    }
+  });
+
   test("an empty wallet has nothing to say", () => {
     const result = recommend([], "groceries", {});
     assert.equal(result.groups.length, 0);
@@ -221,6 +231,20 @@ describe("formatting", () => {
     assert.match(lines[0].conditions.join(" "), /Canadian dollars/);
     assert.match(lines[0].conditions.join(" "), /\$2,500 of eats and drinks a month/);
     assert.deepEqual(lines.at(-1), { rate: "1x", value: 1, what: "Everything else", conditions: [] });
+  });
+
+  test("short names fit one line and stay recognisable", () => {
+    const short = (name) => shortName({ name });
+    assert.equal(short("American Express Aeroplan Card"), "Amex Aeroplan");
+    assert.equal(short("TD Aeroplan Visa Infinite Card"), "TD Aeroplan VI");
+    assert.equal(short("Scotiabank Gold American Express Card"), "Scotia Gold Amex");
+    assert.equal(short("SimplyCash Preferred Card from American Express"), "SimplyCash Preferred (Amex)");
+    assert.equal(short("PC World Elite Mastercard"), "PC World Elite");
+    assert.equal(shortName({ custom: true, name: "My store card" }), "My store card");
+    assert.equal(shortName({ name: "Anything", short: "Mine" }), "Mine");
+    for (const card of CARDS) {
+      assert.ok(shortName(card).length <= 28, `${card.name} shortens to ${shortName(card)}`);
+    }
   });
 
   test("days since", () => {

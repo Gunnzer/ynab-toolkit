@@ -9,6 +9,14 @@ Maintained going forward: add a new dated entry for each push, in this same
 style (feature/fix name and files, then bullets on what changed and why),
 before or as part of the push itself.
 
+## 2026-11-01
+
+**Card Rewards: layout and wording pass** (`pages/cardrewards.js`, `tools/card_rewards.js`, `app.css`, `tests/card_rewards.test.js`, `CLAUDE.md`)
+* Card names are shortened ("American Express Aeroplan Card" reads "Amex Aeroplan") and cut off on one line everywhere, so a long name no longer pushes Details and remove onto a line of their own. The full name is on hover and in Details; a card you typed in keeps your own name.
+* The answer comes first: one card at the top shows the card earning the most points, how sure it is, and the next question, instead of the question pushing the answer below the fold on a phone. It now says "Most points" rather than "Best card", since points are compared raw across programs.
+* Your answers show as short chips that make sense on their own ("Takes Amex", "Loblaw store", "Amex Cobalt under cap") instead of a bare "Yes".
+* Smaller fixes: with no cards yet, Your cards comes first; the card list starts on "Choose a card to add..." so Add cannot add one by accident; "Best" only shows in a group with more than one card; "Not sure" and "Check for updates" are quiet text buttons; each card's detail line is one short line ("Visa · Aeroplan · $139/yr"); the sure meter is announced to screen readers.
+
 ## 2026-10-31
 
 **Card Rewards** (`pages/cardrewards.js`, `tools/card_rewards.js`, `tools/card_catalogue.js`, `main.js`, `store.js`, `app.css`, `tools/card_feed.js`, `data/cards.json`, `tests/card_rewards.test.js`, `tests/card_feed.test.js`, `tests/privacy.test.js`, `.github/workflows/pages.yml`, `README.md`, `web/README.md`, `CLAUDE.md`)

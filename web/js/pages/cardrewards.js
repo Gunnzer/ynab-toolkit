@@ -8,12 +8,14 @@ import { CARDS, CATALOGUE_CHECKED, NETWORKS, POINT_TYPES, PURCHASES } from "../t
 import { browserFetchJson, loadCatalogue } from "../tools/card_feed.js";
 import {
   TARGET_CONFIDENCE, UNSURE, daysSince, describeEarn, explain, formatEarned,
-  formatRate, groupName, recommend, walletCards,
+  formatRate, groupName, purchaseLabel, recommend, shortName, walletCards,
 } from "../tools/card_rewards.js";
 import {
   button, card, checkbox, clear, customDialog, dateLabel, el, field, hint, icon,
   pageHeading, pill, sectionTitle, select, textInput, todayIso,
 } from "../ui.js";
+
+const NETWORK_SHORT = { amex: "Amex", visa: "Visa", mastercard: "Mastercard" };
 
 export function cardRewardsPage(app) {
   const store = app.state.store;
@@ -54,22 +56,24 @@ export function cardRewardsPage(app) {
     onInput: (value) => {
       settings.amount = value;
       store.save();
-      renderResults();
+      paint();
     },
   });
   amountInput.min = "0";
   amountInput.step = "0.01";
   amountInput.setAttribute("inputmode", "decimal");
 
-  root.append(card(
+  const pickCard = card(
     el("div", { class: "card-grid reward-pick" },
       field("What are you buying?", purchaseSelect),
-      field("How much? (CAD)", amountInput))));
+      field("How much? (CAD)", amountInput)));
+  root.append(pickCard);
 
   const askHost = el("div");
   const resultsHost = el("div", { class: "reward-groups" });
   const walletList = el("div", { class: "reward-wallet" });
-  const addSelect = el("select");
+  const addSelect = el("select", { "aria-label": "Card to add" });
+  addSelect.addEventListener("change", () => { addButton.disabled = !addSelect.value; });
   const addButton = button("Add card", {
     accent: true,
     onClick: () => {
@@ -82,11 +86,13 @@ export function cardRewardsPage(app) {
   });
 
   const feedStatus = el("p", { class: "hint" });
-  const updateButton = button("Check for updates", {
-    small: true,
+  const updateButton = el("button", {
+    type: "button",
+    class: "reward-quiet",
+    text: "Check for updates",
     onClick: () => refreshCatalogue(true),
   });
-  root.append(askHost, resultsHost, card(
+  const walletCard = card(
     sectionTitle("Your cards"),
     walletList,
     el("div", { class: "card-row reward-add" },
@@ -95,7 +101,8 @@ export function cardRewardsPage(app) {
       button("Add one by hand...", { onClick: () => editCustom(null) })),
     el("div", { class: "card-row reward-feed" }, feedStatus, updateButton),
     hint("A card that is missing can be added by hand, or ask for it to be " +
-      "added to the built-in list.")));
+      "added to the built-in list."));
+  root.append(askHost, resultsHost, walletCard);
 
   let feed = null;
 
@@ -145,8 +152,23 @@ export function cardRewardsPage(app) {
   function render() {
     const cards = walletCards(settings.wallet);
     last = cards.length ? recommend(cards, settings.purchase, answers) : null;
+    paint();
+  }
+
+  // Redraw without working the ranking out again (an amount change only
+  // changes the points shown, never the ranking).
+  function paint() {
+    // With no cards yet, adding some is the only useful thing to do, so
+    // that card comes first; once there are cards it moves to the end.
+    if (settings.wallet.length) root.append(walletCard);
+    else root.insertBefore(walletCard, pickCard);
     renderAsk();
     renderResults();
+  }
+
+  /** A card name on one line: short form, full name on hover. */
+  function cardName(c) {
+    return el("span", { class: "reward-title", text: shortName(c), title: c.name });
   }
 
   function renderAsk() {
@@ -155,13 +177,33 @@ export function cardRewardsPage(app) {
     const pct = Math.floor(last.confidence * 100);
     const kind = last.confidence >= TARGET_CONFIDENCE ? "ok" : pct >= 70 ? "caution" : "warn";
     const body = [];
+    const spend = amount();
+    const top = last.groups[0]?.cards[0];
+
+    // "Most points", not "best": points are compared raw across programs,
+    // so the top card earns the biggest number, which is not always the
+    // most value (10 PC Optimum points are worth a cent).
+    body.push(el("div", { class: "field-label", text: `Most points for ${purchaseLabel(settings.purchase).toLowerCase()}` }));
+    body.push(top?.accepted
+      ? el("div", { class: "reward-answer" },
+        el("div", { class: "reward-rate", text: formatRate(top.card.points, top.rate) }),
+        el("div", { class: "reward-answer-body" },
+          el("div", { class: "reward-name" }, cardName(top.card)),
+          el("div", { class: "hint", text: [groupName(top.card.points),
+            formatEarned(top.card.points, top.rate, spend)].filter(Boolean).join(", ") })))
+      : el("p", { class: "reward-answer-none", text: "None of your cards are accepted here." }));
 
     body.push(el("div", { class: "reward-sure" },
       el("div", { class: "reward-sure-head" },
-        el("span", { class: "field-label", text: "How sure" }),
         pill(`${pct}% sure`, kind)),
-      el("div", { class: `reward-meter is-${kind}` },
-        el("span", { style: `width: ${pct}%` }))));
+      el("div", {
+        class: `reward-meter is-${kind}`,
+        role: "progressbar",
+        "aria-label": "How sure",
+        "aria-valuemin": "0",
+        "aria-valuemax": "100",
+        "aria-valuenow": String(pct),
+      }, el("span", { style: `width: ${pct}%` }))));
 
     if (last.next) {
       const q = last.next;
@@ -171,7 +213,12 @@ export function cardRewardsPage(app) {
           q.options.map((option) => button(option.label, {
             onClick: () => answer(q.id, option.id),
           })),
-          button("Not sure", { onClick: () => answer(q.id, UNSURE) })));
+          el("button", {
+            type: "button",
+            class: "reward-quiet",
+            text: "Not sure",
+            onClick: () => answer(q.id, UNSURE),
+          })));
     } else {
       body.push(hint(last.confidence >= TARGET_CONFIDENCE
         ? "Sure enough: no more questions."
@@ -217,35 +264,24 @@ export function cardRewardsPage(app) {
       return;
     }
     const spend = amount();
-    const top = last.groups[0]?.cards[0];
-    if (top?.accepted) {
-      resultsHost.append(el("div", { class: "reward-headline" },
-        el("span", { class: "hint", text: "Most points" }),
-        el("strong", { text: top.card.name }),
-        el("span", {
-          text: `${formatRate(top.card.points, top.rate)} ${groupName(top.card.points)}` +
-            (spend ? `, ${formatEarned(top.card.points, top.rate, spend)}` : ""),
-        })));
-    }
-
     for (const group of last.groups) {
       const note = POINT_TYPES[group.points]?.note;
       resultsHost.append(el("section", { class: "card reward-group" },
         el("div", { class: "reward-group-head" },
           el("h3", { class: "section-title", text: group.name }),
           note ? el("span", { class: "hint", text: note }) : null),
-        group.cards.map((stat, i) => resultRow(stat, i === 0 && stat.accepted, spend))));
+        group.cards.map((stat, i) => resultRow(stat, i === 0 && stat.accepted, group.cards.length > 1, spend))));
     }
   }
 
-  function resultRow(stat, best, spend) {
+  function resultRow(stat, best, labelBest, spend) {
     const lines = explain(stat, settings.purchase, answers);
     return el("div", { class: `reward-row${best ? " is-best" : ""}${stat.accepted ? "" : " is-out"}` },
       el("div", { class: "reward-rate", text: stat.accepted ? formatRate(stat.card.points, stat.rate) : "-" }),
       el("div", { class: "reward-body" },
         el("div", { class: "reward-name" },
-          el("span", { text: stat.card.name }),
-          best ? pill("Best in group", "ok") : null,
+          cardName(stat.card),
+          best && labelBest ? pill("Best", "ok") : null,
           stat.accepted ? null : pill("Not accepted", "error")),
         lines.map((line) => el("div", { class: "hint", text: line }))),
       el("div", { class: "reward-earned", text: stat.accepted ? formatEarned(stat.card.points, stat.rate, spend) : "" }));
@@ -268,12 +304,11 @@ export function cardRewardsPage(app) {
     clear(addSelect);
     const available = CARDS.filter((c) => !held.has(c.id))
       .sort((a, b) => a.issuer.localeCompare(b.issuer) || a.name.localeCompare(b.name));
-    if (!available.length) {
-      addSelect.append(el("option", {
-        value: "",
-        text: CARDS.length ? "Every built-in card is added" : "Card details not loaded yet",
-      }));
-    }
+    addSelect.append(el("option", {
+      value: "",
+      text: !CARDS.length ? "Card details not loaded yet"
+        : available.length ? "Choose a card to add..." : "Every built-in card is added",
+    }));
     let groupNode = null;
     let lastIssuer = null;
     for (const c of available) {
@@ -284,7 +319,8 @@ export function cardRewardsPage(app) {
       }
       groupNode.append(el("option", { value: c.id, text: c.name }));
     }
-    addButton.disabled = !available.length;
+    addSelect.value = "";
+    addButton.disabled = true;
   }
 
   // A card dropped from the downloaded list (discontinued, usually). Kept
@@ -292,8 +328,8 @@ export function cardRewardsPage(app) {
   function goneRow(entry, index) {
     return el("div", { class: "reward-wallet-row" },
       el("div", { class: "reward-wallet-main" },
-        el("div", {},
-          el("div", { class: "reward-name", text: entry.id }),
+        el("div", { class: "reward-wallet-text" },
+          el("div", { class: "reward-name" }, el("span", { class: "reward-title", text: entry.id })),
           el("div", { class: "hint", text: "No longer in the card list, so it is left out of the ranking." })),
         removeButton(entry.id, index)));
   }
@@ -314,12 +350,14 @@ export function cardRewardsPage(app) {
   }
 
   function walletRow(entry, resolved, index) {
+    // One short line, so every row is the same height; the long forms are
+    // in Details.
     const meta = [
-      NETWORKS[resolved.network],
+      NETWORK_SHORT[resolved.network],
       groupName(resolved.points),
-      resolved.annualFee ? `$${resolved.annualFee.toFixed(2)} a year` : "No annual fee",
+      resolved.annualFee ? `$${Math.round(resolved.annualFee)}/yr` : "No fee",
       resolved.fxFee ? null : "No FX fee",
-    ].filter(Boolean).join(" / ");
+    ].filter(Boolean).join(" \u00b7 ");
 
     const extras = [];
     if (resolved.picks) {
@@ -352,11 +390,11 @@ export function cardRewardsPage(app) {
 
     return el("div", { class: "reward-wallet-row" },
       el("div", { class: "reward-wallet-main" },
-        el("div", {},
+        el("div", { class: "reward-wallet-text" },
           el("div", { class: "reward-name" },
-            el("span", { text: resolved.name }),
-            resolved.custom ? pill("Entered by you", "muted") : null),
-          el("div", { class: "hint", text: meta })),
+            cardName(resolved),
+            resolved.custom ? pill("Yours", "muted") : null),
+          el("div", { class: "hint reward-meta", text: meta })),
         el("div", { class: "reward-wallet-actions" },
           button("Details", { small: true, onClick: () => showDetails(resolved) }),
           resolved.custom ? button("Edit", { small: true, onClick: () => editCustom(entry) }) : null,
