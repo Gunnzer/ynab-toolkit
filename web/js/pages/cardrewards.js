@@ -239,10 +239,10 @@ export function cardRewardsPage(app) {
     }));
     body.push(top?.accepted
       ? el("div", { class: "reward-answer" },
-        el("div", { class: "reward-rate", text: bigNumber(top) }),
+        rateCell(top),
         el("div", { class: "reward-answer-body" },
           el("div", { class: "reward-name" }, cardName(top.card)),
-          el("div", { class: "hint", text: detailLine(top, spend, true) })))
+          detailLines(detailLine(top, spend, true), "hint")))
       : el("p", { class: "reward-answer-none", text: "None of your cards are accepted here." }));
 
     body.push(el("div", { class: "reward-sure" },
@@ -339,6 +339,21 @@ export function cardRewardsPage(app) {
       : formatRate(stat.card.points, stat.rate);
   }
 
+  // The ranked number with a word under it, because "10%" alone did not
+  // say what it was a percent of (reported live): by value it is what
+  // comes back per dollar spent, like a cash back rate.
+  function rateCell(stat) {
+    if (!stat.accepted) return el("div", { class: "reward-rate", text: "-" });
+    return el("div", { class: "reward-rate" },
+      el("span", { text: bigNumber(stat) }),
+      byValue() ? el("span", { class: "reward-rate-unit", text: "back" }) : null);
+  }
+
+  /** "2" -> "2\u00a2", "0.67" -> "0.67\u00a2". */
+  function cents(points) {
+    return `${Math.round(centsPerPoint(points, settings.values) * 100) / 100}\u00a2`;
+  }
+
   /**
    * The other side of the number: by value, the earn rate and its points
    * ("5x Membership Rewards, 425 points"); by points, what that is worth.
@@ -350,28 +365,36 @@ export function cardRewardsPage(app) {
     const typeName = groupName(c.points);
     const parts = [];
     if (byValue()) {
-      if (!cash) parts.push(`${formatRate(c.points, stat.rate)} ${typeName}`);
-      else if (always || !settings.grouped) parts.push(typeName);
-      if (spend) parts.push(cash ? formatEarned(c.points, stat.rate, spend) : `${formatEarned(c.points, stat.rate, spend)}, worth ${formatWorth(c.points, stat.rate, spend, settings.values)}`);
+      // Show the working: points per dollar times what a point is worth.
+      if (!cash) {
+        const perDollar = Math.round(stat.rate * centsPerPoint(c.points, settings.values) * 100) / 100;
+        parts.push(`${formatRate(c.points, stat.rate)} ${typeName} \u00d7 ${cents(c.points)} = ${perDollar}\u00a2 per $1`);
+      } else if (always || !settings.grouped) parts.push(typeName);
+      if (spend) parts.push(cash ? `${formatWorth(c.points, stat.rate, spend, settings.values)} back on ${formatWorth("cash", 100, spend)}` : `${formatEarned(c.points, stat.rate, spend)}, worth ${formatWorth(c.points, stat.rate, spend, settings.values)}`);
     } else {
       if (always || !settings.grouped) parts.push(typeName);
       if (!cash) parts.push(`worth about ${formatValue(c.points, stat.rate, settings.values)}`);
       if (spend) parts.push(formatEarned(c.points, stat.rate, spend));
     }
-    return parts.join(", ");
+    return parts;
+  }
+
+  /** One line per part: the working, then what this purchase earns. */
+  function detailLines(parts, className) {
+    return parts.map((text) => el("div", { class: className, text }));
   }
 
   function resultRow(stat, best, labelBest, spend) {
     const lines = explain(stat, settings.purchase, answers);
-    const detail = stat.accepted ? detailLine(stat, spend) : "";
+    const detail = stat.accepted ? detailLine(stat, spend) : [];
     return el("div", { class: `reward-row${best ? " is-best" : ""}${stat.accepted ? "" : " is-out"}` },
-      el("div", { class: "reward-rate", text: stat.accepted ? bigNumber(stat) : "-" }),
+      rateCell(stat),
       el("div", { class: "reward-body" },
         el("div", { class: "reward-name" },
           cardName(stat.card),
           best && labelBest ? pill("Best", "ok") : null,
           stat.accepted ? null : pill("Not accepted", "error")),
-        detail ? el("div", { class: "reward-detail-line", text: detail }) : null,
+        detailLines(detail, "reward-detail-line"),
         lines.map((line) => el("div", { class: "hint", text: line }))));
   }
 

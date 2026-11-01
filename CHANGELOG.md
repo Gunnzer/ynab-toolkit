@@ -11,6 +11,9 @@ before or as part of the push itself.
 
 ## 2026-11-01
 
+**Card Rewards: value % explained** (`pages/cardrewards.js`, `app.css`, `CLAUDE.md`)
+* Ranking by value, each card's percentage now says "back" under it and shows the working on its own line: "5x Amex Membership Rewards × 2¢ = 10¢ per $1", with what the amount earns on the line below ("600 points, worth $12.00").
+
 **Card Rewards: dollar values, one list or grouped, phone layout** (`pages/cardrewards.js`, `tools/card_rewards.js`, `tools/card_catalogue.js`, `data/cards.json`, `store.js`, `app.css`, tests, `README.md`, `CLAUDE.md`)
 * Points now have a dollar value: rank by Value (the default) or Points. Each kind of point has a typical value in cents (Aeroplan and Membership Rewards 2c, Scene+ and Avion 1c, BMO 0.67c, TD 0.5c, PC Optimum 0.1c) that you can change under Point values. Each card shows what it is worth as a percent of the purchase and, with an amount, in dollars, next to its points.
 * "Group by type of points" can be switched off for one list of every card, best first. How sure, and the questions asked, follow whichever view is on.

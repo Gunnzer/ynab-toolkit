@@ -1950,6 +1950,8 @@ td .btn-small { min-height: 28px; padding: 0 9px; font-size: 12.5px; }
 .reward-group-head + .reward-row { border-top: 0; }
 .reward-rate { font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; color: var(--muted); }
 .reward-row.is-best .reward-rate { color: var(--ok); }
+.reward-rate { display: flex; flex-direction: column; line-height: 1.1; }
+.reward-rate-unit { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
 .reward-row.is-out { opacity: .6; }
 /* Card names stay on one line and cut off with an ellipsis, so every row is
    the same shape whatever the issuer calls the card; the full name is on
