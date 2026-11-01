@@ -130,6 +130,9 @@ export function validateCatalogue(data) {
   if (!types) problems.push("`pointTypes` is missing.");
   for (const [id, type] of Object.entries(types || {})) {
     if (!type?.name || !["points", "percent"].includes(type.unit)) problems.push(`Point type ${id} needs a name and a unit.`);
+    if (type?.cents !== undefined && !(typeof type.cents === "number" && type.cents >= 0 && type.cents < 100)) {
+      problems.push(`Point type ${id} has an odd value in cents.`);
+    }
   }
   if (!Array.isArray(data.cards) || !data.cards.length) {
     problems.push("There are no cards.");
@@ -389,12 +392,42 @@ function scenarios(questions, purchase, answers) {
   return list;
 }
 
-function evaluate(cards, purchase, answers, questions) {
+/**
+ * Cents one point (or one percent, for cash back) is worth: the holder's
+ * own value first, then the data file's typical value. Cash back is always
+ * worth exactly what it says.
+ */
+export function centsPerPoint(points, values = {}) {
+  if (groupUnit(points) === "percent") return 1;
+  const own = Number(values?.[points]);
+  if (values?.[points] !== undefined && values?.[points] !== "" && own >= 0) return own;
+  const typical = Number(POINT_TYPES[points]?.cents);
+  return typical >= 0 && POINT_TYPES[points]?.cents !== undefined ? typical : 1;
+}
+
+/** What a rate is worth, as a percent of the purchase ("10%"). */
+export function formatValue(points, rate, values) {
+  const pct = rate * centsPerPoint(points, values);
+  const rounded = pct >= 10 ? Math.round(pct * 10) / 10 : Math.round(pct * 100) / 100;
+  return `${rounded}%`;
+}
+
+/** What a rate is worth on an amount: "$8.50". */
+export function formatWorth(points, rate, amount, values) {
+  if (!(amount > 0)) return "";
+  return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" })
+    .format(amount * rate * centsPerPoint(points, values) / 100);
+}
+
+function evaluate(cards, purchase, answers, questions, view) {
   const all = scenarios(questions, purchase, answers);
   const outcomes = all.map((s) => ({
     p: s.p,
     earn: cards.map((card) => earnFor(card, purchase, s.answers, questions)),
   }));
+  // What one unit of each card's rate counts for: 1 when comparing raw
+  // points, the point's worth in cents when comparing value.
+  const factor = cards.map((card) => (view.measure === "value" ? centsPerPoint(card.points, view.values) : 1));
 
   const stats = cards.map((card, i) => {
     let pAccepted = 0;
@@ -404,7 +437,7 @@ function evaluate(cards, purchase, answers, questions) {
       const e = o.earn[i];
       if (!e.accepted) continue;
       pAccepted += o.p;
-      expected += o.p * e.rate;
+      expected += o.p * e.rate * factor[i];
       rates.set(e.rate, (rates.get(e.rate) || 0) + o.p);
     }
     let shownRate = card.base;
@@ -423,6 +456,7 @@ function evaluate(cards, purchase, answers, questions) {
       pAccepted,
       expected,
       rate: shownRate,
+      score: shownRate * factor[i],
       min: values.length ? Math.min(...values) : 0,
       max: values.length ? Math.max(...values) : 0,
     };
@@ -430,17 +464,19 @@ function evaluate(cards, purchase, answers, questions) {
 
   const byType = new Map();
   for (const stat of stats) {
-    const key = stat.card.points;
+    const key = view.grouped ? stat.card.points : "all";
     if (!byType.has(key)) byType.set(key, []);
     byType.get(key).push(stat);
   }
   const groups = [...byType.entries()].map(([points, list]) => {
-    list.sort((a, b) => b.expected - a.expected || b.rate - a.rate ||
-      a.card.name.localeCompare(b.card.name));
-    return { points, name: groupName(points), unit: groupUnit(points), cards: list };
+    list.sort((a, b) => Number(b.accepted) - Number(a.accepted) || b.expected - a.expected ||
+      b.score - a.score || a.card.name.localeCompare(b.card.name));
+    return view.grouped
+      ? { points, name: groupName(points), unit: groupUnit(points), cards: list }
+      : { points: null, name: "Your cards", unit: null, cards: list };
   });
   groups.sort((a, b) => Number(b.cards[0].accepted) - Number(a.cards[0].accepted) ||
-    b.cards[0].rate - a.cards[0].rate || b.cards[0].expected - a.cards[0].expected ||
+    b.cards[0].score - a.cards[0].score || b.cards[0].expected - a.cards[0].expected ||
     a.name.localeCompare(b.name));
 
   let sure = 0;
@@ -450,7 +486,9 @@ function evaluate(cards, purchase, answers, questions) {
       const actual = o.earn[top.index];
       if (!top.accepted) return group.cards.every((c) => !o.earn[c.index].accepted);
       if (!actual.accepted || actual.rate !== top.rate) return false;
-      return group.cards.every((c) => !o.earn[c.index].accepted || o.earn[c.index].rate <= actual.rate);
+      const topScore = actual.rate * factor[top.index];
+      return group.cards.every((c) => !o.earn[c.index].accepted ||
+        o.earn[c.index].rate * factor[c.index] <= topScore + 1e-9);
     });
     if (right) sure += o.p;
   }
@@ -461,14 +499,23 @@ function evaluate(cards, purchase, answers, questions) {
 }
 
 /**
- * The whole answer for a purchase: cards grouped by point type (best group
- * first, best card first within it), how sure that is, and the question to
- * ask next - null once it is at least TARGET_CONFIDENCE sure, or when no
- * question left could change anything.
+ * The whole answer for a purchase: cards ranked (best first) and how sure
+ * that is, plus the question to ask next - null once it is at least
+ * TARGET_CONFIDENCE sure, or when no question left could change anything.
+ *
+ * view: { measure: "value" | "points", grouped, values }
+ *   value ranks by what the points are worth (centsPerPoint), points by the
+ *   raw number. grouped keeps one list per point type; ungrouped is one
+ *   list. How sure always means "the top of each list shown is right".
  */
-export function recommend(cards, purchase, answers = {}) {
+export function recommend(cards, purchase, answers = {}, view = {}) {
+  const settings = {
+    measure: view.measure === "points" ? "points" : "value",
+    grouped: view.grouped !== false,
+    values: view.values || {},
+  };
   const questions = questionsFor(purchase, cards);
-  const now = evaluate(cards, purchase, answers, questions);
+  const now = evaluate(cards, purchase, answers, questions, settings);
 
   let next = null;
   if (cards.length && now.confidence < TARGET_CONFIDENCE - 1e-9) {
@@ -477,7 +524,7 @@ export function recommend(cards, purchase, answers = {}) {
       if (answers[q.id] !== undefined) continue;
       let after = 0;
       for (const { option, p } of weighted(q, purchase)) {
-        after += p * evaluate(cards, purchase, { ...answers, [q.id]: option.id }, questions).confidence;
+        after += p * evaluate(cards, purchase, { ...answers, [q.id]: option.id }, questions, settings).confidence;
       }
       const gain = after - now.confidence;
       if (gain > bestGain + 1e-9) {
@@ -497,7 +544,7 @@ export function recommend(cards, purchase, answers = {}) {
       })(),
   }));
 
-  return { ...now, next, asked, questions };
+  return { ...now, next, asked, questions, view: settings };
 }
 
 /** Why a card's rate is what it is, in words, for the result list. */

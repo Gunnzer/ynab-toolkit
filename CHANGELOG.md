@@ -11,6 +11,11 @@ before or as part of the push itself.
 
 ## 2026-11-01
 
+**Card Rewards: dollar values, one list or grouped, phone layout** (`pages/cardrewards.js`, `tools/card_rewards.js`, `tools/card_catalogue.js`, `data/cards.json`, `store.js`, `app.css`, tests, `README.md`, `CLAUDE.md`)
+* Points now have a dollar value: rank by Value (the default) or Points. Each kind of point has a typical value in cents (Aeroplan and Membership Rewards 2c, Scene+ and Avion 1c, BMO 0.67c, TD 0.5c, PC Optimum 0.1c) that you can change under Point values. Each card shows what it is worth as a percent of the purchase and, with an amount, in dollars, next to its points.
+* "Group by type of points" can be switched off for one list of every card, best first. How sure, and the questions asked, follow whichever view is on.
+* Phone: text boxes and dropdowns are 16px across the whole app, so iPhones no longer zoom in when you tap one. On Card Rewards the amount sits beside what you are buying, the Rank by switch fills the row, and small buttons and chips are bigger to tap.
+
 **Card Rewards: layout and wording pass** (`pages/cardrewards.js`, `tools/card_rewards.js`, `app.css`, `tests/card_rewards.test.js`, `CLAUDE.md`)
 * Card names are shortened ("American Express Aeroplan Card" reads "Amex Aeroplan") and cut off on one line everywhere, so a long name no longer pushes Details and remove onto a line of their own. The full name is on hover and in Details; a card you typed in keeps your own name.
 * The answer comes first: one card at the top shows the card earning the most points, how sure it is, and the next question, instead of the question pushing the answer below the fold on a phone. It now says "Most points" rather than "Best card", since points are compared raw across programs.

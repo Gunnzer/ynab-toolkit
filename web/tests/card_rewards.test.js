@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { CARDS, CATALOGUE_CHECKED, PURCHASES, setCatalogue } from "../js/tools/card_catalogue.js";
 import {
   QUESTIONS, TARGET_CONFIDENCE, UNSURE, daysSince, describeEarn, earnFor, explain,
-  formatEarned, formatRate, normaliseCustom, questionsFor, recommend, shortName,
+  centsPerPoint, formatEarned, formatRate, formatValue, formatWorth, normaliseCustom, questionsFor, recommend, shortName,
   validateCatalogue, walletCards,
 } from "../js/tools/card_rewards.js";
 
@@ -212,6 +212,58 @@ describe("ranking and questions", () => {
     const result = recommend([], "groceries", {});
     assert.equal(result.groups.length, 0);
     assert.equal(result.next, null);
+  });
+});
+
+describe("value or points, grouped or one list", () => {
+  const wallet = walletCards([{ id: "amex-cobalt" }, { id: "td-aeroplan-vi" }, { id: "pc-world-elite" }]);
+  const atLoblaw = { store: "loblaw", currency: "cad", amex: "yes", "cap:amex-cobalt:eats": "under", "cap:td-aeroplan-vi:accel": "under" };
+
+  test("by value, a 5x Cobalt beats 30x PC Optimum; by points it does not", () => {
+    const value = recommend(wallet, "groceries", atLoblaw, { measure: "value", grouped: false });
+    assert.equal(value.groups.length, 1);
+    assert.deepEqual(value.groups[0].cards.map((c) => c.card.id),
+      ["amex-cobalt", "pc-world-elite", "td-aeroplan-vi"]);
+    assert.equal(value.groups[0].cards[0].score, 10);
+    const points = recommend(wallet, "groceries", atLoblaw, { measure: "points", grouped: false });
+    assert.equal(points.groups[0].cards[0].card.id, "pc-world-elite");
+  });
+
+  test("grouped keeps one list per point type, ordered by the chosen measure", () => {
+    const result = recommend(wallet, "groceries", atLoblaw, { measure: "value", grouped: true });
+    // PC at Loblaw (30 x 0.1c) and TD Aeroplan (1.5 x 2c) both come to 3%.
+    assert.deepEqual(result.groups.map((g) => g.points), ["mr", "aeroplan", "pc"]);
+    assert.equal(result.groups[1].cards[0].score, result.groups[2].cards[0].score);
+  });
+
+  test("your own point values change the ranking", () => {
+    const result = recommend(wallet, "groceries", atLoblaw,
+      { measure: "value", grouped: false, values: { pc: 1, mr: 1 } });
+    assert.equal(result.groups[0].cards[0].card.id, "pc-world-elite");
+  });
+
+  test("ungrouped, how sure is about the single top card", () => {
+    const result = recommend(wallet, "groceries", {}, { grouped: false });
+    assert.ok(result.confidence < TARGET_CONFIDENCE);
+    assert.equal(result.next.id, "store");
+  });
+
+  test("point values: yours, then typical, cash always 1 cent per percent", () => {
+    assert.equal(centsPerPoint("aeroplan"), 2);
+    assert.equal(centsPerPoint("aeroplan", { aeroplan: 1.6 }), 1.6);
+    assert.equal(centsPerPoint("aeroplan", { aeroplan: "" }), 2);
+    assert.equal(centsPerPoint("cash", { cash: 5 }), 1);
+    assert.equal(centsPerPoint("custom:Air Miles"), 1);
+    assert.equal(formatValue("mr", 5), "10%");
+    assert.equal(formatValue("pc", 30), "3%");
+    assert.equal(formatValue("td", 1.5), "0.75%");
+    assert.equal(formatWorth("aeroplan", 1.5, 100), "$3.00");
+  });
+
+  test("validation rejects an odd point value", () => {
+    const broken = structuredClone(SHIPPED);
+    broken.pointTypes.mr.cents = "two";
+    assert.ok(validateCatalogue(broken).some((p) => /odd value in cents/.test(p)));
   });
 });
 

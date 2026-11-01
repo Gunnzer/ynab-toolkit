@@ -48,8 +48,9 @@ for review. It never deletes anything.
 tidying up payee names with rules you control.
 
 **Card Rewards** tells you which of your credit cards earns the most for
-what you are buying (groceries, gas, dining and so on), grouped by the kind
-of points each one earns. It asks follow-up questions, like which store or
+what you are buying (groceries, gas, dining and so on), by what the points
+are worth in dollars or by raw points, in one list or grouped by the kind of
+points. It asks follow-up questions, like which store or
 whether a spending cap is used up, until it is at least 90% sure. Details for
 common Canadian cards are re-checked once a month and downloaded from this
 site at most once a day, like exchange rates; any other card can be added by

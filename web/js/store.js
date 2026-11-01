@@ -156,6 +156,12 @@ export const DEFAULTS = {
     wallet: [],
     purchase: "groceries",
     amount: "",
+    // "value" ranks by what the points are worth, "points" by the raw
+    // number. grouped: one list per point type, or one list of everything.
+    rankBy: "value",
+    grouped: true,
+    // Point type id -> cents per point, overriding the typical value.
+    values: {},
   },
   duplicates: {
     since: "",
