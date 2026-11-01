@@ -205,6 +205,14 @@ class App {
     document.getElementById("help-button")
       .addEventListener("click", () => this.showHelp());
 
+    // One place for a tool's own settings: a gear next to Help, shown when
+    // the open page registers some with usePageSettings(). Settings that
+    // change everything stay on the Settings page.
+    this.pageSettings = null;
+    this.settingsButton = document.getElementById("page-settings-button");
+    this.settingsButton.append(icon("settings", { size: 17 }), el("span", { text: "Settings" }));
+    this.settingsButton.addEventListener("click", () => this.openPageSettings());
+
     this.sidebarToggle.append(icon("collapse"));
     this.applySidebarCollapsed(this.state.store.get("sidebarCollapsed", false));
     this.sidebarToggle.addEventListener("click", () => {
@@ -457,11 +465,33 @@ class App {
     this.title.textContent = spaceTitle;
     document.title = `${page.title} - YNAB Toolkit`;
 
+    this.pageSettings = null;
     clear(this.pageHost).append(page.build(this));
+    this.settingsButton.hidden = !this.pageSettings;
     this.pageHost.focus({ preventScroll: true });
     this.rememberTab();
     this.buildNav();
     this.refreshChrome();
+  }
+
+  /**
+   * Called by a page while it builds: its settings, opened from the gear in
+   * the top bar as a panel (a bottom sheet on a phone).
+   * build(body) fills the panel; changes save as they are made. onDone runs
+   * when it closes, for a page that needs to redraw.
+   */
+  usePageSettings({ build, onDone }) {
+    this.pageSettings = { build, onDone };
+  }
+
+  async openPageSettings() {
+    const settings = this.pageSettings;
+    if (!settings) return;
+    const page = this.pageById(this.current);
+    await customDialog(`${page?.title || ""} settings`, (body) => {
+      settings.build(body);
+    }, { confirmText: "Done", hideCancel: true, sheet: true });
+    settings.onDone?.();
   }
 
   /** Re-render the page currently on screen. */
