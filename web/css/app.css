@@ -1843,6 +1843,45 @@ td .btn-small { min-height: 28px; padding: 0 9px; font-size: 12.5px; }
 
 /* ---------- card rewards ---------- */
 
+.reward-shop-search { margin-bottom: 14px; }
+.reward-shop-field { position: relative; }
+.reward-shop-field input { padding-right: 40px; }
+.reward-shop-clear {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--faint);
+  cursor: pointer;
+}
+.reward-shop-clear:hover { color: var(--text); background: var(--sunken); }
+.reward-shop-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.reward-shop-list:not(:empty) { margin-top: 8px; }
+.reward-shop {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+}
+.reward-shop .hint { font-size: 12px; }
+.reward-shop:hover, .reward-shop:focus-visible { border-color: var(--accent); outline: none; }
 .reward-pick { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
 .reward-view {
   display: flex;

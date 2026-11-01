@@ -6,6 +6,7 @@
 
 import { CARDS, CATALOGUE_CHECKED, NETWORKS, POINT_TYPES, PURCHASES } from "../tools/card_catalogue.js";
 import { browserFetchJson, loadCatalogue } from "../tools/card_feed.js";
+import { searchMerchants } from "../tools/merchants.js";
 import {
   TARGET_CONFIDENCE, UNSURE, centsPerPoint, daysSince, describeEarn, explain,
   formatEarned, formatRate, formatValue, formatWorth, groupName, groupUnit,
@@ -32,12 +33,14 @@ export function cardRewardsPage(app) {
   // groceries may be at a different store.
   let answers = {};
   let last = null;
+  // The shop picked from the search, if any. Page state like the answers.
+  let shop = null;
 
   const root = el("div", { class: "page-body" });
   root.append(pageHeading(
     "Card Rewards",
-    "Pick what you are buying and see which of your cards earns the most " +
-    "for it. Rank by value (what the points are worth, using a value per " +
+    "Search for the shop (or pick what you are buying) and see which of your " +
+    "cards earns the most for it. Rank by value (what the points are worth, using a value per " +
     "point you can change under Point values) or by the raw number of " +
     "points, in one list or grouped by the kind of points. " +
     "Where the answer depends on something it does not know yet (which " +
@@ -53,8 +56,81 @@ export function cardRewardsPage(app) {
       settings.purchase = value;
       store.save();
       answers = {};
+      // Picking a category by hand means it is not about that shop any more.
+      setShop(null);
       render();
     });
+
+  // ---------- shop search ----------
+
+  const shopInput = textInput("", { placeholder: "e.g. Costco, Esso, Dollarama, Netflix" });
+  shopInput.setAttribute("autocomplete", "off");
+  shopInput.setAttribute("enterkeyhint", "search");
+  shopInput.setAttribute("aria-label", "Search shops");
+  const shopClear = el("button", {
+    type: "button",
+    class: "reward-shop-clear",
+    title: "Clear the shop",
+    "aria-label": "Clear the shop",
+    hidden: true,
+    onClick: () => {
+      setShop(null);
+      answers = {};
+      shopInput.focus();
+      render();
+    },
+  }, icon("x", { size: 16 }));
+  const shopList = el("div", { class: "reward-shop-list" });
+  let found = [];
+
+  shopInput.addEventListener("input", () => {
+    if (shop && shopInput.value !== shop.name) shop = null;
+    shopClear.hidden = !shopInput.value;
+    paintShops();
+  });
+  shopInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && found.length) {
+      event.preventDefault();
+      pickShop(found[0]);
+    } else if (event.key === "Escape") {
+      clear(shopList);
+    }
+  });
+
+  function paintShops() {
+    clear(shopList);
+    found = shop ? [] : searchMerchants(shopInput.value);
+    if (!shop && shopInput.value.trim() && !found.length) {
+      shopList.append(hint("Not in the list: pick what you are buying below."));
+    }
+    for (const m of found) {
+      shopList.append(el("button", {
+        type: "button",
+        class: "reward-shop",
+        onClick: () => pickShop(m),
+      }, el("span", { text: m.name }), el("span", { class: "hint", text: purchaseLabel(m.purchase) })));
+    }
+  }
+
+  function setShop(m) {
+    shop = m;
+    shopInput.value = m ? m.name : "";
+    shopClear.hidden = !m;
+    found = [];
+    clear(shopList);
+  }
+
+  // A shop sets the purchase and answers what it already settles (which
+  // chain, which station), so those questions are never asked.
+  function pickShop(m) {
+    setShop(m);
+    settings.purchase = m.purchase;
+    purchaseSelect.value = m.purchase;
+    store.save();
+    answers = { ...m.answers };
+    shopInput.blur();
+    render();
+  }
 
   const amountInput = textInput(settings.amount || "", {
     type: "number",
@@ -95,8 +171,12 @@ export function cardRewardsPage(app) {
   paintSwitch();
 
   const pickCard = card(
+    el("div", { class: "reward-shop-search" },
+      el("label", { class: "field-label", text: "Where are you shopping?" }),
+      el("div", { class: "reward-shop-field" }, shopInput, shopClear),
+      shopList),
     el("div", { class: "card-grid reward-pick" },
-      field("What are you buying?", purchaseSelect),
+      field("Or pick what you are buying", purchaseSelect),
       field("Amount ($)", amountInput)),
     el("div", { class: "reward-view" },
       el("div", { class: "reward-view-rank" },
@@ -257,7 +337,9 @@ export function cardRewardsPage(app) {
     const what = purchaseLabel(settings.purchase).toLowerCase();
     body.push(el("div", {
       class: "field-label",
-      text: byValue() ? `Best value for ${what}` : `Most points for ${what}`,
+      text: shop
+        ? (byValue() ? `Best value at ${shop.name}` : `Most points at ${shop.name}`)
+        : (byValue() ? `Best value for ${what}` : `Most points for ${what}`),
     }));
     body.push(top?.accepted
       ? el("div", { class: "reward-answer" },

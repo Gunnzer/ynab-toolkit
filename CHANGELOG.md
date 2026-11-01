@@ -11,6 +11,10 @@ before or as part of the push itself.
 
 ## 2026-11-01
 
+**Card Rewards: search by shop** (`pages/cardrewards.js`, `tools/merchants.js`, `app.css`, `tests/merchants.test.js`, `CLAUDE.md`)
+* A "Where are you shopping?" search at the top: type a few letters ("dolla", "costco", "timmies", "sdm") and tap the shop, or press Enter for the top match. About 120 common Canadian shops, nicknames included.
+* Picking a shop sets what you are buying and answers what the shop already settles (which grocery chain, which gas station, Air Canada or not, Costco only taking Mastercard), so those questions are skipped. Dollar stores and Walmart count as everything else, the way card networks code them.
+
 **Card Rewards: preferred points** (`pages/cardrewards.js`, `tools/card_rewards.js`, `tools/card_catalogue.js`, `data/cards.json`, `store.js`, `app.css`, tests, `CLAUDE.md`)
 * A Preferred points picker at the bottom of the page. Pick the points you collect (say Aeroplan) and any card whose points can be moved into them counts as them, at the transfer rate and their value: Amex Membership Rewards moves to Aeroplan 1 to 1, so the Cobalt shows as 5x Aeroplan.
 * Preferred cards are listed first; the answer at the top is still the best card overall, so it never hides a better deal elsewhere.
