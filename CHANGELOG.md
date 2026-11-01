@@ -11,6 +11,12 @@ before or as part of the push itself.
 
 ## 2026-11-01
 
+**Card Rewards: one simple ranking** (`pages/cardrewards.js`, `tools/card_rewards.js`, `store.js`, `app.css`, tests, `CLAUDE.md`)
+* Every card is now ranked the same way: by what you get back, as a percent, best first, in one list. The Rank by Points switch and the group-by-type option are gone: ranking by raw points could put a card worth 1% above one worth 3%.
+* Each card still shows its points underneath, with the working ("1.5x Aeroplan × 2¢ = 3¢ per $1").
+* A card past a spending cap you said is used up now says so ("Past its $25,000 yearly cap, so 1% instead of 4%"), and one card's cap no longer makes another card look unsure.
+* Point values moved down next to Preferred points, so the top of the page is just the shop, what you are buying and the amount.
+
 **Refresh always shows the latest version** (`sw.js`, `CLAUDE.md`)
 * After a push, a refresh could keep showing the old site for up to 10 minutes, because the browser reused its saved copy. The site now checks for a newer copy on every load (cheap when nothing changed) and still opens offline.
 

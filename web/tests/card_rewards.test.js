@@ -230,6 +230,17 @@ describe("ranking and questions", () => {
     assert.ok(lines.some((l) => /\$25,000/.test(l)));
   });
 
+  test("one card past its cap does not make another card's range vague, and says why it dropped", () => {
+    const wallet = walletCards([{ id: "scotia-momentum-vi" }, { id: "td-aeroplan-vi" }]);
+    const answers = { store: "grocer", currency: "cad", "cap:scotia-momentum-vi:four": "over" };
+    const result = recommend(wallet, "groceries", answers, { grouped: false });
+    const [td, momentum] = result.groups[0].cards;
+    assert.equal(td.card.id, "td-aeroplan-vi");
+    assert.equal(td.min, td.max);
+    const lines = explain(momentum, "groceries", answers);
+    assert.ok(lines.some((l) => /Past its \$25,000 yearly cap, so 1% instead of 4%/.test(l)), lines.join(" | "));
+  });
+
   test("an empty wallet has nothing to say", () => {
     const result = recommend([], "groceries", {});
     assert.equal(result.groups.length, 0);

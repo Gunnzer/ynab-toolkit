@@ -1883,20 +1883,7 @@ td .btn-small { min-height: 28px; padding: 0 9px; font-size: 12.5px; }
 .reward-shop .hint { font-size: 12px; }
 .reward-shop:hover, .reward-shop:focus-visible { border-color: var(--accent); outline: none; }
 .reward-pick { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
-.reward-view {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 20px;
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
-}
-.reward-view-rank { display: flex; align-items: center; gap: 10px; }
-.reward-view-rank .field-label { margin: 0; }
-.reward-view-more { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; }
-.reward-switch { padding: 3px; flex-wrap: nowrap; }
-.reward-switch .tab { padding: 6px 14px; }
+
 
 .reward-answer {
   display: grid;
@@ -2023,6 +2010,8 @@ td .btn-small { min-height: 28px; padding: 0 9px; font-size: 12.5px; }
 .reward-picks { display: flex; flex-wrap: wrap; gap: 4px 16px; }
 .reward-add { margin-top: 12px; }
 .reward-preferred { max-width: 360px; margin-bottom: 8px; }
+.reward-points-more { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.reward-points-more .hint { margin: 0; }
 .reward-feed { margin-top: 12px; justify-content: space-between; gap: 4px 12px; }
 .reward-feed .hint { margin: 0; flex: 1 1 260px; }
 .reward-add-select { flex: 1 1 260px; min-width: 0; }
@@ -2092,11 +2081,6 @@ td .btn-small { min-height: 28px; padding: 0 9px; font-size: 12.5px; }
 
   /* Amount beside the purchase, not under it, so the answer starts higher. */
   .reward-pick { grid-template-columns: minmax(0, 1fr) 104px; gap: 12px; }
-  .reward-view { flex-direction: column; align-items: stretch; gap: 8px; margin-top: 12px; padding-top: 12px; }
-  .reward-view-more { justify-content: space-between; }
-  .reward-view-rank { justify-content: space-between; }
-  .reward-switch { flex: 1 1 auto; max-width: 260px; }
-  .reward-switch .tab { flex: 1 1 0; min-height: 36px; }
   .reward-options .btn { width: 100%; }
   .reward-row { grid-template-columns: 56px minmax(0, 1fr); gap: 10px; }
   .reward-rate { font-size: 17px; }

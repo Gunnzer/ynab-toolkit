@@ -1,5 +1,5 @@
 // Card Rewards: pick what you are buying and see which of your cards earns
-// the most for it, by value or raw points, grouped or in one list. Asks follow-up
+// the most for it, as a percent back, best first. Asks follow-up
 // questions (which store, does it take Amex, is a cap used up) until it is
 // at least 90% sure. Standalone: reads nothing from YNAB. The card details
 // are downloaded from this site at most once a day (tools/card_feed.js).
@@ -24,8 +24,6 @@ export function cardRewardsPage(app) {
   const settings = store.section("cardRewards");
   if (!Array.isArray(settings.wallet)) settings.wallet = [];
   if (!PURCHASES.some((p) => p.id === settings.purchase)) settings.purchase = "groceries";
-  if (settings.rankBy !== "points") settings.rankBy = "value";
-  if (typeof settings.grouped !== "boolean") settings.grouped = true;
   if (!settings.values || typeof settings.values !== "object") settings.values = {};
   if (typeof settings.preferred !== "string") settings.preferred = "";
 
@@ -42,9 +40,9 @@ export function cardRewardsPage(app) {
   root.append(pageHeading(
     "Card Rewards",
     "Search for the shop (or pick what you are buying) and see which of your " +
-    "cards earns the most for it. Rank by value (what the points are worth, using a value per " +
-    "point you can change under Point values) or by the raw number of " +
-    "points, in one list or grouped by the kind of points. " +
+    "cards gives you the most back for it. Points are turned into money " +
+    "using a value per point you can change under Point values, so every " +
+    "card is compared as a percent back, best first. " +
     "Where the answer depends on something it does not know yet (which " +
     "store, whether a cap is used up), it asks, until it is at least 90% " +
     "sure. Card details are re-checked once a month and downloaded at most " +
@@ -147,31 +145,6 @@ export function cardRewardsPage(app) {
   amountInput.step = "0.01";
   amountInput.setAttribute("inputmode", "decimal");
 
-  // Rank by: a two-way switch, built on the tab bar's look.
-  const rankSwitch = el("div", { class: "tab-bar reward-switch", role: "group", "aria-label": "Rank by" });
-  for (const [value, label] of [["value", "Value ($)"], ["points", "Points"]]) {
-    rankSwitch.append(el("button", {
-      type: "button",
-      class: "tab",
-      "data-value": value,
-      text: label,
-      onClick: () => {
-        settings.rankBy = value;
-        store.save();
-        paintSwitch();
-        render();
-      },
-    }));
-  }
-  function paintSwitch() {
-    for (const b of rankSwitch.querySelectorAll("button")) {
-      const on = b.dataset.value === settings.rankBy;
-      b.classList.toggle("is-active", on);
-      b.setAttribute("aria-pressed", String(on));
-    }
-  }
-  paintSwitch();
-
   const pickCard = card(
     el("div", { class: "reward-shop-search" },
       el("label", { class: "field-label", text: "Where are you shopping?" }),
@@ -179,23 +152,7 @@ export function cardRewardsPage(app) {
       shopList),
     el("div", { class: "card-grid reward-pick" },
       field("Or pick what you are buying", purchaseSelect),
-      field("Amount ($)", amountInput)),
-    el("div", { class: "reward-view" },
-      el("div", { class: "reward-view-rank" },
-        el("span", { class: "field-label", text: "Rank by" }),
-        rankSwitch),
-      el("div", { class: "reward-view-more" },
-        checkbox("Group by type of points", settings.grouped, (on) => {
-          settings.grouped = on;
-          store.save();
-          render();
-        }),
-        el("button", {
-          type: "button",
-          class: "reward-quiet",
-          text: "Point values...",
-          onClick: () => editValues(),
-        }))));
+      field("Amount ($)", amountInput)));
   root.append(pickCard);
 
   const askHost = el("div");
@@ -240,9 +197,18 @@ export function cardRewardsPage(app) {
   });
   const preferredHint = el("p", { class: "hint" });
   const preferredCard = card(
-    sectionTitle("Preferred points"),
+    sectionTitle("Points"),
+    el("label", { class: "field-label", text: "Preferred points" }),
     el("div", { class: "reward-preferred" }, preferredSelect),
-    preferredHint);
+    preferredHint,
+    el("div", { class: "reward-points-more" },
+      hint("What a point is worth decides the ranking."),
+      el("button", {
+        type: "button",
+        class: "reward-quiet",
+        text: "Point values...",
+        onClick: () => editValues(),
+      })));
   root.append(askHost, resultsHost, walletCard, preferredCard);
 
   let feed = null;
@@ -294,8 +260,11 @@ export function cardRewardsPage(app) {
     showOptional = false;
     const cards = walletCards(settings.wallet);
     last = cards.length ? recommend(cards, settings.purchase, answers, {
-      measure: settings.rankBy,
-      grouped: settings.grouped,
+      // Always by value, in one list (at explicit user request, after a
+      // raw-points view put a card worth 1% above one worth 3%: "super
+      // confusing"). Points still show on every card, under the value.
+      measure: "value",
+      grouped: false,
       values: settings.values,
       preferred: settings.preferred,
     }) : null;
@@ -335,21 +304,17 @@ export function cardRewardsPage(app) {
       .sort((a, b) => Number(b.accepted) - Number(a.accepted) || b.score - a.score ||
         Number(b.card.points === settings.preferred) - Number(a.card.points === settings.preferred))[0];
 
-    // By points it is "most points", not "best": raw numbers across
-    // programs are not worth the same (10 PC Optimum points are a cent).
     const what = purchaseLabel(settings.purchase).toLowerCase();
     body.push(el("div", {
       class: "field-label",
-      text: shop
-        ? (byValue() ? `Best value at ${shop.name}` : `Most points at ${shop.name}`)
-        : (byValue() ? `Best value for ${what}` : `Most points for ${what}`),
+      text: shop ? `Best card at ${shop.name}` : `Best card for ${what}`,
     }));
     body.push(top?.accepted
       ? el("div", { class: "reward-answer" },
         rateCell(top),
         el("div", { class: "reward-answer-body" },
           el("div", { class: "reward-name" }, cardName(top.card)),
-          detailLines(detailLine(top, spend, true), "hint")))
+          detailLines(detailLine(top, spend), "hint")))
       : el("p", { class: "reward-answer-none", text: "None of your cards are accepted here." }));
 
     body.push(el("div", { class: "reward-sure" },
@@ -448,26 +413,17 @@ export function cardRewardsPage(app) {
     }
     const spend = amount();
     for (const group of last.groups) {
-      const note = group.points ? POINT_TYPES[group.points]?.note : "";
       resultsHost.append(el("section", { class: "card reward-group" },
-        settings.grouped
-          ? el("div", { class: "reward-group-head" },
-            el("h3", { class: "section-title", text: group.name }),
-            note ? el("span", { class: "hint", text: note }) : null)
-          : null,
+        el("div", { class: "reward-group-head" },
+          el("h3", { class: "section-title", text: "All your cards" }),
+          el("span", { class: "hint", text: "Best first, by what you get back" })),
         group.cards.map((stat, i) => resultRow(stat, i === 0 && stat.accepted, group.cards.length > 1, spend))));
     }
   }
 
-  function byValue() {
-    return settings.rankBy !== "points";
-  }
-
-  /** The number a row is ranked by: "10%" by value, "5x" by points. */
+  /** What a card gives back, as a percent of the purchase: "10%". */
   function bigNumber(stat) {
-    return byValue()
-      ? formatValue(stat.card.points, stat.rate, settings.values)
-      : formatRate(stat.card.points, stat.rate);
+    return formatValue(stat.card.points, stat.rate, settings.values);
   }
 
   // The ranked number with a word under it, because "10%" alone did not
@@ -477,7 +433,7 @@ export function cardRewardsPage(app) {
     if (!stat.accepted) return el("div", { class: "reward-rate", text: "-" });
     return el("div", { class: "reward-rate" },
       el("span", { text: bigNumber(stat) }),
-      byValue() ? el("span", { class: "reward-rate-unit", text: "back" }) : null);
+      el("span", { class: "reward-rate-unit", text: "back" }));
   }
 
   /** "2" -> "2\u00a2", "0.67" -> "0.67\u00a2". */
@@ -486,28 +442,26 @@ export function cardRewardsPage(app) {
   }
 
   /**
-   * The other side of the number: by value, the earn rate and its points
-   * ("5x Membership Rewards, 425 points"); by points, what that is worth.
-   * The point type is named unless the group heading already says it.
+   * Under the percent: the points and the working ("1.5x Aeroplan \u00d7 2\u00a2
+   * = 3\u00a2 per $1"), where moved points came from, and what this amount
+   * earns. Cash back just says so.
    */
-  function detailLine(stat, spend, always = false) {
+  function detailLine(stat, spend) {
     const c = stat.card;
     const cash = groupUnit(c.points) === "percent";
     const typeName = groupName(c.points);
     const parts = [];
-    if (byValue()) {
-      // Show the working: points per dollar times what a point is worth.
-      if (!cash) {
-        const perDollar = Math.round(stat.rate * centsPerPoint(c.points, settings.values) * 100) / 100;
-        parts.push(`${formatRate(c.points, stat.rate)} ${typeName} \u00d7 ${cents(c.points)} = ${perDollar}\u00a2 per $1`);
-      } else if (always || !settings.grouped) parts.push(typeName);
-      if (c.convertedFrom) parts.push(movedNote(c));
-      if (spend) parts.push(cash ? `${formatWorth(c.points, stat.rate, spend, settings.values)} back on ${formatWorth("cash", 100, spend)}` : `${formatEarned(c.points, stat.rate, spend)}, worth ${formatWorth(c.points, stat.rate, spend, settings.values)}`);
+    if (!cash) {
+      const perDollar = Math.round(stat.rate * centsPerPoint(c.points, settings.values) * 100) / 100;
+      parts.push(`${formatRate(c.points, stat.rate)} ${typeName} \u00d7 ${cents(c.points)} = ${perDollar}\u00a2 per $1`);
     } else {
-      if (always || !settings.grouped) parts.push(typeName);
-      if (c.convertedFrom) parts.push(movedNote(c));
-      if (!cash) parts.push(`worth about ${formatValue(c.points, stat.rate, settings.values)}`);
-      if (spend) parts.push(formatEarned(c.points, stat.rate, spend));
+      parts.push(typeName);
+    }
+    if (c.convertedFrom) parts.push(movedNote(c));
+    if (spend) {
+      parts.push(cash
+        ? `${formatWorth(c.points, stat.rate, spend, settings.values)} back on ${formatWorth("cash", 100, spend)}`
+        : `${formatEarned(c.points, stat.rate, spend)}, worth ${formatWorth(c.points, stat.rate, spend, settings.values)}`);
     }
     return parts;
   }
@@ -647,7 +601,7 @@ export function cardRewardsPage(app) {
     if (!preferred) {
       preferredHint.textContent = "Pick the points you collect. Cards whose points " +
         "can be moved into them are counted as them, at the transfer rate and " +
-        "their value, and their cards are listed first.";
+        "their value.";
       return;
     }
     const moved = cards.filter((c) => c.points !== preferred && transferRatio(c.points, preferred) > 0);
@@ -655,9 +609,9 @@ export function cardRewardsPage(app) {
     preferredHint.textContent = moved.length
       ? moved.map((c) => `${shortName(c)} earns ${groupName(c.points)}, counted as ${name} ` +
         `(${ratioLabel(transferRatio(c.points, preferred))}).`).join(" ") +
-        ` ${name} cards are listed first; the top answer is still the best card overall.`
-      : `None of your other cards' points move to ${name}, so this only lists ` +
-        `${name} cards first.`;
+        ` On a tie, the ${name} card wins.`
+      : `None of your other cards' points move to ${name}, so this only ` +
+        `breaks ties in its favour.`;
   }
 
   // A card dropped from the downloaded list (discontinued, usually). Kept

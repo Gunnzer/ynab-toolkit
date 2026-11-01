@@ -458,10 +458,12 @@ function evaluate(cards, purchase, answers, questions, view) {
   const all = scenarios(questions, purchase, answers);
   const outcomes = all.map((s) => ({
     p: s.p,
-    // A scenario where some cap is already used up. Its lower rate is
-    // explained by the cap's own line, so it is left out of the "could be
-    // x to y" range, which is for doubts about the shop itself.
-    capped: Object.entries(s.answers).some(([id, value]) => id.startsWith("cap:") && value === "over"),
+    // Which cards are past one of their own caps in this scenario. That
+    // lower rate is explained by the cap's own line, so it is left out of
+    // the card's "could be x to y" range, which is for doubts about the
+    // shop itself. Per card: another card's cap says nothing about this one.
+    capped: cards.map((card) => Object.entries(s.answers)
+      .some(([id, value]) => id.startsWith(`cap:${card.id}:`) && value === "over")),
     earn: cards.map((card) => earnFor(card, purchase, s.answers, questions)),
   }));
   // What one unit of each card's rate counts for: 1 when comparing raw
@@ -479,7 +481,7 @@ function evaluate(cards, purchase, answers, questions, view) {
       pAccepted += o.p;
       expected += o.p * e.rate * factor[i];
       rates.set(e.rate, (rates.get(e.rate) || 0) + o.p);
-      if (!o.capped) uncapped.add(e.rate);
+      if (!o.capped[i]) uncapped.add(e.rate);
     }
     let shownRate = card.base;
     let best = -1;
@@ -625,6 +627,13 @@ export function explain(stat, purchase, answers) {
     lines.push(`Adds a ${Math.round(card.fxFee * 1000) / 10}% foreign transaction fee.`);
   } else if ((currency === "usd" || currency === "foreign") && card.fxFee === 0) {
     lines.push("No foreign transaction fee.");
+  }
+  // Past a cap you said was used up: say why the rate is low.
+  const used = card.earn.find((rule) => rule.cap && rule.rate > stat.rate &&
+    ruleCovers(rule, card, purchase) && answers[capQuestionId(card, rule.cap)] === "over");
+  if (used) {
+    lines.push(`Past its $${used.cap.spend.toLocaleString("en-CA")} ${used.cap.per === "month" ? "monthly" : "yearly"} ` +
+      `cap, so ${formatRate(card.points, stat.rate)} instead of ${formatRate(card.points, used.rate)}.`);
   }
   const capped = card.earn.find((rule) => rule.cap && rule.rate === stat.rate &&
     ruleCovers(rule, card, purchase));
