@@ -161,6 +161,9 @@ export const DEFAULTS = {
     // A point type id, or "" for none: points that transfer into it are
     // counted as it, and its cards are listed first.
     preferred: "",
+    // Cap answers kept until the cap's month or year ends:
+    // { "cap:<cardId>:<capKey>": { value: "under" | "over", until: "YYYY-MM-DD" } }
+    capAnswers: {},
   },
   duplicates: {
     since: "",

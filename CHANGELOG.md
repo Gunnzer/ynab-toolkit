@@ -11,6 +11,10 @@ before or as part of the push itself.
 
 ## 2026-11-01
 
+**Card Rewards: remembers your cap answers** (`pages/cardrewards.js`, `tools/card_rewards.js`, `store.js`, tests, `CLAUDE.md`)
+* Answering "have you already put $25,000 on your Momentum this year?" is now remembered until Dec 31 (a monthly cap until the end of the month), on every shop, instead of being asked again each visit.
+* It shows as "Scotia Momentum VI past cap, until Dec 31"; tap its x to change it. "Not sure" is not remembered, and Start over keeps these.
+
 **Card Rewards: one simple ranking** (`pages/cardrewards.js`, `tools/card_rewards.js`, `store.js`, `app.css`, tests, `CLAUDE.md`)
 * Every card is now ranked the same way: by what you get back, as a percent, best first, in one list. The Rank by Points switch and the group-by-type option are gone: ranking by raw points could put a card worth 1% above one worth 3%.
 * Each card still shows its points underneath, with the working ("1.5x Aeroplan × 2¢ = 3¢ per $1").

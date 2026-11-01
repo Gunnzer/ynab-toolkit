@@ -314,6 +314,7 @@ export function questionsFor(purchase, cards) {
       list.push({
         id,
         cap: true,
+        per: rule.cap.per,
         unsure: `${shortName(card)} cap not sure`,
         text: `This ${rule.cap.per}, have you already put ${spend} of ${rule.cap.label} ` +
           `on your ${shortName(card)}?`,
@@ -714,4 +715,34 @@ export function shortName(card) {
   let name = String(card?.name || "").trim();
   for (const [pattern, replacement] of SHORTEN) name = name.replace(pattern, replacement).trim();
   return name || String(card?.name || "");
+}
+
+/**
+ * The last day a cap answer holds: the end of the calendar month for a
+ * monthly cap, the end of the calendar year for a yearly one. `today` is a
+ * local "YYYY-MM-DD". (Some cards count by statement or card year; the
+ * calendar is the closest thing everyone shares.)
+ */
+export function capAnswerUntil(per, today) {
+  const [y, m] = today.split("-").map(Number);
+  if (per === "month") {
+    const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    return `${y}-${String(m).padStart(2, "0")}-${String(last).padStart(2, "0")}`;
+  }
+  return `${y}-12-31`;
+}
+
+/**
+ * Saved cap answers still in force today, as plain answers
+ * ({ questionId: "under" | "over" }). Saved ones look like
+ * { questionId: { value, until } }; anything odd or past its date is dropped.
+ */
+export function savedCapAnswers(saved, today) {
+  const out = {};
+  for (const [id, entry] of Object.entries(saved || {})) {
+    if (!id.startsWith("cap:") || !entry || !["under", "over"].includes(entry.value)) continue;
+    if (typeof entry.until !== "string" || entry.until < today) continue;
+    out[id] = entry.value;
+  }
+  return out;
 }

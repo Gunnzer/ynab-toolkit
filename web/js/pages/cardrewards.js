@@ -10,7 +10,8 @@ import { searchMerchants } from "../tools/merchants.js";
 import {
   TARGET_CONFIDENCE, UNSURE, centsPerPoint, daysSince, describeEarn, explain,
   formatEarned, formatRate, formatValue, formatWorth, groupName, groupUnit,
-  purchaseLabel, recommend, shortName, transferRatio, walletCards,
+  capAnswerUntil, purchaseLabel, recommend, savedCapAnswers, shortName, transferRatio,
+  walletCards,
 } from "../tools/card_rewards.js";
 import {
   button, card, checkbox, clear, customDialog, dateLabel, el, field, hint, icon,
@@ -26,9 +27,18 @@ export function cardRewardsPage(app) {
   if (!PURCHASES.some((p) => p.id === settings.purchase)) settings.purchase = "groceries";
   if (!settings.values || typeof settings.values !== "object") settings.values = {};
   if (typeof settings.preferred !== "string") settings.preferred = "";
+  // Cap answers ("past your $25,000 this year?") are about the card, not the
+  // purchase, so they are kept until the cap's month or year ends (at
+  // explicit user request) instead of being asked every visit.
+  if (!settings.capAnswers || typeof settings.capAnswers !== "object") settings.capAnswers = {};
+  for (const [id, entry] of Object.entries(settings.capAnswers)) {
+    if (!(entry?.until >= localToday())) delete settings.capAnswers[id];
+  }
 
   // Answers belong to one purchase, so they are not saved: tomorrow's
   // groceries may be at a different store.
+  // Answers for this purchase only. Saved cap answers are added on top in
+  // allAnswers(); an answer given here wins.
   let answers = {};
   let last = null;
   // The shop picked from the search, if any. Page state like the answers.
@@ -259,7 +269,7 @@ export function cardRewardsPage(app) {
   function render() {
     showOptional = false;
     const cards = walletCards(settings.wallet);
-    last = cards.length ? recommend(cards, settings.purchase, answers, {
+    last = cards.length ? recommend(cards, settings.purchase, allAnswers(), {
       // Always by value, in one list (at explicit user request, after a
       // raw-points view put a card worth 1% above one worth 3%: "super
       // confusing"). Points still show on every card, under the value.
@@ -373,6 +383,7 @@ export function cardRewardsPage(app) {
     // says them, and a "CAD" chip nobody chose is only noise.
     const yours = last.asked.filter(({ question }) =>
       !(shop && shop.answers[question.id] !== undefined && shop.answers[question.id] === answers[question.id]));
+    const savedUntil = (id) => (answers[id] === undefined ? settings.capAnswers[id]?.until : null);
     if (yours.length) {
       body.push(el("div", { class: "reward-asked" },
         el("span", { class: "hint", text: "Your answers:" }),
@@ -382,9 +393,17 @@ export function cardRewardsPage(app) {
           title: `${question.text} Click to ask again.`,
           onClick: () => {
             delete answers[question.id];
+            if (settings.capAnswers[question.id]) {
+              delete settings.capAnswers[question.id];
+              store.save();
+            }
             render();
           },
-        }, el("span", { text: text }), icon("x", { size: 14 }))),
+        }, el("span", {
+          text: savedUntil(question.id)
+            ? `${text}, until ${shortDate(savedUntil(question.id))}`
+            : text,
+        }), icon("x", { size: 14 }))),
         button("Start over", {
           small: true,
           onClick: () => {
@@ -398,8 +417,33 @@ export function cardRewardsPage(app) {
   }
 
   function answer(id, value) {
-    answers = { ...answers, [id]: value };
+    const question = last?.questions.find((q) => q.id === id);
+    if (question?.cap && value !== UNSURE) {
+      // Remembered; the page answer is not needed on top of it.
+      settings.capAnswers[id] = { value, until: capAnswerUntil(question.per, localToday()) };
+      store.save();
+      const { [id]: _, ...rest } = answers;
+      answers = rest;
+    } else {
+      answers = { ...answers, [id]: value };
+    }
     render();
+  }
+
+  function allAnswers() {
+    return { ...savedCapAnswers(settings.capAnswers, localToday()), ...answers };
+  }
+
+  /** Today as a local "YYYY-MM-DD" (toISOString would give the UTC date). */
+  function localToday() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+
+  /** "2026-12-31" -> "Dec 31". */
+  function shortDate(iso) {
+    const [y, m, d] = iso.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
   }
 
   function renderResults() {
@@ -481,7 +525,7 @@ export function cardRewardsPage(app) {
   }
 
   function resultRow(stat, best, labelBest, spend) {
-    const lines = explain(stat, settings.purchase, answers);
+    const lines = explain(stat, settings.purchase, allAnswers());
     const detail = stat.accepted ? detailLine(stat, spend) : [];
     return el("div", { class: `reward-row${best ? " is-best" : ""}${stat.accepted ? "" : " is-out"}` },
       rateCell(stat),

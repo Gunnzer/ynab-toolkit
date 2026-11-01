@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { CARDS, CATALOGUE_CHECKED, PURCHASES, setCatalogue } from "../js/tools/card_catalogue.js";
 import {
   QUESTIONS, TARGET_CONFIDENCE, UNSURE, daysSince, describeEarn, earnFor, explain,
-  centsPerPoint, formatEarned, formatRate, formatValue, formatWorth, normaliseCustom, questionsFor, recommend, shortName, transferRatio, asPreferred,
+  centsPerPoint, formatEarned, formatRate, formatValue, formatWorth, normaliseCustom, questionsFor, recommend, shortName, transferRatio, asPreferred, capAnswerUntil, savedCapAnswers,
   validateCatalogue, walletCards,
 } from "../js/tools/card_rewards.js";
 
@@ -376,6 +376,33 @@ describe("formatting", () => {
     for (const card of CARDS) {
       assert.ok(shortName(card).length <= 28, `${card.name} shortens to ${shortName(card)}`);
     }
+  });
+
+  test("cap answers last until the cap's month or year ends", () => {
+    assert.equal(capAnswerUntil("year", "2026-11-01"), "2026-12-31");
+    assert.equal(capAnswerUntil("month", "2026-11-01"), "2026-11-30");
+    assert.equal(capAnswerUntil("month", "2028-02-10"), "2028-02-29");
+    assert.equal(capAnswerUntil("month", "2026-12-31"), "2026-12-31");
+    const saved = {
+      "cap:scotia-momentum-vi:four": { value: "over", until: "2026-12-31" },
+      "cap:amex-cobalt:eats": { value: "under", until: "2026-10-31" },
+      "cap:td-aeroplan-vi:accel": { value: "under", until: "2026-12-31" },
+      "cap:bad": { value: "maybe", until: "2026-12-31" },
+      store: { value: "over", until: "2026-12-31" },
+    };
+    assert.deepEqual(savedCapAnswers(saved, "2026-11-01"), {
+      "cap:scotia-momentum-vi:four": "over",
+      "cap:td-aeroplan-vi:accel": "under",
+    });
+    assert.deepEqual(savedCapAnswers(saved, "2027-01-01"), {});
+    assert.deepEqual(savedCapAnswers(undefined, "2026-11-01"), {});
+  });
+
+  test("cap questions say whether they are monthly or yearly", () => {
+    const wallet = walletCards([{ id: "amex-cobalt" }, { id: "td-aeroplan-vi" }]);
+    const caps = questionsFor("groceries", wallet).filter((q) => q.cap);
+    assert.deepEqual(caps.map((q) => [q.id, q.per]).sort(),
+      [["cap:amex-cobalt:eats", "month"], ["cap:td-aeroplan-vi:accel", "year"]]);
   });
 
   test("days since", () => {
