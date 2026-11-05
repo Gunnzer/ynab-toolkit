@@ -39,6 +39,9 @@ describe("card catalogue", () => {
     assert.ok(SHIPPED.pointTypes.mr.cents <= 1.2);
     assert.ok(SHIPPED.pointTypes.scene.cents <= 1);
     assert.ok(SHIPPED.pointTypes.avion.cents <= 1);
+    // PC Optimum assumes points are saved for a Shoppers bonus redemption
+    // event (at explicit user request), still below the best event tiers.
+    assert.ok(SHIPPED.pointTypes.pc.cents <= 0.15);
   });
 
   test("the user's own cards are in it", () => {
@@ -278,12 +281,12 @@ describe("value or points, grouped or one list", () => {
     assert.equal(points.groups[0].cards[0].card.id, "pc-world-elite");
   });
 
-  test("at Loblaw the Cobalt is out, and PC (30 x 0.1c) beats TD Aeroplan (1.5 x 1.1c)", () => {
+  test("at Loblaw the Cobalt is out, and PC (30 x 0.14c) beats TD Aeroplan (1.5 x 1.1c)", () => {
     const atLoblaw = { store: "loblaw", currency: "cad", "cap:td-aeroplan-vi:accel": "under" };
     const result = recommend(wallet, "groceries", atLoblaw, { grouped: false });
     const [first, second, last] = result.groups[0].cards;
     assert.equal(first.card.id, "pc-world-elite");
-    assert.ok(Math.abs(first.score - 3) < 1e-9);
+    assert.ok(Math.abs(first.score - 4.2) < 1e-9);
     assert.ok(Math.abs(second.score - 1.65) < 1e-9);
     assert.equal(last.card.id, "amex-cobalt");
     assert.equal(last.accepted, false);
@@ -314,7 +317,7 @@ describe("value or points, grouped or one list", () => {
     assert.equal(centsPerPoint("cash", { cash: 5 }), 1);
     assert.equal(centsPerPoint("custom:Air Miles"), 1);
     assert.equal(formatValue("mr", 5), "5.5%");
-    assert.equal(formatValue("pc", 30), "3%");
+    assert.equal(formatValue("pc", 30), "4.2%");
     assert.equal(formatValue("td", 1.5), "0.75%");
     assert.equal(formatWorth("aeroplan", 1.5, 100), "$1.65");
   });

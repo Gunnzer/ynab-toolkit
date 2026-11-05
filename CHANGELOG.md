@@ -11,6 +11,9 @@ before or as part of the push itself.
 
 ## 2026-11-05
 
+**Card Rewards: PC Optimum valued at 0.14 cents** (`data/cards.json`, tests, `CLAUDE.md`)
+* PC Optimum points are now worth 0.14 cents each (about $14 per 10,000 points), assuming they are saved for a Shoppers bonus redemption event, instead of the flat $10. The PC World Elite now shows about 4.2% back at Loblaw stores and 6.3% at Shoppers. You can still set your own value under Point values.
+
 **Card Rewards remembers which shops take Amex** (`pages/cardrewards.js`, `tools/merchants.js`, `store.js`, tests, `CLAUDE.md`)
 * Answering "Does this place take American Express?" at a shop saves the answer for that shop, so it is filled in (and not asked) the next time you pick it. The chip reads "No Amex, saved for Swiss Chalet"; its x forgets it.
 * A shop that is not in the list can be added with an "Add" button under the search (name, what you buy there, and whether it takes Amex). Nothing is added just by typing, so nothing gets added by accident. Added shops show up in the search like any other, and "Remove it" takes one out.
