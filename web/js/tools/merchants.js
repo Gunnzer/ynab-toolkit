@@ -57,7 +57,8 @@ export const MERCHANTS = [
   GROCER("Save-On-Foods", "grocer", ["save on", "saveon"]),
   GROCER("Farm Boy", "grocer"),
   GROCER("Longo's", "grocer", ["longos"]),
-  GROCER("T&T Supermarket", "grocer", ["t and t", "tnt"]),
+  // Loblaw-owned, and like the Loblaw banners it does not take Amex.
+  { ...GROCER("T&T Supermarket", "grocer", ["t and t", "tnt"]), answers: { ...CAD, store: "grocer", amex: "no" } },
   GROCER("Whole Foods", "grocer"),
   GROCER("Co-op", "grocer", ["coop", "co op"]),
   GROCER("Costco", "costco", ["costco wholesale"]),

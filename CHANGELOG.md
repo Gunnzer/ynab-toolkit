@@ -11,6 +11,9 @@ before or as part of the push itself.
 
 ## 2026-11-01
 
+**Card Rewards: Loblaw stores don't take Amex** (`tools/card_rewards.js`, `tools/merchants.js`, tests, `CLAUDE.md`)
+* Superstore, No Frills, Loblaws, Zehrs, Fortinos, Provigo, Maxi, Valu-mart, Your Independent Grocer and T&T now count Amex cards as not accepted, so they no longer show the Cobalt's 5x there. Shoppers Drug Mart still takes Amex.
+
 **Fewer places to go: tools grouped into spaces** (`main.js`, `index.html`, `ui.js`, `app.css`, `pages/report_tabs.js`, `pages/setup.js`, every page's "Setup" wording, `CLAUDE.md`)
 * The 14 tools now live in six spaces: Home, Budget, Transactions, Reports, Together and Card Rewards. Each space shows its tools as a row of tabs under the title (Budget: This month, My plan, Auto Assign, Ready to Assign; Reports: its five reports plus Upcoming bills and Export).
 * On a phone or tablet the menu is a bar along the bottom with Home, Budget, Activity, Cards and More; More opens a sheet with Reports, Together and Settings. The old menu that filled the top of the screen is gone.

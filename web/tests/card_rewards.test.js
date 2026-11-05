@@ -73,10 +73,16 @@ describe("what a card earns", () => {
   const [cobalt, tdAeroplan] = walletCards([{ id: "amex-cobalt" }, { id: "td-aeroplan-vi" }]);
 
   test("grocery rates only at a store that codes as groceries", () => {
-    assert.equal(earnFor(cobalt, "groceries", { store: "loblaw", currency: "cad" }).rate, 5);
+    assert.equal(earnFor(cobalt, "groceries", { store: "sobeys", currency: "cad" }).rate, 5);
+    assert.equal(earnFor(tdAeroplan, "groceries", { store: "loblaw" }).rate, 1.5);
     assert.equal(earnFor(cobalt, "groceries", { store: "walmart", currency: "cad" }).rate, 1);
     assert.equal(earnFor(tdAeroplan, "groceries", { store: "walmart" }).rate, 1);
     assert.equal(earnFor(tdAeroplan, "groceries", { store: "sobeys" }).rate, 1.5);
+  });
+
+  test("Loblaw stores do not take Amex", () => {
+    assert.equal(earnFor(cobalt, "groceries", { store: "loblaw", currency: "cad" }).accepted, false);
+    assert.equal(earnFor(tdAeroplan, "groceries", { store: "loblaw" }).accepted, true);
   });
 
   test("Costco takes only Mastercard, and a 'no Amex' answer blocks Amex", () => {
@@ -130,7 +136,7 @@ describe("ranking and questions", () => {
   const mine = walletCards([{ id: "amex-cobalt" }, { id: "td-aeroplan-vi" }]);
 
   test("groups by point type, most points first", () => {
-    const { result } = answerAll(mine, "groceries");
+    const { result } = answerAll(mine, "groceries", (q) => (q.id === "store" ? "grocer" : q.options[0].id));
     assert.deepEqual(result.groups.map((g) => g.points), ["mr", "aeroplan"]);
     assert.equal(result.groups[0].cards[0].rate, 5);
     assert.equal(result.groups[1].cards[0].rate, 1.5);
@@ -250,27 +256,35 @@ describe("ranking and questions", () => {
 
 describe("value or points, grouped or one list", () => {
   const wallet = walletCards([{ id: "amex-cobalt" }, { id: "td-aeroplan-vi" }, { id: "pc-world-elite" }]);
-  const atLoblaw = { store: "loblaw", currency: "cad", amex: "yes", "cap:amex-cobalt:eats": "under", "cap:td-aeroplan-vi:accel": "under" };
+  const atGrocer = { store: "grocer", currency: "cad", amex: "yes", "cap:amex-cobalt:eats": "under", "cap:td-aeroplan-vi:accel": "under" };
 
-  test("by value, a 5x Cobalt beats 30x PC Optimum; by points it does not", () => {
-    const value = recommend(wallet, "groceries", atLoblaw, { measure: "value", grouped: false });
+  test("by value, a 5x Cobalt beats 10x PC Optimum; by points it does not", () => {
+    const value = recommend(wallet, "groceries", atGrocer, { measure: "value", grouped: false });
     assert.equal(value.groups.length, 1);
     assert.deepEqual(value.groups[0].cards.map((c) => c.card.id),
-      ["amex-cobalt", "pc-world-elite", "td-aeroplan-vi"]);
+      ["amex-cobalt", "td-aeroplan-vi", "pc-world-elite"]);
     assert.equal(value.groups[0].cards[0].score, 10);
-    const points = recommend(wallet, "groceries", atLoblaw, { measure: "points", grouped: false });
+    const points = recommend(wallet, "groceries", atGrocer, { measure: "points", grouped: false });
     assert.equal(points.groups[0].cards[0].card.id, "pc-world-elite");
   });
 
+  test("at Loblaw the Cobalt is out, and PC (30 x 0.1c) ties TD Aeroplan (1.5 x 2c) at 3%", () => {
+    const atLoblaw = { store: "loblaw", currency: "cad", "cap:td-aeroplan-vi:accel": "under" };
+    const result = recommend(wallet, "groceries", atLoblaw, { grouped: false });
+    const [first, second, last] = result.groups[0].cards;
+    assert.equal(first.score, 3);
+    assert.equal(second.score, 3);
+    assert.equal(last.card.id, "amex-cobalt");
+    assert.equal(last.accepted, false);
+  });
+
   test("grouped keeps one list per point type, ordered by the chosen measure", () => {
-    const result = recommend(wallet, "groceries", atLoblaw, { measure: "value", grouped: true });
-    // PC at Loblaw (30 x 0.1c) and TD Aeroplan (1.5 x 2c) both come to 3%.
+    const result = recommend(wallet, "groceries", atGrocer, { measure: "value", grouped: true });
     assert.deepEqual(result.groups.map((g) => g.points), ["mr", "aeroplan", "pc"]);
-    assert.equal(result.groups[1].cards[0].score, result.groups[2].cards[0].score);
   });
 
   test("your own point values change the ranking", () => {
-    const result = recommend(wallet, "groceries", atLoblaw,
+    const result = recommend(wallet, "groceries", atGrocer,
       { measure: "value", grouped: false, values: { pc: 1, mr: 1 } });
     assert.equal(result.groups[0].cards[0].card.id, "pc-world-elite");
   });
@@ -302,7 +316,7 @@ describe("value or points, grouped or one list", () => {
 
 describe("preferred points", () => {
   const wallet = walletCards([{ id: "amex-cobalt" }, { id: "td-aeroplan-vi" }, { id: "cibc-dividend-vi" }]);
-  const known = { store: "loblaw", currency: "cad", amex: "yes",
+  const known = { store: "grocer", currency: "cad", amex: "yes",
     "cap:amex-cobalt:eats": "under", "cap:td-aeroplan-vi:accel": "under" };
 
   test("Membership Rewards moves to Aeroplan 1 to 1; nothing moves the other way", () => {
