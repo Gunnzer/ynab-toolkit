@@ -4,14 +4,14 @@
 // at least 90% sure. Standalone: reads nothing from YNAB. The card details
 // are checked for on this site each time the page opens (tools/card_feed.js).
 
-import { CARDS, CATALOGUE_CHECKED, NETWORKS, POINT_TYPES, PURCHASES } from "../tools/card_catalogue.js";
+import { CARDS, CATALOGUE_CHECKED, NETWORKS, OFFERS, POINT_TYPES, PURCHASES } from "../tools/card_catalogue.js";
 import { browserFetchJson, loadCatalogue } from "../tools/card_feed.js";
 import { merchantByName, normalise, searchMerchants } from "../tools/merchants.js";
 import {
   TARGET_CONFIDENCE, UNSURE, centsPerPoint, daysSince, describeEarn, explain,
   formatEarned, formatRate, formatValue, formatWorth, groupName, groupUnit,
-  capAnswerUntil, purchaseLabel, recommend, savedCapAnswers, shortName, transferRatio,
-  walletCards,
+  capAnswerUntil, offerAtShop, offersFor, purchaseLabel, recommend, savedCapAnswers, shortName,
+  transferRatio, walletCards,
 } from "../tools/card_rewards.js";
 import {
   button, card, checkbox, clear, confirmDialog, customDialog, dateLabel, el, field, hint, icon,
@@ -266,7 +266,11 @@ export function cardRewardsPage(app) {
         text: "Point values...",
         onClick: () => editValues(),
       })));
-  root.append(askHost, resultsHost, walletCard, preferredCard);
+  // Special events and offers from the card details, below the results
+  // (at explicit user request), with an "Offer" tag on what they are about.
+  const offersHost = el("div");
+  let offers = [];
+  root.append(askHost, resultsHost, offersHost, walletCard, preferredCard);
 
   let feed = null;
 
@@ -337,8 +341,62 @@ export function cardRewardsPage(app) {
     else root.insertBefore(walletCard, pickCard);
     // Nothing to prefer between until there are cards.
     preferredCard.hidden = !settings.wallet.length;
+    offers = last ? offersFor(OFFERS, last.groups.flatMap((g) => g.cards.map((stat) => stat.card)), localToday()) : [];
     renderAsk();
     renderResults();
+    renderOffers();
+  }
+
+  function renderOffers() {
+    clear(offersHost);
+    if (!last) return;
+    const names = Object.fromEntries(last.groups.flatMap((g) => g.cards)
+      .map((stat) => [stat.card.id, shortName(stat.card)]));
+    offersHost.append(card(
+      sectionTitle("Offers and events"),
+      offers.length
+        ? offers.map(({ offer, status, cardIds }) => el("div", {
+          class: "reward-offer",
+          id: `reward-offer-${offer.id}`,
+        },
+        el("div", { class: "reward-offer-head" },
+          el("span", { class: "reward-offer-title", text: offer.title }),
+          pill(status === "now" ? `Until ${shortDate(offer.ends)}` : `Starts ${shortDate(offer.starts)}`,
+            status === "now" ? "ok" : "info")),
+        offer.detail ? el("p", { class: "reward-offer-detail", text: offer.detail }) : "",
+        el("p", {
+          class: "hint",
+          text: [
+            cardIds.length ? `For your ${cardIds.map((id) => names[id]).join(", ")}` : "",
+            offer.shops?.length ? `At ${offer.shops.join(", ")}` : "",
+            `Source: ${offer.source}`,
+          ].filter(Boolean).join(". ") + ".",
+        })))
+        : hint("No special events or offers for your cards were found when card " +
+          `details were last checked${CATALOGUE_CHECKED ? ` (${shortDate(CATALOGUE_CHECKED)})` : ""}. ` +
+          "They are looked for every month along with the card details.")));
+  }
+
+  /** A small tag that jumps down to the offer it is about. */
+  function offerTag(offer, text = "Offer") {
+    return el("button", {
+      type: "button",
+      class: "reward-offer-tag",
+      title: offer.title,
+      text: `${text} \u2193`,
+      onClick: () => {
+        const target = document.getElementById(`reward-offer-${offer.id}`);
+        if (!target) return;
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+        target.classList.remove("is-flash");
+        void target.offsetWidth;
+        target.classList.add("is-flash");
+      },
+    });
+  }
+
+  function offerForCard(id) {
+    return offers.find((o) => o.cardIds.includes(id))?.offer;
   }
 
   /** A card name on one line: short form, full name on hover. */
@@ -362,10 +420,13 @@ export function cardRewardsPage(app) {
         Number(b.card.points === settings.preferred) - Number(a.card.points === settings.preferred))[0];
 
     const what = purchaseLabel(settings.purchase).toLowerCase();
-    body.push(el("div", {
-      class: "field-label",
-      text: shop ? `Best card at ${shop.name}` : `Best card for ${what}`,
-    }));
+    const shopOffer = shop && offers.find(({ offer }) => offerAtShop(offer, shop.name))?.offer;
+    body.push(el("div", { class: "reward-answer-head" },
+      el("span", {
+        class: "field-label",
+        text: shop ? `Best card at ${shop.name}` : `Best card for ${what}`,
+      }),
+      shopOffer ? offerTag(shopOffer, `Offer at ${shop.name}`) : ""));
     body.push(top?.accepted
       ? el("div", { class: "reward-answer" },
         rateCell(top),
@@ -622,7 +683,8 @@ export function cardRewardsPage(app) {
         el("div", { class: "reward-name" },
           cardName(stat.card),
           best && labelBest ? pill("Best", "ok") : null,
-          stat.accepted ? null : pill("Not accepted", "error")),
+          stat.accepted ? null : pill("Not accepted", "error"),
+          offerForCard(stat.card.id) ? offerTag(offerForCard(stat.card.id)) : null),
         detailLines(detail, "reward-detail-line"),
         lines.map((line) => el("div", { class: "hint", text: line }))));
   }

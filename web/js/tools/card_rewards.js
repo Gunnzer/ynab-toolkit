@@ -1,10 +1,9 @@
-// Card Rewards: which of your cards earns the most for a purchase, grouped
-// by the kind of points it earns, and which question to ask next until the
-// answer is at least 90% sure.
+// Card Rewards: which of your cards earns the most for a purchase, and
+// which question to ask next until the answer is at least 90% sure.
 //
-// Points are compared raw (5x is 5, 4% is 4), never converted to dollars,
-// at explicit user request - which is why cards are grouped by point type:
-// raw numbers only compare cleanly inside one program.
+// The page compares every card by value (rate x cents per point, in one
+// list); comparing raw points, grouped by point type, is still supported
+// (`measure: "points"`, `grouped: true`) but no longer used by the page.
 //
 // How sure: everything not yet known (which store, does it take Amex, is a
 // cap used up) is a question with a prior. Every combination of the open
@@ -14,6 +13,7 @@
 // earns the rate shown. The next question is the one whose answer is
 // expected to raise that the most.
 
+import { normalise } from "./merchants.js";
 import { CARDS, POINT_TYPES, PURCHASES } from "./card_catalogue.js";
 
 export const TARGET_CONFIDENCE = 0.9;
@@ -197,7 +197,66 @@ export function validateCatalogue(data) {
       if (!purchases.has(id)) problems.push(`${name}: unknown pick ${id}.`);
     }
   }
+
+  if (data.offers !== undefined && !Array.isArray(data.offers)) problems.push("`offers` is not a list.");
+  const offerIds = new Set();
+  for (const offer of Array.isArray(data.offers) ? data.offers : []) {
+    const name = offer?.id || "(an offer with no id)";
+    if (!offer?.id || offerIds.has(offer.id)) problems.push(`Offer ${name} is missing an id or listed twice.`);
+    offerIds.add(offer?.id);
+    if (!offer?.title || !offer?.source) problems.push(`Offer ${name} needs a title and a source.`);
+    if (!DATE.test(offer?.ends || "") || (offer?.starts !== undefined && !DATE.test(offer.starts)) ||
+      (offer?.starts && offer.starts > offer.ends)) {
+      problems.push(`Offer ${name} needs an end date, and a start no later than it.`);
+    }
+    for (const id of offer?.cards || []) if (!ids.has(id)) problems.push(`Offer ${name}: unknown card ${id}.`);
+    for (const id of offer?.points || []) if (!types?.[id]) problems.push(`Offer ${name}: unknown point type ${id}.`);
+    for (const key of ["cards", "points", "shops"]) {
+      if (offer?.[key] !== undefined && !Array.isArray(offer[key])) problems.push(`Offer ${name}: ${key} is not a list.`);
+    }
+  }
   return problems;
+}
+
+/** How far ahead an offer that has not started yet is still worth showing. */
+export const OFFER_SOON_DAYS = 30;
+
+function addDays(iso, days) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d + days));
+  return date.toISOString().slice(0, 10);
+}
+
+/**
+ * The offers worth showing to someone with these cards, today: running now
+ * or starting within OFFER_SOON_DAYS, and either about one of their cards
+ * or point types (a card's own points, or the points it was moved from) or
+ * about no card at all. Running ones first, then by end date.
+ *   [{ offer, status: "now" | "soon", cardIds: [ids of their cards it is about] }]
+ */
+export function offersFor(offers, cards, today) {
+  const soon = addDays(today, OFFER_SOON_DAYS);
+  const list = [];
+  for (const offer of offers || []) {
+    if (!offer?.ends || offer.ends < today) continue;
+    if (offer.starts && offer.starts > soon) continue;
+    const general = !offer.cards?.length && !offer.points?.length;
+    const cardIds = cards
+      .filter((c) => offer.cards?.includes(c.id) ||
+        offer.points?.includes(c.points) || offer.points?.includes(c.convertedFrom))
+      .map((c) => c.id);
+    if (!general && !cardIds.length) continue;
+    list.push({ offer, status: !offer.starts || offer.starts <= today ? "now" : "soon", cardIds });
+  }
+  return list.sort((a, b) => (a.status === "now" ? 0 : 1) - (b.status === "now" ? 0 : 1) ||
+    a.offer.ends.localeCompare(b.offer.ends));
+}
+
+/** Whether an offer is about this shop (names compared like the search does). */
+export function offerAtShop(offer, shopName) {
+  if (!shopName || !offer?.shops?.length) return false;
+  const name = normalise(shopName);
+  return offer.shops.some((s) => normalise(s) === name);
 }
 
 export function purchaseLabel(id) {

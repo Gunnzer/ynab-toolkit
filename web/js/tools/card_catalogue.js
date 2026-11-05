@@ -13,7 +13,7 @@
 // types and the card networks. Point types live in the data file, so a new
 // card can bring a new kind of points without a code change.
 //
-// The data file: { checked, pointTypes, cards }
+// The data file: { checked, pointTypes, cards, offers? }
 //   checked: "YYYY-MM-DD", the newest card's `checked`
 //   pointTypes: { id: { name, unit: "points" | "percent", cents?, note? } }
 //     cents: what one point is worth in CAD cents, at the LOW END of
@@ -27,6 +27,16 @@
 //     moved to another program in the list (Membership Rewards to Aeroplan
 //     is 1). Used when someone picks preferred points on the page.
 //   cards: [card]
+//   offers: [offer] - special events and limited-time offers found during the
+//     monthly check (at explicit user request), shown in their own section
+//     below the results, with a small tag on the cards they are about.
+//
+// An offer:
+//   id, title, detail (one or two plain sentences), starts and ends
+//   ("YYYY-MM-DD", inclusive; ends is required, so an offer never lingers),
+//   and what it is about, any of: cards (card ids), points (point type ids),
+//   shops (shop names as in merchants.js). One with none of these is shown
+//   to everyone. source: named, never linked, like a card's.
 //
 // A card:
 //   id, name, issuer, network ("amex" | "visa" | "mastercard"),
@@ -74,10 +84,12 @@ export const NETWORKS = {
 export let CATALOGUE_CHECKED = "";
 export let POINT_TYPES = {};
 export let CARDS = [];
+export let OFFERS = [];
 
 /** Swap in a catalogue. Validate it first (validateCatalogue). */
 export function setCatalogue(data) {
   CATALOGUE_CHECKED = data?.checked || "";
   POINT_TYPES = data?.pointTypes || {};
   CARDS = Array.isArray(data?.cards) ? data.cards : [];
+  OFFERS = Array.isArray(data?.offers) ? data.offers : [];
 }

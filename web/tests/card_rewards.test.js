@@ -7,7 +7,7 @@ import { CARDS, CATALOGUE_CHECKED, PURCHASES, setCatalogue } from "../js/tools/c
 import {
   QUESTIONS, TARGET_CONFIDENCE, UNSURE, daysSince, describeEarn, earnFor, explain,
   centsPerPoint, formatEarned, formatRate, formatValue, formatWorth, normaliseCustom, questionsFor, recommend, shortName, transferRatio, asPreferred, capAnswerUntil, savedCapAnswers,
-  validateCatalogue, walletCards,
+  validateCatalogue, walletCards, offersFor, offerAtShop,
 } from "../js/tools/card_rewards.js";
 
 // The file the site serves and the app downloads every day.
@@ -437,5 +437,60 @@ describe("formatting", () => {
   test("days since", () => {
     assert.equal(daysSince("2026-10-01", "2026-10-31"), 30);
     assert.equal(daysSince("", "2026-10-31"), null);
+  });
+});
+
+describe("offers and events", () => {
+  const offer = (fields) => ({ id: "x", title: "An offer", source: "Rewards Canada", ends: "2026-11-30", ...fields });
+
+  test("offers in the data file are checked like cards", () => {
+    assert.deepEqual(validateCatalogue({ ...SHIPPED, offers: [offer({ points: ["pc"], shops: ["Shoppers Drug Mart"] })] }), []);
+    const bad = validateCatalogue({
+      ...SHIPPED,
+      offers: [
+        offer({ id: "a", ends: "" }),
+        offer({ id: "b", starts: "2026-12-01" }),
+        offer({ id: "c", cards: ["no-such-card"] }),
+        offer({ id: "d", points: ["no-such-points"] }),
+        offer({ id: "e", source: "" }),
+        offer({ id: "e" }),
+      ],
+    });
+    for (const pattern of [/a needs an end date/, /b needs an end date/, /unknown card no-such-card/,
+      /unknown point type no-such-points/, /e needs a title and a source/, /e is missing an id or listed twice/]) {
+      assert.ok(bad.some((p) => pattern.test(p)), pattern);
+    }
+    assert.ok(validateCatalogue({ ...SHIPPED, offers: {} }).some((p) => /not a list/.test(p)));
+  });
+
+  test("only running or soon, and only about your cards or about everyone", () => {
+    const cards = walletCards([{ id: "pc-world-elite" }, { id: "amex-cobalt" }]);
+    const list = offersFor([
+      offer({ id: "pc", points: ["pc"], starts: "2026-11-01" }),
+      offer({ id: "cobalt", cards: ["amex-cobalt"], ends: "2026-11-10" }),
+      offer({ id: "other-card", cards: ["td-aeroplan-vi"] }),
+      offer({ id: "everyone", shops: ["Shoppers Drug Mart"] }),
+      offer({ id: "over", points: ["pc"], ends: "2026-11-04" }),
+      offer({ id: "soon", points: ["pc"], starts: "2026-11-28", ends: "2026-12-02" }),
+      offer({ id: "far", points: ["pc"], starts: "2027-01-10", ends: "2027-01-15" }),
+    ], cards, "2026-11-05");
+    assert.deepEqual(list.map((o) => o.offer.id), ["cobalt", "pc", "everyone", "soon"]);
+    assert.deepEqual(list.find((o) => o.offer.id === "pc").cardIds, ["pc-world-elite"]);
+    assert.equal(list.find((o) => o.offer.id === "soon").status, "soon");
+    assert.deepEqual(list.find((o) => o.offer.id === "everyone").cardIds, []);
+    // Ends is inclusive.
+    assert.equal(offersFor([offer({ ends: "2026-11-05" })], cards, "2026-11-05").length, 1);
+  });
+
+  test("points moved to preferred points still match the program they came from", () => {
+    const moved = asPreferred(walletCards([{ id: "amex-cobalt" }]), "aeroplan");
+    assert.deepEqual(offersFor([offer({ points: ["mr"] })], moved, "2026-11-05")[0].cardIds, ["amex-cobalt"]);
+    assert.deepEqual(offersFor([offer({ points: ["aeroplan"] })], moved, "2026-11-05")[0].cardIds, ["amex-cobalt"]);
+  });
+
+  test("a shop's offer matches its name like the search does", () => {
+    assert.ok(offerAtShop(offer({ shops: ["Shoppers Drug Mart"] }), "shoppers drug mart"));
+    assert.ok(!offerAtShop(offer({ shops: ["Shoppers Drug Mart"] }), "Rexall"));
+    assert.ok(!offerAtShop(offer({}), "Rexall"));
   });
 });
