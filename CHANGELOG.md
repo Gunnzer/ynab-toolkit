@@ -11,6 +11,12 @@ before or as part of the push itself.
 
 ## 2026-11-05
 
+**Welcome Bonuses: a new tool under Card Rewards** (`pages/welcomebonuses.js`, `tools/welcome_bonuses.js`, `tools/card_catalogue.js`, `tools/card_rewards.js`, `main.js`, `store.js`, `css/app.css`, tests, `CLAUDE.md`)
+* Card Rewards now has two tabs: Best card and Welcome bonuses.
+* Offers lists each card's current sign-up bonus, best first-year value first: the bonus at the same cautious point values as Card Rewards, less the first year's fee, with how much you have to spend and how fast, when the offer ends and where it came from. Cards you already have are hidden unless you untick "Hide cards you have".
+* Working towards tracks a bonus you are chasing: how much is spent, how much is left, the deadline, about how much a day that is, whether you are on track, and what putting the rest through Chexy for rent would cost (1.75%). Pick the card's account from YNAB and the spending is added up for you, or type it in.
+* The weekly card update now looks up current welcome offers too.
+
 **Card Rewards: "Not sure" on a cap question is remembered too** (`tools/card_rewards.js`, `pages/cardrewards.js`, tests, `CLAUDE.md`)
 * Answering "Not sure" to a spending-cap question ("This year, have you already put $80,000...?") is now kept until the end of that month or year, like a yes or no, so it stops coming back every visit. Its chip's x asks it again.
 

@@ -75,6 +75,7 @@ export const DEFAULTS = {
       upcoming: true,
       categorize: true,
       cardRewards: true,
+      welcomeBonuses: true,
     },
     lastRun: {},
   },
@@ -171,6 +172,12 @@ export const DEFAULTS = {
     // What you answered at each shop, filled in next time you pick it:
     // { "<normalised shop name>": { answers: { amex: "no", ... }, on, name?, purchase? } }
     shops: {},
+  },
+  welcomeBonuses: {
+    // Bonuses being worked towards:
+    // [{ id, cardId?, name, opened: "YYYY-MM-DD", minSpend, months, spent, accountId? }]
+    tracked: [],
+    hideHeld: true,
   },
   duplicates: {
     since: "",

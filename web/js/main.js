@@ -19,6 +19,7 @@ import { rtaTrackerPage } from "./pages/rtatracker.js";
 import { upcomingPage } from "./pages/upcoming.js";
 import { categorizePage } from "./pages/categorize.js";
 import { cardRewardsPage } from "./pages/cardrewards.js";
+import { welcomeBonusesPage } from "./pages/welcomebonuses.js";
 
 // The app is organised into a few spaces, each holding related tools as
 // tabs (at explicit user request: 14 separate menu entries were
@@ -68,7 +69,12 @@ export const SPACES = [
     ],
   },
   // `short` is the bottom bar's label, where a phone has about 75px a slot.
-  { id: "cards", title: "Card Rewards", short: "Cards", icon: "wallet", tabs: [{ page: "cardrewards" }] },
+  {
+    id: "cards", title: "Card Rewards", short: "Cards", icon: "wallet", tabs: [
+      { page: "cardrewards", label: "Best card" },
+      { page: "welcomebonuses", label: "Welcome bonuses" },
+    ],
+  },
 ];
 
 // Spaces shown in the phone's bottom bar before anyone picks their own;
@@ -169,6 +175,13 @@ export const PAGES = [
     build: cardRewardsPage,
     blurb: "Search for a shop and see which of your credit cards gives you " +
       "the most back there.",
+    group: "cards", groupLabel: "Card Rewards",
+  },
+  {
+    id: "welcomebonuses", title: "Welcome Bonuses", icon: "wallet", key: "welcomeBonuses",
+    build: welcomeBonusesPage,
+    blurb: "Which new card's sign-up bonus is worth the most in its first " +
+      "year, and how a bonus you are working towards is going.",
     group: "cards", groupLabel: "Card Rewards",
   },
 ];

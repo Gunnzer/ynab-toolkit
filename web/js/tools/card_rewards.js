@@ -196,6 +196,22 @@ export function validateCatalogue(data) {
     for (const id of card.picks?.from || []) {
       if (!purchases.has(id)) problems.push(`${name}: unknown pick ${id}.`);
     }
+    const w = card.welcome;
+    if (w !== undefined) {
+      const num = (v) => v === undefined || (typeof v === "number" && v >= 0);
+      if (!w || typeof w !== "object" || !num(w.points) || !num(w.cash) || !((w.points || 0) + (w.cash || 0) > 0)) {
+        problems.push(`${name}: a welcome offer needs points or cash above 0.`);
+      } else {
+        if (!(typeof w.minSpend === "number" && w.minSpend >= 0) || !(Number.isInteger(w.months) && w.months >= 1 && w.months <= 24)) {
+          problems.push(`${name}: a welcome offer needs a spend and 1 to 24 months.`);
+        }
+        if (!num(w.firstYearFee)) problems.push(`${name}: a welcome offer's first-year fee is odd.`);
+        if (w.ends !== undefined && !DATE.test(w.ends)) problems.push(`${name}: a welcome offer's end is not a date.`);
+        if (!w.detail || !w.source || !DATE.test(w.checked || "") || w.checked > data.checked) {
+          problems.push(`${name}: a welcome offer needs a detail, a source and a checked date no later than the catalogue's.`);
+        }
+      }
+    }
   }
 
   if (data.offers !== undefined && !Array.isArray(data.offers)) problems.push("`offers` is not a list.");

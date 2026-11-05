@@ -56,6 +56,15 @@
 //   notes: things the rules cannot say
 //   source, checked: where the figures came from (named, never linked - the
 //     privacy test allows no third party host) and when (YYYY-MM-DD)
+//   welcome (optional): the current sign-up offer, for Welcome Bonuses -
+//     { points?, cash?, minSpend, months, firstYearFee?, ends?, detail,
+//       source, checked }. points are the card's own points, cash is CAD;
+//     minSpend (CAD) within months of opening; firstYearFee when the offer
+//     changes it (0 when waived), else the card's annualFee applies; ends
+//     ("YYYY-MM-DD") when the offer has a known last day; detail is one plain
+//     sentence ("Up to 15,000 points: 1,250 a month for each month you spend
+//     $750"). An offer paid out monthly is counted at its full amount, with
+//     minSpend the total over those months.
 
 export const PURCHASES = [
   { id: "groceries", label: "Groceries" },
