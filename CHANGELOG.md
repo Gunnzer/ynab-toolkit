@@ -14,7 +14,7 @@ before or as part of the push itself.
 **Card Rewards: medals, short labels, no category until you pick one** (`pages/cardrewards.js`, `css/app.css`, `store.js`, `CLAUDE.md`)
 * The top three are medals now: a gold, silver or bronze disc with ribbon tails, with the row edged and tinted to match. The medal, the percent and the card name now share one centre line in every row (measured, on phone and desktop), and every row's content starts at the same place.
 * Fields have short names: Shop, Category and Amount (and Name, Category and Amex when adding a shop).
-* Category starts empty ("Choose one...") each time instead of on Groceries, so nothing is ranked until you pick a shop or a category. Clearing the shop clears its category too.
+* Category starts empty ("Choose one...") each time instead of on Groceries, so nothing is ranked until you pick a shop or a category. Clearing the shop clears its category too. A phone that puts back the last choice on refresh is now overruled, so it stays empty.
 
 **Card Rewards: one numbered list, questions with the shop** (`pages/cardrewards.js`, `css/app.css`, `CLAUDE.md`)
 * The questions ("Which grocery store?", "Does it take Amex?"), how sure it is and your answers now sit in the same box as "Where are you shopping?", where the shop is chosen.

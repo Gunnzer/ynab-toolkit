@@ -27,6 +27,7 @@ export function cardRewardsPage(app) {
   // Every visit starts with no category chosen (at explicit user request),
   // like the shop and the answers: today's purchase is a new one.
   settings.purchase = "";
+  store.save();
   if (!settings.values || typeof settings.values !== "object") settings.values = {};
   if (typeof settings.preferred !== "string") settings.preferred = "";
   // Cap answers ("past your $25,000 this year?") are about the card, not the
@@ -105,6 +106,17 @@ export function cardRewardsPage(app) {
   // The placeholder can be picked to start with, never chosen again.
   purchaseSelect.options[0].disabled = true;
   purchaseSelect.setAttribute("aria-label", "Category");
+  // Some phone browsers put a field's last value back on refresh (reported
+  // live: still on Gas after a refresh), so it is told not to, and set
+  // again once the page is on screen and whenever it is shown again.
+  purchaseSelect.setAttribute("autocomplete", "off");
+  const keepCategory = () => {
+    if (!purchaseSelect.isConnected || purchaseSelect.value === settings.purchase) return;
+    purchaseSelect.value = settings.purchase;
+    render();
+  };
+  requestAnimationFrame(keepCategory);
+  window.addEventListener("pageshow", keepCategory);
 
   const shopInput = textInput("", { placeholder: "e.g. Costco, Esso, Dollarama, Netflix" });
   shopInput.setAttribute("autocomplete", "off");
