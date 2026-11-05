@@ -168,9 +168,9 @@ export const DEFAULTS = {
     // Cap answers kept until the cap's month or year ends:
     // { "cap:<cardId>:<capKey>": { value: "under" | "over", until: "YYYY-MM-DD" } }
     capAnswers: {},
-    // Whether a shop takes Amex, as you answered it there:
-    // { "<normalised shop name>": { value: "yes" | "no", on: "YYYY-MM-DD" } }
-    shopAmex: {},
+    // What you answered at each shop, filled in next time you pick it:
+    // { "<normalised shop name>": { answers: { amex: "no", ... }, on, name?, purchase? } }
+    shops: {},
   },
   duplicates: {
     since: "",

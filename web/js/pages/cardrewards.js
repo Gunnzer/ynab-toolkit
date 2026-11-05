@@ -34,16 +34,26 @@ export function cardRewardsPage(app) {
   for (const [id, entry] of Object.entries(settings.capAnswers)) {
     if (!(entry?.until >= localToday())) delete settings.capAnswers[id];
   }
-  // Whether a shop takes Amex is a fact about the shop, not this purchase,
-  // so it is remembered per shop (at explicit user request) and filled in
-  // the next time that shop is picked:
-  // { "<normalised name>": { value?, on, name?, purchase? } }. A shop added
-  // with the Add button (never by just typing, at explicit user request, so
-  // nothing is added by accident) also keeps its name and purchase, so
-  // search can offer it.
-  if (!settings.shopAmex || typeof settings.shopAmex !== "object") settings.shopAmex = {};
+  // What you answer at a shop (takes Amex, which currency...) is about the
+  // shop, not this one purchase, so it is remembered per shop and filled in
+  // the next time that shop is picked (at explicit user request: "once I
+  // enter it one time it should save"):
+  // { "<normalised name>": { answers: { <question id>: <option id> }, on, name?, purchase? } }.
+  // A shop added with the Add button (never by just typing, at explicit user
+  // request, so nothing is added by accident) also keeps its name and
+  // purchase, so search can offer it.
+  if (!settings.shops || typeof settings.shops !== "object") settings.shops = {};
+  // Saved before every answer was kept: only whether it took Amex.
+  for (const [key, entry] of Object.entries(settings.shopAmex || {})) {
+    if (!settings.shops[key]) {
+      const { value, ...rest } = entry || {};
+      settings.shops[key] = { ...rest, answers: value ? { amex: value } : {} };
+    }
+  }
+  delete settings.shopAmex;
   const shopKey = (m) => normalise(m.name);
-  const typedShops = () => Object.values(settings.shopAmex)
+  const savedFor = (m) => (m ? settings.shops[shopKey(m)]?.answers || {} : {});
+  const typedShops = () => Object.values(settings.shops)
     .filter((entry) => entry?.name && PURCHASES.some((p) => p.id === entry.purchase))
     .map((entry) => typedShop(entry.name, entry.purchase));
   // A shop you add is a Canadian one like the list's (bookings aside), so
@@ -172,8 +182,7 @@ export function cardRewardsPage(app) {
     settings.purchase = m.purchase;
     purchaseSelect.value = m.purchase;
     store.save();
-    const saved = settings.shopAmex[shopKey(m)];
-    answers = { ...m.answers, ...(saved?.value ? { amex: saved.value } : {}) };
+    answers = { ...m.answers, ...savedFor(m) };
     shopInput.blur();
     render();
   }
@@ -444,11 +453,12 @@ export function cardRewardsPage(app) {
           title: `${question.text} Click to ask again.`,
           onClick: () => {
             delete answers[question.id];
-            const savedShop = question.id === "amex" && shop && settings.shopAmex[shopKey(shop)];
-            if (savedShop) {
-              // A shop you added stays; only its answer is forgotten.
-              if (shop.typed) delete savedShop.value;
-              else delete settings.shopAmex[shopKey(shop)];
+            const savedShop = shop && settings.shops[shopKey(shop)];
+            if (savedShop?.answers?.[question.id] !== undefined) {
+              delete savedShop.answers[question.id];
+              // A shop you added stays; a listed one with nothing left to
+              // remember goes.
+              if (!shop.typed && !Object.keys(savedShop.answers).length) delete settings.shops[shopKey(shop)];
               store.save();
             }
             if (settings.capAnswers[question.id]) {
@@ -460,14 +470,22 @@ export function cardRewardsPage(app) {
         }, el("span", {
           text: savedUntil(question.id)
             ? `${text}, until ${shortDate(savedUntil(question.id))}`
-            : question.id === "amex" && shop && settings.shopAmex[shopKey(shop)]?.value
+            : shop && savedFor(shop)[question.id] === answers[question.id]
               ? `${text}, saved for ${shop.name}`
               : text,
         }), icon("x", { size: 14 }))),
         button("Start over", {
           small: true,
           onClick: () => {
-            answers = {};
+            // Back to what the shop itself settles, forgetting what was
+            // saved for it (an added shop itself stays).
+            const savedShop = shop && settings.shops[shopKey(shop)];
+            if (savedShop) {
+              if (shop.typed) savedShop.answers = {};
+              else delete settings.shops[shopKey(shop)];
+              store.save();
+            }
+            answers = shop ? { ...shop.answers } : {};
             render();
           },
         })));
@@ -486,9 +504,11 @@ export function cardRewardsPage(app) {
       answers = rest;
     } else {
       answers = { ...answers, [id]: value };
-      if (id === "amex" && shop && value !== UNSURE) {
-        settings.shopAmex[shopKey(shop)] = {
-          value,
+      if (shop && value !== UNSURE) {
+        const entry = settings.shops[shopKey(shop)] || {};
+        settings.shops[shopKey(shop)] = {
+          ...entry,
+          answers: { ...(entry.answers || {}), [id]: value },
           on: localToday(),
           ...(shop.typed ? { name: shop.name, purchase: shop.purchase } : {}),
         };
@@ -857,11 +877,11 @@ export function cardRewardsPage(app) {
     }, { confirmText: "Add shop" });
     if (!result) return;
     const m = typedShop(result.name, result.purchase);
-    settings.shopAmex[shopKey(m)] = {
+    settings.shops[shopKey(m)] = {
       name: m.name,
       purchase: m.purchase,
       on: localToday(),
-      ...(result.amex ? { value: result.amex } : {}),
+      answers: result.amex ? { amex: result.amex } : {},
     };
     store.save();
     pickShop(m);
@@ -870,7 +890,7 @@ export function cardRewardsPage(app) {
   async function removeShop(m) {
     const ok = await confirmDialog("Remove shop", `Remove ${m.name} from your shops?`, { confirmText: "Remove" });
     if (!ok) return;
-    delete settings.shopAmex[shopKey(m)];
+    delete settings.shops[shopKey(m)];
     store.save();
     answers = {};
     setShop(null);

@@ -11,6 +11,10 @@ before or as part of the push itself.
 
 ## 2026-11-05
 
+**Card Rewards: every answer at a shop is saved for that shop** (`pages/cardrewards.js`, `store.js`, `CLAUDE.md`)
+* Anything you answer at a shop (whether it takes Amex, the currency, which store) is now saved for that shop and filled in the next time you pick it, not only the Amex answer. "Not sure" is never saved. Answers already saved for Amex carry over.
+* Each saved answer's chip says "saved for <shop>"; its x forgets that one. Start over forgets everything saved for that shop and goes back to what the shop itself settles.
+
 **Card Rewards: shops say what they already settle** (`tools/merchants.js`, `pages/cardrewards.js`, `css/app.css`, tests, `CLAUDE.md`)
 * Esso, Mobil, Petro-Canada, Shell, Husky, Ultramar and Irving are now marked as taking Amex (Canadian sources agree the big chains do), so Esso no longer says "92% sure" and asks about it.
 * What a shop fills in is shown under the answer as "Known for Esso: Charged in CAD, Takes Amex", greyed out since you did not answer it. It used to be hidden, so it looked as if the page did not know.
