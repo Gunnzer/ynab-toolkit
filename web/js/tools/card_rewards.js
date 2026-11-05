@@ -33,7 +33,9 @@ export const QUESTIONS = [
     text: "Where are you buying groceries?",
     appliesTo: ["groceries"],
     options: [
-      { id: "loblaw", chip: "Loblaw store", label: "Superstore, No Frills, Loblaws, Zehrs, Fortinos, Provigo or Maxi", prior: 0.3 },
+      // Loblaw's grocery banners do not take American Express (reported
+      // live; Shoppers Drug Mart, also Loblaw's, does).
+      { id: "loblaw", chip: "Loblaw store", label: "Superstore, No Frills, Loblaws, Zehrs, Fortinos, Provigo or Maxi", prior: 0.3, blocks: ["amex"] },
       { id: "sobeys", chip: "Sobeys store", label: "Sobeys, Safeway, IGA, FreshCo or Foodland", prior: 0.2 },
       { id: "grocer", chip: "Other grocer", label: "Another grocery store (Metro, Food Basics, Save-On-Foods, a local grocer)", prior: 0.3 },
       // Costco and Walmart code as a warehouse club or discount store, not

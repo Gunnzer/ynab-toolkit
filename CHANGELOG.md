@@ -11,6 +11,9 @@ before or as part of the push itself.
 
 ## 2026-11-01
 
+**Card Rewards: Loblaw stores don't take Amex** (`tools/card_rewards.js`, `tools/merchants.js`, tests, `CLAUDE.md`)
+* Superstore, No Frills, Loblaws, Zehrs, Fortinos, Provigo, Maxi, Valu-mart, Your Independent Grocer and T&T now count Amex cards as not accepted, so they no longer show the Cobalt's 5x there. Shoppers Drug Mart still takes Amex.
+
 **Reports by person, matching Home** (`tools/ownership.js`, `pages/report_recurring.js`, `pages/report_cash_flow.js`, `pages/report_kit.js`, `pages/home.js`, `pages/home_widgets.js`, `app.css`, `tests/ownership.test.js`, `CLAUDE.md`)
 * The Recurring and Cash flow reports now have a Whose choice, shared with Budget vs actual and Trends. Home and Reports use the same rules, so their numbers agree.
 * A split charge is shared out between people on the Recurring report ("50% of $200.00"). One person's Cash flow shows spending only, since income is not split by person.

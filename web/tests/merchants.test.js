@@ -50,6 +50,13 @@ describe("shops", () => {
     const loblaws = merchantByName("Loblaws");
     const result = recommend(cards, loblaws.purchase, { ...loblaws.answers });
     assert.notEqual(result.next?.id, "store");
+    // Loblaw banners and T&T do not take Amex.
+    const atLoblaws = result.groups.flatMap((g) => g.cards);
+    assert.equal(atLoblaws.find((c) => c.card.id === "amex-cobalt").accepted, false);
+    assert.equal(atLoblaws[0].card.id, "pc-world-elite");
+    const tnt = merchantByName("T&T Supermarket");
+    const atTnt = recommend(cards, tnt.purchase, { ...tnt.answers }).groups.flatMap((g) => g.cards);
+    assert.equal(atTnt.find((c) => c.card.id === "amex-cobalt").accepted, false);
     const costco = merchantByName("Costco");
     const atCostco = recommend(cards, costco.purchase, { ...costco.answers });
     const accepted = atCostco.groups.flatMap((g) => g.cards).filter((c) => c.accepted).map((c) => c.card.id);
