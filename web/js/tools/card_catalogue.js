@@ -3,7 +3,7 @@
 // The cards themselves are data, not code: web/data/cards.json, downloaded
 // by the app each time Card Rewards opens (card_feed.js), like an exchange
 // rate feed.
-// A scheduled Claude Code task re-checks every card once a month and
+// A scheduled Claude Code task re-checks every card once a week and
 // commits the file to the `card-data` branch only; the daily Pages deploy
 // copies it in from there, after the tests have validated it. Nothing
 // about it is ever pushed to main by that task. See CLAUDE.md, "Card
@@ -28,7 +28,7 @@
 //     is 1). Used when someone picks preferred points on the page.
 //   cards: [card]
 //   offers: [offer] - special events and limited-time offers found during the
-//     monthly check (at explicit user request), shown in their own section
+//     weekly check (at explicit user request), shown in their own section
 //     below the results, with a small tag on the cards they are about.
 //
 // An offer:

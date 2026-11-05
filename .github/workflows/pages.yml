@@ -4,7 +4,7 @@
 # source, so a mistake cannot reach a public URL.
 #
 # It also runs once a day, like an exchange rate feed: Card Rewards' card
-# details (web/data/cards.json) are re-checked monthly by a scheduled task
+# details (web/data/cards.json) are re-checked weekly by a scheduled task
 # that commits only to the `card-data` branch, never to main. Each run takes
 # the newest copy from there, the tests validate it (card_rewards.test.js),
 # and the deploy publishes exactly the copy the tests passed. With no

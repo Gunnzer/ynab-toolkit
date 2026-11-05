@@ -14,7 +14,7 @@ before or as part of the push itself.
 **Card Rewards: offers and events** (`data/cards.json`, `tools/card_catalogue.js`, `tools/card_rewards.js`, `pages/cardrewards.js`, `css/app.css`, tests, `CLAUDE.md`)
 * A new "Offers and events" section below your cards lists special events and limited-time offers for the cards and points you hold, such as a Shoppers bonus redemption event or an Amex transfer bonus, each with its dates ("Until Nov 9" or "Starts Nov 27") and where it came from. Events starting within 30 days show too.
 * A card with an offer gets a small "Offer" tag in the list, and a shop with one gets "Offer at <shop>" next to the best card. Tapping the tag scrolls down to the offer and highlights it.
-* The monthly card update now looks for these too, keeps only ones with confirmed dates from the bank or a named Canadian source, and drops them once they end. Welcome bonuses and personal Amex Offers are left out.
+* The card update now runs every week instead of every month, so short events (Shoppers announces them only days ahead) are not missed, and it looks for these too, keeps only ones with confirmed dates from the bank or a named Canadian source, and drops them once they end. Welcome bonuses and personal Amex Offers are left out.
 
 **Card Rewards: every answer at a shop is saved for that shop** (`pages/cardrewards.js`, `store.js`, `CLAUDE.md`)
 * Anything you answer at a shop (whether it takes Amex, the currency, which store) is now saved for that shop and filled in the next time you pick it, not only the Amex answer. "Not sure" is never saved. Answers already saved for Amex carry over.

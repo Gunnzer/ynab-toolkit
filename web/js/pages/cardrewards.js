@@ -82,7 +82,7 @@ export function cardRewardsPage(app) {
     "Point values, so every card is compared as a percent back, best first. " +
     "Where the answer depends on something it does not know yet (which " +
     "store, whether a cap is used up), it asks, until it is at least 90% " +
-    "sure. Card details are re-checked once a month, and this page fetches " +
+    "sure. Card details are re-checked once a week, and this page fetches " +
     "the latest each time it opens, like exchange rates. Nothing here reads or changes your " +
     "budget."));
 
@@ -374,7 +374,7 @@ export function cardRewardsPage(app) {
         })))
         : hint("No special events or offers for your cards were found when card " +
           `details were last checked${CATALOGUE_CHECKED ? ` (${shortDate(CATALOGUE_CHECKED)})` : ""}. ` +
-          "They are looked for every month along with the card details.")));
+          "They are looked for every week along with the card details.")));
   }
 
   /** A small tag that jumps down to the offer it is about. */

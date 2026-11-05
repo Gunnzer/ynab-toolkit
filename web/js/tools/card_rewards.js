@@ -121,7 +121,7 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
  * Everything wrong with a downloaded catalogue, as sentences; empty when it
  * is safe to use. The app runs this on every download and keeps its last
  * good copy rather than use a file that fails, and the tests run it on the
- * shipped file, so a bad monthly update fails the deploy instead of
+ * shipped file, so a bad weekly update fails the deploy instead of
  * reaching anyone.
  */
 export function validateCatalogue(data) {
