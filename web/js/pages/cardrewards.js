@@ -417,10 +417,23 @@ export function cardRewardsPage(app) {
           : "Nothing left to ask would change this, so this is as sure as it gets."));
     }
 
-    // Answers the shop filled in are not shown: the shop's name already
-    // says them, and a "CAD" chip nobody chose is only noise.
-    const yours = last.asked.filter(({ question }) =>
-      !(shop && shop.answers[question.id] !== undefined && shop.answers[question.id] === answers[question.id]));
+    // Answers the shop filled in are not your answers, so they are not
+    // chips you can clear. Which store or station is already in the shop's
+    // name; currency and Amex are not, so those are shown as known (asked
+    // live: "why is it not saying that Esso takes Amex and is in CAD?").
+    const fromShop = ({ question }) =>
+      shop && shop.answers[question.id] !== undefined && shop.answers[question.id] === answers[question.id];
+    const yours = last.asked.filter((entry) => !fromShop(entry));
+    const known = last.asked.filter((entry) => fromShop(entry) && ["currency", "amex"].includes(entry.question.id));
+    if (known.length) {
+      body.push(el("div", { class: "reward-asked reward-known" },
+        el("span", { class: "hint", text: `Known for ${shop.name}:` }),
+        known.map(({ question, answer: text }) => el("span", {
+          class: "reward-chip is-fixed",
+          title: "Filled in from the shop.",
+          text: question.id === "currency" ? `Charged in ${text}` : text,
+        }))));
+    }
     const savedUntil = (id) => (answers[id] === undefined ? settings.capAnswers[id]?.until : null);
     if (yours.length) {
       body.push(el("div", { class: "reward-asked" },

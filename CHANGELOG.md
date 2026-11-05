@@ -11,6 +11,10 @@ before or as part of the push itself.
 
 ## 2026-11-05
 
+**Card Rewards: shops say what they already settle** (`tools/merchants.js`, `pages/cardrewards.js`, `css/app.css`, tests, `CLAUDE.md`)
+* Esso, Mobil, Petro-Canada, Shell, Husky, Ultramar and Irving are now marked as taking Amex (Canadian sources agree the big chains do), so Esso no longer says "92% sure" and asks about it.
+* What a shop fills in is shown under the answer as "Known for Esso: Charged in CAD, Takes Amex", greyed out since you did not answer it. It used to be hidden, so it looked as if the page did not know.
+
 **Card Rewards: cash back reads the same way as points** (`pages/cardrewards.js`, `CLAUDE.md`)
 * A cash back card's lines now follow the points cards' order: first what it earns per $1 ("1.5% cash back = 1.5¢ per $1"), then what the amount earns ("$2.25 cash back"). It used to say just "Cash back", then "$2.25 back on $150.00", which read backwards next to "225 points, worth $2.48".
 

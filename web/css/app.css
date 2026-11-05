@@ -1966,6 +1966,9 @@ td .btn-small { min-height: 28px; padding: 0 9px; font-size: 12.5px; }
 .reward-chip svg { flex: none; color: var(--faint); }
 .reward-chip:hover { border-color: var(--accent); }
 .reward-chip:hover svg { color: var(--accent); }
+.reward-chip.is-fixed { cursor: default; padding-right: 10px; background: var(--bg); color: var(--muted); }
+.reward-chip.is-fixed:hover { border-color: var(--border-strong); }
+.reward-known + .reward-asked { margin-top: 8px; padding-top: 0; border-top: 0; }
 
 .reward-groups { display: flex; flex-direction: column; gap: 14px; }
 .reward-group-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 6px; }

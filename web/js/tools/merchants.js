@@ -14,7 +14,10 @@
 // never a question once a shop is picked.
 const CAD = { currency: "cad" };
 const GROCER = (name, store, aliases = []) => ({ name, purchase: "groceries", answers: { ...CAD, store }, aliases });
-const GAS = (name, station, aliases = []) => ({ name, purchase: "gas", answers: { ...CAD, station }, aliases });
+const GAS = (name, station, aliases = [], more = {}) => ({ name, purchase: "gas", answers: { ...CAD, station, ...more }, aliases });
+// The big gas chains take Amex across Canada (Ratehub, Milesopedia and
+// money.ca all list them); smaller and independent stations are left to ask.
+const AMEX = { amex: "yes" };
 const DRUG = (name, pharmacy, aliases = []) => ({ name, purchase: "drugstore", answers: { ...CAD, pharmacy }, aliases });
 const AT = (purchase) => (name, aliases = []) => ({ name, purchase, answers: { ...CAD }, aliases });
 
@@ -69,18 +72,18 @@ export const MERCHANTS = [
   { ...other("Dollarama", ["dollar store"]), answers: { ...CAD, amex: "yes" } },
   other("Dollar Tree", ["dollar store"]),
 
-  GAS("Esso", "esso"),
-  GAS("Mobil", "esso"),
+  GAS("Esso", "esso", [], AMEX),
+  GAS("Mobil", "esso", [], AMEX),
   GAS("Costco Gas", "costco"),
-  GAS("Petro-Canada", "other-station", ["petro", "petrocan", "petro canada"]),
-  GAS("Shell", "other-station"),
+  GAS("Petro-Canada", "other-station", ["petro", "petrocan", "petro canada"], AMEX),
+  GAS("Shell", "other-station", [], AMEX),
   GAS("Canadian Tire Gas+", "other-station", ["ct gas", "gas bar"]),
-  GAS("Husky", "other-station"),
-  GAS("Ultramar", "other-station"),
+  GAS("Husky", "other-station", [], AMEX),
+  GAS("Ultramar", "other-station", [], AMEX),
   GAS("Chevron", "other-station"),
   GAS("Pioneer", "other-station"),
   GAS("Circle K", "other-station", ["couche-tard", "couche tard"]),
-  GAS("Irving", "other-station"),
+  GAS("Irving", "other-station", [], AMEX),
 
   DRUG("Shoppers Drug Mart", "shoppers", ["shoppers", "sdm"]),
   DRUG("Pharmaprix", "shoppers"),

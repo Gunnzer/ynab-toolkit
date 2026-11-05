@@ -65,5 +65,10 @@ describe("shops", () => {
     const accepted = atCostco.groups.flatMap((g) => g.cards).filter((c) => c.accepted).map((c) => c.card.id);
     assert.deepEqual(accepted, ["pc-world-elite"]);
     assert.equal(merchantByName("Dollarama").purchase, "other");
+    // The big gas chains take Amex, so Esso does not ask.
+    assert.equal(merchantByName("Esso").answers.amex, "yes");
+    const esso = merchantByName("Esso");
+    const atEsso = recommend(cards, esso.purchase, { ...esso.answers });
+    assert.ok(![atEsso.next?.id, atEsso.optional?.id].includes("amex"));
   });
 });
