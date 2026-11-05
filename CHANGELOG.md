@@ -11,6 +11,9 @@ before or as part of the push itself.
 
 ## 2026-11-05
 
+**Welcome Bonuses: three more offers** (`data/cards.json`)
+* Added the current welcome offers for the SimplyCash Preferred ($250 cash back), TD Cash Back Visa Infinite ($350 cash back, first year free) and American Express Aeroplan Card (45,000 points), each confirmed by at least two sources. The rest of the cards' offers have ended (Scotia Passport and Momentum on November 1, Tangerine in September), have none (CIBC Costco), or the sources disagree (Amex Gold Rewards, CIBC Aeroplan and Dividend, BMO eclipse, TD First Class, Rogers Red).
+
 **Card Rewards: new card details show up straight after a deploy** (`tools/card_feed.js`, `sw.js`, `CLAUDE.md`)
 * GitHub's servers kept serving the old card details for up to 10 minutes after an update, so the page still said "checked Oct 31". The download now gets past that copy, so Check for updates always gets the latest file.
 
