@@ -14,6 +14,7 @@ before or as part of the push itself.
 **Card Rewards: cautious point values** (`data/cards.json`, `pages/cardrewards.js`, `tools/card_catalogue.js`, tests, `CLAUDE.md`)
 * Aeroplan and Amex Membership Rewards points are now valued at 1.1 cents, the low end of published estimates for an economy flight, instead of 2 cents. The Cobalt on groceries and restaurants now shows 5.5% back, not 10%; the TD Aeroplan about 1.65%. Scene+, Avion, BMO, TD and PC Optimum were already at the low end.
 * The page says these are cautious values, and Point values explains that business-class flights can be worth about twice as much, and gift cards less. You can still set your own.
+* Card details now refresh each time you open Card Rewards (at most every 5 minutes), instead of once a day, so a correction like this one shows up straight away. Offline, the last copy is still used.
 
 ## 2026-11-01
 

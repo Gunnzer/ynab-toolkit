@@ -43,7 +43,7 @@ describe("daily card details download", () => {
     assert.equal(JSON.parse(storage.data[FEED_CACHE_KEY]).fetchedAt, NOW);
   });
 
-  test("a copy under a day old is used without downloading", async () => {
+  test("a copy checked moments ago is used without downloading", async () => {
     const { calls, fetchJson } = counting(SHIPPED);
     const result = await loadCatalogue({
       fetchJson, storage: memoryStorage(saved(NOW - FEED_MAX_AGE_MS + 60000)), now: NOW,
@@ -53,7 +53,7 @@ describe("daily card details download", () => {
     assert.ok(CARDS.length > 0);
   });
 
-  test("a day-old copy is replaced, and Check for updates always downloads", async () => {
+  test("an older copy is replaced, and Check for updates always downloads", async () => {
     const newer = { ...structuredClone(SHIPPED), checked: "2026-11-20" };
     newer.cards[0].checked = "2026-11-20";
     const stale = await loadCatalogue({

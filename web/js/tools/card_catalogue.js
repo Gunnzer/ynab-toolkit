@@ -1,7 +1,8 @@
 // The Canadian credit cards Card Rewards knows about, and how each earns.
 //
 // The cards themselves are data, not code: web/data/cards.json, downloaded
-// by the app at most once a day (card_feed.js), like an exchange rate feed.
+// by the app each time Card Rewards opens (card_feed.js), like an exchange
+// rate feed.
 // A scheduled Claude Code task re-checks every card once a month and
 // commits the file to the `card-data` branch only; the daily Pages deploy
 // copies it in from there, after the tests have validated it. Nothing

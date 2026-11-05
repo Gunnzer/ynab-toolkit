@@ -1,5 +1,6 @@
-// The daily card details download, like an exchange rate feed: fetch
-// data/cards.json from this same site at most once a day, keep the last
+// The card details download, like an exchange rate feed: fetch
+// data/cards.json from this same site whenever the page opens (at most
+// every FEED_MAX_AGE_MS), keep the last
 // good copy on the device, and fall back to it when offline or when a
 // download is broken. A download that fails validateCatalogue() is never
 // used. Same origin only, so the app still talks to nothing but YNAB and
@@ -13,7 +14,11 @@ import { validateCatalogue } from "./card_rewards.js";
 
 export const FEED_URL = "data/cards.json";
 export const FEED_CACHE_KEY = "ynab-toolkit.cardCatalogue";
-export const FEED_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+// Was a day, until a corrected value (Aeroplan at 1.1c) took up to a day
+// to reach a phone that had already downloaded the old file (reported
+// live). An unchanged file costs a "not modified" reply, so checking every
+// time the page opens is cheap; the window only spares tab-to-tab hops.
+export const FEED_MAX_AGE_MS = 5 * 60 * 1000;
 
 function readCache(storage) {
   try {

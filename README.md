@@ -53,7 +53,7 @@ are worth in dollars or by raw points, in one list or grouped by the kind of
 points. It asks follow-up questions, like which store or
 whether a spending cap is used up, until it is at least 90% sure. Details for
 common Canadian cards are re-checked once a month and downloaded from this
-site at most once a day, like exchange rates; any other card can be added by
+site each time you open it, like exchange rates; any other card can be added by
 hand. It does not read your budget.
 
 Only Shared Expenses and Auto Assign change anything in YNAB, and both save

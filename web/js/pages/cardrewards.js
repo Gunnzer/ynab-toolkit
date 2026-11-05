@@ -2,7 +2,7 @@
 // the most for it, as a percent back, best first. Asks follow-up
 // questions (which store, does it take Amex, is a cap used up) until it is
 // at least 90% sure. Standalone: reads nothing from YNAB. The card details
-// are downloaded from this site at most once a day (tools/card_feed.js).
+// are checked for on this site each time the page opens (tools/card_feed.js).
 
 import { CARDS, CATALOGUE_CHECKED, NETWORKS, POINT_TYPES, PURCHASES } from "../tools/card_catalogue.js";
 import { browserFetchJson, loadCatalogue } from "../tools/card_feed.js";
@@ -56,8 +56,8 @@ export function cardRewardsPage(app) {
     "Point values, so every card is compared as a percent back, best first. " +
     "Where the answer depends on something it does not know yet (which " +
     "store, whether a cap is used up), it asks, until it is at least 90% " +
-    "sure. Card details are re-checked once a month and downloaded at most " +
-    "once a day, like exchange rates. Nothing here reads or changes your " +
+    "sure. Card details are re-checked once a month, and this page fetches " +
+    "the latest each time it opens, like exchange rates. Nothing here reads or changes your " +
     "budget."));
 
   const purchaseSelect = select(
