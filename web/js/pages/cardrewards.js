@@ -100,9 +100,14 @@ export function cardRewardsPage(app) {
     paintShops();
   });
   shopInput.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" && found.length) {
+    // On a phone, Enter in a field outside a form acts as "Next" and jumps
+    // to the next field on the page, which here is far down in Your cards
+    // (reported live: Enter took you to the bottom). It always stays put:
+    // the top match, or just closing the keyboard.
+    if (event.key === "Enter") {
       event.preventDefault();
-      pickShop(found[0]);
+      if (found.length) pickShop(found[0]);
+      else shopInput.blur();
     } else if (event.key === "Escape") {
       clear(shopList);
     }
@@ -155,6 +160,8 @@ export function cardRewardsPage(app) {
   amountInput.min = "0";
   amountInput.step = "0.01";
   amountInput.setAttribute("inputmode", "decimal");
+  // "Done", not "Next": see the Enter rule in main.js.
+  amountInput.setAttribute("enterkeyhint", "done");
 
   const pickCard = card(
     el("div", { class: "reward-shop-search" },

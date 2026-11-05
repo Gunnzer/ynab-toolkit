@@ -16,6 +16,10 @@ before or as part of the push itself.
 * The page says these are cautious values, and Point values explains that business-class flights can be worth about twice as much, and gift cards less. You can still set your own.
 * Card details now refresh each time you open Card Rewards (at most every 5 minutes), instead of once a day, so a correction like this one shows up straight away. Offline, the last copy is still used.
 
+**Enter on a phone no longer jumps down the page** (`main.js`, `pages/cardrewards.js`, `CLAUDE.md`)
+* On a phone, Enter (or Go/Send) in a field outside a form acted as "Next" and moved to the next field, which on Card Rewards was the "Choose a card to add" list at the bottom, scrolling the page there. Now Enter in a field that is not part of a form just closes the keyboard, everywhere in the app.
+* In Card Rewards' shop search, Enter picks the top match (or closes the keyboard if nothing matches), and the Amount keyboard shows "Done".
+
 ## 2026-11-01
 
 **Card Rewards: Loblaw stores don't take Amex** (`tools/card_rewards.js`, `tools/merchants.js`, tests, `CLAUDE.md`)

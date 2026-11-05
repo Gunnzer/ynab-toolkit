@@ -243,6 +243,21 @@ class App {
 
     window.addEventListener("hashchange", () => this.routeFromHash());
 
+    // On a phone, Enter in a field outside a form acts as "Next" and jumps
+    // to the next field on the page, often far down it (reported live on
+    // Card Rewards: Enter took you to the bottom). Outside a form, Enter
+    // just closes the keyboard and stays put. Fields that give Enter a job
+    // of their own call preventDefault first; inside a form (every dialog)
+    // Enter still submits.
+    document.addEventListener("keydown", (event) => {
+      const field = event.target;
+      if (event.key !== "Enter" || event.defaultPrevented || event.isComposing) return;
+      if (!(field instanceof HTMLInputElement) || field.form) return;
+      if (["checkbox", "radio", "button", "submit", "file"].includes(field.type)) return;
+      event.preventDefault();
+      field.blur();
+    });
+
     // refreshChrome() only otherwise runs when something changes. Without
     // this, "just now" would sit there unchanged for as long as the tab
     // stays open and nothing else happens to trigger a repaint.
