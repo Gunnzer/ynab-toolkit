@@ -10,7 +10,7 @@ import { merchantByName, normalise, searchMerchants } from "../tools/merchants.j
 import {
   TARGET_CONFIDENCE, UNSURE, centsPerPoint, daysSince, describeEarn, explain,
   formatEarned, formatRate, formatValue, formatWorth, groupName, groupUnit,
-  capAnswerUntil, offerAtShop, offersFor, purchaseLabel, recommend, savedCapAnswers, shortName,
+  asPreferred, capAnswerUntil, offerAtShop, offersFor, purchaseLabel, recommend, savedCapAnswers, shortName,
   transferRatio, walletCards,
 } from "../tools/card_rewards.js";
 import {
@@ -24,7 +24,9 @@ export function cardRewardsPage(app) {
   const store = app.state.store;
   const settings = store.section("cardRewards");
   if (!Array.isArray(settings.wallet)) settings.wallet = [];
-  if (!PURCHASES.some((p) => p.id === settings.purchase)) settings.purchase = "groceries";
+  // Every visit starts with no category chosen (at explicit user request),
+  // like the shop and the answers: today's purchase is a new one.
+  settings.purchase = "";
   if (!settings.values || typeof settings.values !== "object") settings.values = {};
   if (typeof settings.preferred !== "string") settings.preferred = "";
   // Cap answers ("past your $25,000 this year?") are about the card, not the
@@ -87,7 +89,7 @@ export function cardRewardsPage(app) {
     "budget."));
 
   const purchaseSelect = select(
-    PURCHASES.map((p) => ({ value: p.id, label: p.label })),
+    [{ value: "", label: "Choose one..." }, ...PURCHASES.map((p) => ({ value: p.id, label: p.label }))],
     settings.purchase,
     (value) => {
       settings.purchase = value;
@@ -99,6 +101,10 @@ export function cardRewardsPage(app) {
     });
 
   // ---------- shop search ----------
+
+  // The placeholder can be picked to start with, never chosen again.
+  purchaseSelect.options[0].disabled = true;
+  purchaseSelect.setAttribute("aria-label", "Category");
 
   const shopInput = textInput("", { placeholder: "e.g. Costco, Esso, Dollarama, Netflix" });
   shopInput.setAttribute("autocomplete", "off");
@@ -113,6 +119,9 @@ export function cardRewardsPage(app) {
     onClick: () => {
       setShop(null);
       answers = {};
+      // The shop chose the category, so clearing it clears that too.
+      settings.purchase = "";
+      purchaseSelect.value = "";
       shopInput.focus();
       render();
     },
@@ -204,12 +213,12 @@ export function cardRewardsPage(app) {
 
   const pickCard = card(
     el("div", { class: "reward-shop-search" },
-      el("label", { class: "field-label", text: "Where are you shopping?" }),
+      el("label", { class: "field-label", text: "Shop" }),
       el("div", { class: "reward-shop-field" }, shopInput, shopClear),
       shopList),
     el("div", { class: "card-grid reward-pick" },
-      field("Or pick what you are buying", purchaseSelect),
-      field("Amount ($)", amountInput)));
+      field("Category", purchaseSelect),
+      field("Amount", amountInput)));
   // The questions live with "Where are you shopping?" (at explicit user
   // request): they are about the shop, and the ranked list below already
   // shows the best card, so a separate "Best card" box only repeated it.
@@ -259,7 +268,7 @@ export function cardRewardsPage(app) {
   const preferredHint = el("p", { class: "hint" });
   const preferredCard = card(
     sectionTitle("Points"),
-    el("label", { class: "field-label", text: "Preferred points" }),
+    el("label", { class: "field-label", text: "Preferred" }),
     el("div", { class: "reward-preferred" }, preferredSelect),
     preferredHint,
     el("div", { class: "reward-points-more" },
@@ -323,8 +332,9 @@ export function cardRewardsPage(app) {
 
   function render() {
     showOptional = false;
+    purchaseSelect.classList.toggle("is-empty", !purchaseSelect.value);
     const cards = walletCards(settings.wallet);
-    last = cards.length ? recommend(cards, settings.purchase, allAnswers(), {
+    last = cards.length && settings.purchase ? recommend(cards, settings.purchase, allAnswers(), {
       // Always by value, in one list (at explicit user request, after a
       // raw-points view put a card worth 1% above one worth 3%: "super
       // confusing"). Points still show on every card, under the value.
@@ -345,17 +355,23 @@ export function cardRewardsPage(app) {
     else root.insertBefore(walletCard, pickCard);
     // Nothing to prefer between until there are cards.
     preferredCard.hidden = !settings.wallet.length;
-    offers = last ? offersFor(OFFERS, last.groups.flatMap((g) => g.cards.map((stat) => stat.card)), localToday()) : [];
+    offers = offersFor(OFFERS, offerCards(), localToday());
     renderAsk();
     renderResults();
     renderOffers();
   }
 
+  /** Your cards as offers see them, with or without a purchase picked. */
+  function offerCards() {
+    return last
+      ? last.groups.flatMap((g) => g.cards.map((stat) => stat.card))
+      : asPreferred(walletCards(settings.wallet), settings.preferred);
+  }
+
   function renderOffers() {
     clear(offersHost);
-    if (!last) return;
-    const names = Object.fromEntries(last.groups.flatMap((g) => g.cards)
-      .map((stat) => [stat.card.id, shortName(stat.card)]));
+    if (!settings.wallet.length) return;
+    const names = Object.fromEntries(offerCards().map((c) => [c.id, shortName(c)]));
     offersHost.append(card(
       sectionTitle("Offers and events"),
       offers.length
@@ -581,8 +597,10 @@ export function cardRewardsPage(app) {
     if (!last) {
       resultsHost.append(card(hint(!CARDS.length && !feed
         ? "Getting the latest card details..."
-        : "Add the cards you have under \"Your cards\" below, and the best " +
-          "one for each purchase shows up here.")));
+        : !settings.wallet.length
+          ? "Add the cards you have under \"Your cards\" below, and the best " +
+            "one for each purchase shows up here."
+          : "Pick a shop or a category, and your cards show up here, best first.")));
       return;
     }
     const spend = amount();
@@ -673,10 +691,9 @@ export function cardRewardsPage(app) {
       class: `reward-row${rank === 1 ? " is-best" : ""}${medal ? ` is-${medal}` : ""}${stat.accepted ? "" : " is-out"}`,
     },
       el("span", {
-        class: "reward-rank",
-        text: rank ? String(rank) : "",
+        class: `reward-rank${medal ? " reward-medal" : ""}`,
         "aria-label": rank ? `Number ${rank}` : "Not accepted",
-      }),
+      }, el("span", { text: rank ? String(rank) : "" })),
       rateCell(stat),
       el("div", { class: "reward-body" },
         el("div", { class: "reward-name" },
@@ -910,24 +927,26 @@ export function cardRewardsPage(app) {
     const result = await customDialog("Add a shop", (body) => {
       const name = textInput(typed, { placeholder: "e.g. Bob's Corner Grocer" });
       const purchase = select(
-        PURCHASES.map((p) => ({ value: p.id, label: p.label })),
+        [{ value: "", label: "Choose one..." }, ...PURCHASES.map((p) => ({ value: p.id, label: p.label }))],
         settings.purchase, () => {});
+      purchase.options[0].disabled = true;
       const amex = select([
         { value: "", label: "Not sure" },
-        { value: "yes", label: "Yes" },
-        { value: "no", label: "No" },
+        { value: "yes", label: "Takes Amex" },
+        { value: "no", label: "No Amex" },
       ], "", () => {});
       const error = el("p", { class: "hint is-error" });
       body.append(
         el("div", { class: "card-grid" },
           field("Name", name),
-          field("What you buy there", purchase),
-          field("Takes American Express?", amex)),
+          field("Category", purchase),
+          field("Amex", amex)),
         error);
       return {
         validate: () => {
           const text = name.value.trim();
           if (!text) error.textContent = "Give the shop a name.";
+          else if (!purchase.value) error.textContent = "Pick a category.";
           else if (merchantByName(text)) error.textContent = `${merchantByName(text).name} is already in the list.`;
           else return true;
           return false;

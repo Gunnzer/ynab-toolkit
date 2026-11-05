@@ -158,7 +158,7 @@ export const DEFAULTS = {
   // ({ custom: true, ... }). Never anything that identifies an account.
   cardRewards: {
     wallet: [],
-    purchase: "groceries",
+    purchase: "",
     amount: "",
     // Point type id -> cents per point, overriding the typical value.
     values: {},

@@ -11,6 +11,11 @@ before or as part of the push itself.
 
 ## 2026-11-05
 
+**Card Rewards: medals, short labels, no category until you pick one** (`pages/cardrewards.js`, `css/app.css`, `store.js`, `CLAUDE.md`)
+* The top three are medals now: a gold, silver or bronze disc on a ribbon, with the row edged and tinted to match.
+* Fields have short names: Shop, Category and Amount (and Name, Category and Amex when adding a shop).
+* Category starts empty ("Choose one...") each time instead of on Groceries, so nothing is ranked until you pick a shop or a category. Clearing the shop clears its category too.
+
 **Card Rewards: one numbered list, questions with the shop** (`pages/cardrewards.js`, `css/app.css`, `CLAUDE.md`)
 * The questions ("Which grocery store?", "Does it take Amex?"), how sure it is and your answers now sit in the same box as "Where are you shopping?", where the shop is chosen.
 * The separate "Best card" box is gone, since it repeated the top of the list. The list is numbered best first, with the top three tinted gold, silver and bronze, and headed "Your cards at Loblaws" (or "for groceries"). A card that is not accepted there gets no number.
