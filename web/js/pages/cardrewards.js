@@ -550,16 +550,17 @@ export function cardRewardsPage(app) {
     const cash = groupUnit(c.points) === "percent";
     const typeName = groupName(c.points);
     const parts = [];
-    if (!cash) {
-      const perDollar = Math.round(stat.rate * centsPerPoint(c.points, settings.values) * 100) / 100;
-      parts.push(`${formatRate(c.points, stat.rate)} ${typeName} \u00d7 ${cents(c.points)} = ${perDollar}\u00a2 per $1`);
-    } else {
-      parts.push(typeName);
-    }
+    // Cash back reads in the same order as points (what it earns per $1,
+    // then what this amount earns), at explicit user request: it used to
+    // say "$3.00 back on $150.00", backwards next to "2,250 points, worth $2.48".
+    const perDollar = Math.round(stat.rate * centsPerPoint(c.points, settings.values) * 100) / 100;
+    parts.push(cash
+      ? `${formatRate(c.points, stat.rate)} ${typeName.toLowerCase()} = ${perDollar}\u00a2 per $1`
+      : `${formatRate(c.points, stat.rate)} ${typeName} \u00d7 ${cents(c.points)} = ${perDollar}\u00a2 per $1`);
     if (c.convertedFrom) parts.push(movedNote(c));
     if (spend) {
       parts.push(cash
-        ? `${formatWorth(c.points, stat.rate, spend, settings.values)} back on ${formatWorth("cash", 100, spend)}`
+        ? `${formatWorth(c.points, stat.rate, spend, settings.values)} cash back`
         : `${formatEarned(c.points, stat.rate, spend)}, worth ${formatWorth(c.points, stat.rate, spend, settings.values)}`);
     }
     return parts;

@@ -11,6 +11,9 @@ before or as part of the push itself.
 
 ## 2026-11-05
 
+**Card Rewards: cash back reads the same way as points** (`pages/cardrewards.js`, `CLAUDE.md`)
+* A cash back card's lines now follow the points cards' order: first what it earns per $1 ("1.5% cash back = 1.5¢ per $1"), then what the amount earns ("$2.25 cash back"). It used to say just "Cash back", then "$2.25 back on $150.00", which read backwards next to "225 points, worth $2.48".
+
 **Card Rewards: PC Optimum valued at 0.14 cents** (`data/cards.json`, tests, `CLAUDE.md`)
 * PC Optimum points are now worth 0.14 cents each (about $14 per 10,000 points), assuming they are saved for a Shoppers bonus redemption event, instead of the flat $10. The PC World Elite now shows about 4.2% back at Loblaw stores and 6.3% at Shoppers. You can still set your own value under Point values.
 
