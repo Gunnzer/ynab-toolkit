@@ -566,7 +566,7 @@ export function cardRewardsPage(app) {
 
   function answer(id, value) {
     const question = last?.questions.find((q) => q.id === id);
-    if (question?.cap && value !== UNSURE) {
+    if (question?.cap) {
       // Remembered; the page answer is not needed on top of it.
       settings.capAnswers[id] = { value, until: capAnswerUntil(question.per, localToday()) };
       store.save();

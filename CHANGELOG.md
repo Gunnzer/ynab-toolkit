@@ -11,6 +11,9 @@ before or as part of the push itself.
 
 ## 2026-11-05
 
+**Card Rewards: "Not sure" on a cap question is remembered too** (`tools/card_rewards.js`, `pages/cardrewards.js`, tests, `CLAUDE.md`)
+* Answering "Not sure" to a spending-cap question ("This year, have you already put $80,000...?") is now kept until the end of that month or year, like a yes or no, so it stops coming back every visit. Its chip's x asks it again.
+
 **Card Rewards: medals, short labels, no category until you pick one** (`pages/cardrewards.js`, `css/app.css`, `store.js`, `CLAUDE.md`)
 * The top three are medals now: a gold, silver or bronze disc with ribbon tails, with the row edged and tinted to match. The medal, the percent and the card name now share one centre line in every row (measured, on phone and desktop), and every row's content starts at the same place.
 * Fields have short names: Shop, Category and Amount (and Name, Category and Amex when adding a shop).

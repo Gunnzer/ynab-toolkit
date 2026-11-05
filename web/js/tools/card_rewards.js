@@ -801,7 +801,10 @@ export function capAnswerUntil(per, today) {
 export function savedCapAnswers(saved, today) {
   const out = {};
   for (const [id, entry] of Object.entries(saved || {})) {
-    if (!id.startsWith("cap:") || !entry || !["under", "over"].includes(entry.value)) continue;
+    // "Not sure" is kept too (at explicit user request, "tired of repeating
+    // answers"): it does not settle the cap, but it stops the question
+    // coming back every visit until the period ends.
+    if (!id.startsWith("cap:") || !entry || !["under", "over", UNSURE].includes(entry.value)) continue;
     if (typeof entry.until !== "string" || entry.until < today) continue;
     out[id] = entry.value;
   }

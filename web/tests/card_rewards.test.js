@@ -417,11 +417,13 @@ describe("formatting", () => {
       "cap:amex-cobalt:eats": { value: "under", until: "2026-10-31" },
       "cap:td-aeroplan-vi:accel": { value: "under", until: "2026-12-31" },
       "cap:bad": { value: "maybe", until: "2026-12-31" },
+      "cap:cibc-dividend-vi:accel": { value: "unsure", until: "2026-12-31" },
       store: { value: "over", until: "2026-12-31" },
     };
     assert.deepEqual(savedCapAnswers(saved, "2026-11-01"), {
       "cap:scotia-momentum-vi:four": "over",
       "cap:td-aeroplan-vi:accel": "under",
+      "cap:cibc-dividend-vi:accel": "unsure",
     });
     assert.deepEqual(savedCapAnswers(saved, "2027-01-01"), {});
     assert.deepEqual(savedCapAnswers(undefined, "2026-11-01"), {});
