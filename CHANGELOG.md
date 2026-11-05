@@ -11,6 +11,12 @@ before or as part of the push itself.
 
 ## 2026-11-05
 
+**Card Rewards: welcome offers filled in, answers folded, fewer questions** (`data/cards.json`, `pages/cardrewards.js`, `pages/welcomebonuses.js`, `store.js`, `css/app.css`, `CLAUDE.md`)
+* Card details checked today, with current welcome offers for the Amex Cobalt, TD Aeroplan Visa Infinite, Scotiabank Gold Amex, RBC Avion Visa Infinite, BMO CashBack World Elite and PC World Elite (only where at least two sources agree). Other cards' offers could not be confirmed, so they are left out for now.
+* Your answers fold into one "Answers (n)" line under the questions, opened with a tap.
+* With no shop picked, Card Rewards no longer asks whether the place takes Amex; picking the shop settles it.
+* Welcome bonuses: dismiss an offer you are not interested in with its x, and bring it back from "Show dismissed offers".
+
 **Welcome Bonuses: a new tool under Card Rewards** (`pages/welcomebonuses.js`, `tools/welcome_bonuses.js`, `tools/card_catalogue.js`, `tools/card_rewards.js`, `main.js`, `store.js`, `css/app.css`, tests, `CLAUDE.md`)
 * Card Rewards now has two tabs: Best card and Welcome bonuses.
 * Offers lists each card's current sign-up bonus, best first-year value first: the bonus at the same cautious point values as Card Rewards, less the first year's fee, with how much you have to spend and how fast, when the offer ends and where it came from. Cards you already have are hidden unless you untick "Hide cards you have".

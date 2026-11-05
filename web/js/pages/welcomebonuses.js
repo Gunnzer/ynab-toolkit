@@ -10,7 +10,7 @@ import {
   CHEXY_FEE, addMonths, progress, rankOffers, spentOnAccount,
 } from "../tools/welcome_bonuses.js";
 import {
-  button, card, checkbox, clear, confirmDialog, customDialog, el, field, hint, pageHeading, pill,
+  button, card, checkbox, clear, confirmDialog, customDialog, el, field, hint, icon, pageHeading, pill,
   sectionTitle, select, textInput,
 } from "../ui.js";
 import { localToday } from "./report_kit.js";
@@ -32,6 +32,10 @@ export function welcomeBonusesPage(app) {
   const settings = store.section("welcomeBonuses");
   if (!Array.isArray(settings.tracked)) settings.tracked = [];
   if (typeof settings.hideHeld !== "boolean") settings.hideHeld = true;
+  // Offers you are not interested in (at explicit user request), hidden
+  // until brought back.
+  if (!Array.isArray(settings.dismissed)) settings.dismissed = [];
+  let showDismissed = false;
   const rewards = store.section("cardRewards");
   // YNAB spending per account, loaded once per visit when a bonus is linked.
   let ynab = null;
@@ -59,7 +63,11 @@ export function welcomeBonusesPage(app) {
   function renderOffers() {
     clear(offersHost);
     const all = rankOffers(CARDS, { values: rewards.values || {}, held: held(), today });
-    const shown = settings.hideHeld ? all.filter((o) => !o.held) : all;
+    const isDismissed = (o) => settings.dismissed.includes(o.card.id);
+    const dismissedCount = all.filter(isDismissed).length;
+    const shown = all
+      .filter((o) => !settings.hideHeld || !o.held)
+      .filter((o) => showDismissed || !isDismissed(o));
     const toggle = checkbox("Hide cards you have", settings.hideHeld, (on) => {
       settings.hideHeld = on;
       store.save();
@@ -75,17 +83,36 @@ export function welcomeBonusesPage(app) {
         : hint(!CARDS.length
           ? "Getting the latest card details..."
           : all.length
-            ? "You have every card with an offer right now."
-            : "No welcome offers in the card list yet. They are looked up every week along with the card details.")));
+            ? "Nothing left to show: every offer is for a card you have or one you dismissed."
+            : "No welcome offers in the card list yet. They are looked up every week along with the card details."),
+      dismissedCount
+        ? el("button", {
+          type: "button",
+          class: "btn btn-small btn-link bonus-dismissed-toggle",
+          text: showDismissed ? "Hide dismissed offers" : `Show dismissed offers (${dismissedCount})`,
+          onClick: () => {
+            showDismissed = !showDismissed;
+            renderOffers();
+          },
+        })
+        : ""));
   }
 
   function offerRow({ card: c, value, fee, net, held: have }) {
     const w = c.welcome;
+    const dismissed = settings.dismissed.includes(c.id);
+    const setDismissed = (on) => {
+      settings.dismissed = on
+        ? [...new Set([...settings.dismissed, c.id])]
+        : settings.dismissed.filter((id) => id !== c.id);
+      store.save();
+      renderOffers();
+    };
     const points = w.points
       ? `${w.points.toLocaleString("en-CA")} ${POINT_TYPES[c.points]?.name || "points"}`
       : "";
     const parts = [points, w.cash ? `${money(w.cash)} cash` : ""].filter(Boolean).join(" + ");
-    return el("div", { class: `bonus-row${have ? " is-held" : ""}` },
+    return el("div", { class: `bonus-row${have || dismissed ? " is-held" : ""}` },
       el("div", { class: "bonus-value" },
         el("span", { text: money(Math.round(net)) }),
         el("span", { class: "reward-rate-unit", text: "first year" })),
@@ -93,17 +120,28 @@ export function welcomeBonusesPage(app) {
         el("div", { class: "reward-name" },
           el("span", { class: "reward-title", text: shortName(c), title: c.name }),
           have ? pill("You have it", "muted") : null,
-          w.ends ? pill(`Until ${shortDate(w.ends)}`, "caution") : null),
+          w.ends ? pill(`Until ${shortDate(w.ends)}`, "caution") : null,
+          dismissed
+            ? null
+            : el("button", {
+              type: "button",
+              class: "bonus-dismiss",
+              title: "Dismiss this offer",
+              "aria-label": `Dismiss the ${shortName(c)} offer`,
+              onClick: () => setDismissed(true),
+            }, icon("x", { size: 16 }))),
         el("div", { class: "reward-detail-line", text: w.detail }),
         el("div", {
           class: "reward-detail-line",
-          text: `${parts} (about ${money(value)}). ` +
+          text: (w.points ? `${parts} (about ${money(value)}). ` : `${parts} back. `) +
             `Spend ${money(w.minSpend)} in ${w.months} month${w.months === 1 ? "" : "s"}. ` +
             `First year fee ${fee ? money(fee) : "$0"}${fee !== (Number(c.annualFee) || 0) ? `, then ${money(Number(c.annualFee) || 0)}` : ""}.`,
         }),
         el("div", { class: "card-row bonus-actions" },
           el("span", { class: "hint", text: `Source: ${w.source}.` }),
-          have ? "" : button("Track it", { small: true, onClick: () => editTracked(null, c) }))));
+          dismissed
+            ? button("Bring back", { small: true, onClick: () => setDismissed(false) })
+            : have ? "" : button("Track it", { small: true, onClick: () => editTracked(null, c) }))));
   }
 
   // ---------- tracking ----------

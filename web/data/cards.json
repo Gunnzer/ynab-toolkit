@@ -1,5 +1,5 @@
 {
-  "checked": "2026-10-31",
+  "checked": "2026-11-05",
   "pointTypes": {
     "mr": {
       "name": "Amex Membership Rewards",
@@ -105,7 +105,15 @@
         "Travel dropped to 1x in October 2024."
       ],
       "source": "americanexpress.com/ca, Milesopedia, Frugal Flyer",
-      "checked": "2026-10-31"
+      "checked": "2026-10-31",
+      "welcome": {
+        "points": 15000,
+        "minSpend": 9000,
+        "months": 12,
+        "detail": "1,250 points for each monthly statement with $750 of purchases, for the first 12 months.",
+        "source": "Milesopedia, PointsWise",
+        "checked": "2026-11-05"
+      }
     },
     {
       "id": "amex-gold",
@@ -218,7 +226,16 @@
         "The $80,000 yearly cap on 1.5x is from third party calculators; TD's own page does not state it."
       ],
       "source": "td.com, Milesopedia, The Point Calculator",
-      "checked": "2026-10-31"
+      "checked": "2026-10-31",
+      "welcome": {
+        "points": 50000,
+        "minSpend": 12000,
+        "months": 12,
+        "firstYearFee": 0,
+        "detail": "Up to 50,000 Aeroplan points over the first year, starting with 10,000 on the first purchase, for $12,000 of purchases in 12 months, with the first year's fee rebated.",
+        "source": "Milesopedia, Prince of Travel, FlyTrippers",
+        "checked": "2026-11-05"
+      }
     },
     {
       "id": "cibc-aeroplan-vi",
@@ -330,7 +347,16 @@
         "No foreign transaction fee."
       ],
       "source": "scotiabank.com, Ratehub, Milesopedia",
-      "checked": "2026-10-31"
+      "checked": "2026-10-31",
+      "welcome": {
+        "points": 65000,
+        "minSpend": 7500,
+        "months": 12,
+        "ends": "2027-01-03",
+        "detail": "40,000 Scene+ points after $2,000 in the first 3 months, and 25,000 more after $7,500 in the first year.",
+        "source": "InsideFlyer, Finly Wealth",
+        "checked": "2026-11-05"
+      }
     },
     {
       "id": "scotia-passport-vi",
@@ -464,7 +490,16 @@
         "Esso and Mobil earn at least 30 points per litre; shown here as about 20 per dollar at $1.50 a litre."
       ],
       "source": "pcfinancial.ca, Ratehub, Milesopedia",
-      "checked": "2026-10-31"
+      "checked": "2026-10-31",
+      "welcome": {
+        "points": 50000,
+        "minSpend": 100,
+        "months": 2,
+        "ends": "2026-12-31",
+        "detail": "50,000 PC Optimum points after $100 at participating stores within 60 days of approval.",
+        "source": "Prince of Travel, Your Best Cards",
+        "checked": "2026-11-05"
+      }
     },
     {
       "id": "rogers-red-we",
@@ -589,7 +624,16 @@
         "Caps are per statement period."
       ],
       "source": "bmo.com, NerdWallet Canada, Ratehub",
-      "checked": "2026-10-31"
+      "checked": "2026-10-31",
+      "welcome": {
+        "cash": 480,
+        "minSpend": 24000,
+        "months": 12,
+        "firstYearFee": 0,
+        "detail": "$40 cash back for each of the first 12 statements with $2,000 of purchases, and no fee the first year.",
+        "source": "Rewards Canada, Finly Wealth",
+        "checked": "2026-11-05"
+      }
     },
     {
       "id": "bmo-eclipse-vi",
@@ -641,7 +685,16 @@
       ],
       "notes": [],
       "source": "rbcroyalbank.com, NerdWallet Canada, Ratehub",
-      "checked": "2026-10-31"
+      "checked": "2026-10-31",
+      "welcome": {
+        "points": 70000,
+        "minSpend": 5000,
+        "months": 6,
+        "ends": "2026-11-25",
+        "detail": "35,000 Avion points on approval, 20,000 after $5,000 in the first 6 months, and 15,000 on the first anniversary (after the second year's fee).",
+        "source": "Frugal Flyer, Points Miles and Bling",
+        "checked": "2026-11-05"
+      }
     },
     {
       "id": "cibc-dividend-vi",

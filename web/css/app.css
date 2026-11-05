@@ -1897,6 +1897,23 @@ td .btn-small { min-height: 28px; padding: 0 9px; font-size: 12.5px; }
 .reward-pick { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
 
 
+/* Answers fold away behind "Answers (n)". */
+.reward-answers { margin-top: 12px; padding-top: 6px; border-top: 1px solid var(--border); }
+.reward-answers > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  list-style: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.reward-answers > summary::-webkit-details-marker { display: none; }
+.reward-answers > summary::before { content: "\25B8"; font-size: 11px; transition: transform .15s; }
+.reward-answers[open] > summary::before { transform: rotate(90deg); }
+.reward-answers .reward-asked { margin-top: 4px; padding-top: 0; border-top: 0; }
 /* "Choose one..." reads as a placeholder, not a choice. */
 select.is-empty { color: var(--faint); }
 select.is-empty option { color: var(--text); }
@@ -2133,6 +2150,21 @@ select.is-empty option { color: var(--text); }
 .bonus-value > span:first-child { line-height: 28px; }
 .bonus-row .reward-name { min-height: 28px; }
 .bonus-row.is-held { opacity: .6; }
+.bonus-dismiss {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  margin: -2px -6px -2px auto;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--faint);
+  cursor: pointer;
+}
+.bonus-dismiss:hover { background: var(--sunken); color: var(--text); }
+.bonus-dismissed-toggle { margin-top: 10px; align-self: flex-start; }
 .bonus-actions { margin-top: 6px; align-items: center; justify-content: space-between; }
 .bonus-actions .hint { margin: 0; }
 .bonus-track + .bonus-track { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }

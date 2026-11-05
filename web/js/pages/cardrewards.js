@@ -74,6 +74,8 @@ export function cardRewardsPage(app) {
   let shop = null;
   // "Answer it" pressed on the optional question shown once sure enough.
   let showOptional = false;
+  // Whether the folded "Answers (n)" list is open, for this visit.
+  let answersOpen = false;
 
   const root = el("div", { class: "page-body" });
   root.append(pageHeading(
@@ -493,7 +495,9 @@ export function cardRewardsPage(app) {
         ? "Sure: nothing left to ask."
         : last.confidence >= TARGET_CONFIDENCE
           ? "Sure enough: no more questions."
-          : "Nothing left to ask would change this, so this is as sure as it gets."));
+          : !shop
+            ? "Pick the shop to be surer: whether Amex is taken depends on the shop."
+            : "Nothing left to ask would change this, so this is as sure as it gets."));
     }
 
     // Answers the shop filled in are not your answers, so they are not
@@ -502,10 +506,16 @@ export function cardRewardsPage(app) {
     // live: "why is it not saying that Esso takes Amex and is in CAD?").
     const fromShop = ({ question }) =>
       shop && shop.answers[question.id] !== undefined && shop.answers[question.id] === answers[question.id];
-    const yours = last.asked.filter((entry) => !fromShop(entry));
+    // With no shop picked, Amex is left open rather than asked (see
+    // allAnswers()), so it is nobody's answer and gets no chip.
+    const assumed = ({ question }) => question.id === "amex" && answers.amex === undefined;
+    const yours = last.asked.filter((entry) => !fromShop(entry) && !assumed(entry));
     const known = last.asked.filter((entry) => fromShop(entry) && ["currency", "amex"].includes(entry.question.id));
+    // Answers fold away behind one line (at explicit user request: "the
+    // your answers section is getting long"), open only when asked for.
+    const answerRows = [];
     if (known.length) {
-      body.push(el("div", { class: "reward-asked reward-known" },
+      answerRows.push(el("div", { class: "reward-asked reward-known" },
         el("span", { class: "hint", text: `Known for ${shop.name}:` }),
         known.map(({ question, answer: text }) => el("span", {
           class: "reward-chip is-fixed",
@@ -515,7 +525,7 @@ export function cardRewardsPage(app) {
     }
     const savedUntil = (id) => (answers[id] === undefined ? settings.capAnswers[id]?.until : null);
     if (yours.length) {
-      body.push(el("div", { class: "reward-asked" },
+      answerRows.push(el("div", { class: "reward-asked" },
         el("span", { class: "hint", text: "Your answers:" }),
         yours.map(({ question, answer: text }) => el("button", {
           type: "button",
@@ -560,6 +570,15 @@ export function cardRewardsPage(app) {
           },
         })));
     }
+    if (answerRows.length) {
+      const count = known.length + yours.length;
+      const fold = el("details", { class: "reward-answers" },
+        el("summary", { text: `Answers (${count})` }),
+        ...answerRows);
+      fold.open = answersOpen;
+      fold.addEventListener("toggle", () => { answersOpen = fold.open; });
+      body.push(fold);
+    }
 
     askHost.append(...body);
   }
@@ -589,7 +608,11 @@ export function cardRewardsPage(app) {
   }
 
   function allAnswers() {
-    return { ...savedCapAnswers(settings.capAnswers, localToday()), ...answers };
+    // Without a shop there is nobody to ask "does it take Amex?" about (at
+    // explicit user request: "if I don't have a place listed don't ask"),
+    // so it is left as not sure: never asked, still counted in how sure.
+    const open = !shop && answers.amex === undefined ? { amex: UNSURE } : {};
+    return { ...savedCapAnswers(settings.capAnswers, localToday()), ...open, ...answers };
   }
 
   /** Today as a local "YYYY-MM-DD" (toISOString would give the UTC date). */

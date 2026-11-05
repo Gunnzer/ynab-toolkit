@@ -178,6 +178,8 @@ export const DEFAULTS = {
     // [{ id, cardId?, name, opened: "YYYY-MM-DD", minSpend, months, spent, accountId? }]
     tracked: [],
     hideHeld: true,
+    // Card ids whose offers were dismissed.
+    dismissed: [],
   },
   duplicates: {
     since: "",
