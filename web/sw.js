@@ -21,7 +21,12 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET") return;
-  if (new URL(request.url).origin !== self.location.origin) return;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+  // The card details are fetched with a changing ?v= to get past GitHub's
+  // servers' copy (card_feed.js); kept under one name so the offline copy
+  // is always the latest one and old ones do not pile up.
+  const key = url.pathname.endsWith("/data/cards.json") ? url.origin + url.pathname : request;
 
   // "no-cache" makes the browser check with the site every time instead of
   // reusing its own copy: GitHub Pages lets files be reused for 10 minutes,
@@ -37,10 +42,10 @@ self.addEventListener("fetch", (event) => {
       .then((response) => {
         if (response.ok) {
           const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put(request, copy));
+          caches.open(CACHE).then((cache) => cache.put(key, copy));
         }
         return response;
       })
-      .catch(() => caches.match(request)
+      .catch(() => caches.match(key)
         .then((hit) => hit || caches.match("./index.html"))));
 });

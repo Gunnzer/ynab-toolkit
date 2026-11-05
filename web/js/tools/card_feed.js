@@ -74,9 +74,17 @@ export async function loadCatalogue({ fetchJson, storage, now = Date.now(), forc
   return { ok: false, source: "none", fetchedAt: 0, checked: "", error };
 }
 
-/** The browser's way of getting the file, bypassing the HTTP cache. */
-export async function browserFetchJson(url) {
-  const response = await fetch(url, { cache: "no-cache" });
+/**
+ * The browser's way of getting the file, bypassing every cache on the way.
+ * "no-cache" only skips the browser's own copy: GitHub Pages' servers keep
+ * a file for up to 10 minutes, so new card details still showed the old
+ * date after a deploy (reported live: "it says updated Oct 31 still"). A
+ * new query string each minute is a new address to those servers, so they
+ * fetch the file afresh; the service worker files it under the plain name.
+ */
+export async function browserFetchJson(url, now = Date.now()) {
+  const fresh = `${url}${url.includes("?") ? "&" : "?"}v=${Math.floor(now / 60000)}`;
+  const response = await fetch(fresh, { cache: "no-cache" });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return response.json();
 }

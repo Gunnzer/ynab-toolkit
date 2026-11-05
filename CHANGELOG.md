@@ -11,6 +11,9 @@ before or as part of the push itself.
 
 ## 2026-11-05
 
+**Card Rewards: new card details show up straight after a deploy** (`tools/card_feed.js`, `sw.js`, `CLAUDE.md`)
+* GitHub's servers kept serving the old card details for up to 10 minutes after an update, so the page still said "checked Oct 31". The download now gets past that copy, so Check for updates always gets the latest file.
+
 **Card Rewards: welcome offers filled in, answers folded, fewer questions** (`data/cards.json`, `pages/cardrewards.js`, `pages/welcomebonuses.js`, `store.js`, `css/app.css`, `CLAUDE.md`)
 * Card details checked today, with current welcome offers for the Amex Cobalt, TD Aeroplan Visa Infinite, Scotiabank Gold Amex, RBC Avion Visa Infinite, BMO CashBack World Elite and PC World Elite (only where at least two sources agree). Other cards' offers could not be confirmed, so they are left out for now.
 * Your answers fold into one "Answers (n)" line under the questions, opened with a tap.
