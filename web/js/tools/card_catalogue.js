@@ -15,10 +15,13 @@
 // The data file: { checked, pointTypes, cards }
 //   checked: "YYYY-MM-DD", the newest card's `checked`
 //   pointTypes: { id: { name, unit: "points" | "percent", cents?, note? } }
-//     cents: what one point is typically worth in CAD cents, redeemed the
-//     usual good way (Aeroplan and Membership Rewards for flights, Scene+
-//     and Avion at a fixed travel rate, PC Optimum at the till). People can
-//     change it on the page; cash back is always 1 cent per percent.
+//     cents: what one point is worth in CAD cents, at the LOW END of
+//     published valuations for a normal redemption (at explicit user
+//     request): Aeroplan, and Membership Rewards moved to it 1:1, at an
+//     economy-flight value (1.1); Scene+ and Avion at their fixed travel
+//     rate; PC Optimum at the till. Not gift cards or merchandise, which
+//     are worth less still. People can change it on the page; cash back is
+//     always 1 cent per percent.
 //     transfers: { otherPointTypeId: ratio } - what one point becomes when
 //     moved to another program in the list (Membership Rewards to Aeroplan
 //     is 1). Used when someone picks preferred points on the page.

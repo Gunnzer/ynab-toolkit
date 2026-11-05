@@ -32,6 +32,15 @@ describe("card catalogue", () => {
     assert.ok(CARDS.length >= 10);
   });
 
+  test("point values are cautious: the low end of published estimates", () => {
+    // Chosen on purpose (economy-flight values, not business class); a
+    // monthly data update must not quietly raise them.
+    assert.ok(SHIPPED.pointTypes.aeroplan.cents <= 1.2);
+    assert.ok(SHIPPED.pointTypes.mr.cents <= 1.2);
+    assert.ok(SHIPPED.pointTypes.scene.cents <= 1);
+    assert.ok(SHIPPED.pointTypes.avion.cents <= 1);
+  });
+
   test("the user's own cards are in it", () => {
     assert.ok(CARDS.some((c) => c.id === "amex-cobalt"));
     assert.ok(CARDS.some((c) => c.id === "td-aeroplan-vi"));
@@ -263,17 +272,19 @@ describe("value or points, grouped or one list", () => {
     assert.equal(value.groups.length, 1);
     assert.deepEqual(value.groups[0].cards.map((c) => c.card.id),
       ["amex-cobalt", "td-aeroplan-vi", "pc-world-elite"]);
-    assert.equal(value.groups[0].cards[0].score, 10);
+    // 5x at the cautious Aeroplan-level 1.1c.
+    assert.ok(Math.abs(value.groups[0].cards[0].score - 5.5) < 1e-9);
     const points = recommend(wallet, "groceries", atGrocer, { measure: "points", grouped: false });
     assert.equal(points.groups[0].cards[0].card.id, "pc-world-elite");
   });
 
-  test("at Loblaw the Cobalt is out, and PC (30 x 0.1c) ties TD Aeroplan (1.5 x 2c) at 3%", () => {
+  test("at Loblaw the Cobalt is out, and PC (30 x 0.1c) beats TD Aeroplan (1.5 x 1.1c)", () => {
     const atLoblaw = { store: "loblaw", currency: "cad", "cap:td-aeroplan-vi:accel": "under" };
     const result = recommend(wallet, "groceries", atLoblaw, { grouped: false });
     const [first, second, last] = result.groups[0].cards;
-    assert.equal(first.score, 3);
-    assert.equal(second.score, 3);
+    assert.equal(first.card.id, "pc-world-elite");
+    assert.ok(Math.abs(first.score - 3) < 1e-9);
+    assert.ok(Math.abs(second.score - 1.65) < 1e-9);
     assert.equal(last.card.id, "amex-cobalt");
     assert.equal(last.accepted, false);
   });
@@ -295,16 +306,17 @@ describe("value or points, grouped or one list", () => {
     assert.equal(result.next.id, "store");
   });
 
-  test("point values: yours, then typical, cash always 1 cent per percent", () => {
-    assert.equal(centsPerPoint("aeroplan"), 2);
+  test("point values: yours, then the cautious default, cash always 1 cent per percent", () => {
+    assert.equal(centsPerPoint("aeroplan"), 1.1);
+    assert.equal(centsPerPoint("mr"), 1.1);
     assert.equal(centsPerPoint("aeroplan", { aeroplan: 1.6 }), 1.6);
-    assert.equal(centsPerPoint("aeroplan", { aeroplan: "" }), 2);
+    assert.equal(centsPerPoint("aeroplan", { aeroplan: "" }), 1.1);
     assert.equal(centsPerPoint("cash", { cash: 5 }), 1);
     assert.equal(centsPerPoint("custom:Air Miles"), 1);
-    assert.equal(formatValue("mr", 5), "10%");
+    assert.equal(formatValue("mr", 5), "5.5%");
     assert.equal(formatValue("pc", 30), "3%");
     assert.equal(formatValue("td", 1.5), "0.75%");
-    assert.equal(formatWorth("aeroplan", 1.5, 100), "$3.00");
+    assert.equal(formatWorth("aeroplan", 1.5, 100), "$1.65");
   });
 
   test("validation rejects an odd point value", () => {

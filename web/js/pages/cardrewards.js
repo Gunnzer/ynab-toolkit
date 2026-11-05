@@ -51,8 +51,9 @@ export function cardRewardsPage(app) {
     "Card Rewards",
     "Search for the shop (or pick what you are buying) and see which of your " +
     "cards gives you the most back for it. Points are turned into money " +
-    "using a value per point you can change under Point values, so every " +
-    "card is compared as a percent back, best first. " +
+    "at a cautious value per point (the low end of published estimates, " +
+    "such as Aeroplan on an economy flight), which you can change under " +
+    "Point values, so every card is compared as a percent back, best first. " +
     "Where the answer depends on something it does not know yet (which " +
     "store, whether a cap is used up), it asks, until it is at least 90% " +
     "sure. Card details are re-checked once a month and downloaded at most " +
@@ -460,7 +461,7 @@ export function cardRewardsPage(app) {
       resultsHost.append(el("section", { class: "card reward-group" },
         el("div", { class: "reward-group-head" },
           el("h3", { class: "section-title", text: "All your cards" }),
-          el("span", { class: "hint", text: "Best first, by what you get back" })),
+          el("span", { class: "hint", text: "Best first, by what you get back, using cautious point values" })),
         group.cards.map((stat, i) => resultRow(stat, i === 0 && stat.accepted, group.cards.length > 1, spend))));
     }
   }
@@ -547,9 +548,10 @@ export function cardRewardsPage(app) {
       .filter((points) => !held.includes(points) && groupUnit(points) !== "percent");
     const result = await customDialog("Point values", (body) => {
       body.append(hint("What one point is worth to you, in cents. Leave a box " +
-        "blank for the typical value, which assumes you redeem the usual good " +
-        "way (Aeroplan for flights, PC Optimum at the till). Cash back is " +
-        "always worth what it says."));
+        "blank for the cautious value: the low end of published estimates " +
+        "for a normal redemption, such as Aeroplan on an economy flight. " +
+        "Business-class flights can be worth about twice as much; gift cards " +
+        "and merchandise less. Cash back is always worth what it says."));
       const inputs = {};
       const grid = el("div", { class: "reward-values" });
       const addRow = (points) => {
@@ -570,7 +572,7 @@ export function cardRewardsPage(app) {
               text: settings.preferred && points !== settings.preferred &&
                 transferRatio(points, settings.preferred) > 0
                 ? `Counted as ${groupName(settings.preferred)} while that is preferred`
-                : `Typical ${typical}\u00a2`,
+                : `Cautious value ${typical}\u00a2`,
             })),
           el("span", { class: "reward-value-input" }, input, el("span", { class: "hint", text: "\u00a2" }))));
       };

@@ -4,7 +4,7 @@
     "mr": {
       "name": "Amex Membership Rewards",
       "unit": "points",
-      "cents": 2.0,
+      "cents": 1.1,
       "transfers": {
         "aeroplan": 1
       }
@@ -12,7 +12,7 @@
     "aeroplan": {
       "name": "Aeroplan",
       "unit": "points",
-      "cents": 2.0
+      "cents": 1.1
     },
     "scene": {
       "name": "Scene+",
