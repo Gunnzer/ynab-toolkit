@@ -6,7 +6,7 @@
 
 import { CARDS, CATALOGUE_CHECKED, NETWORKS, POINT_TYPES, PURCHASES } from "../tools/card_catalogue.js";
 import { browserFetchJson, loadCatalogue } from "../tools/card_feed.js";
-import { normalise, searchMerchants } from "../tools/merchants.js";
+import { merchantByName, normalise, searchMerchants } from "../tools/merchants.js";
 import {
   TARGET_CONFIDENCE, UNSURE, centsPerPoint, daysSince, describeEarn, explain,
   formatEarned, formatRate, formatValue, formatWorth, groupName, groupUnit,
@@ -14,7 +14,7 @@ import {
   walletCards,
 } from "../tools/card_rewards.js";
 import {
-  button, card, checkbox, clear, customDialog, dateLabel, el, field, hint, icon,
+  button, card, checkbox, clear, confirmDialog, customDialog, dateLabel, el, field, hint, icon,
   pageHeading, pill, sectionTitle, select, textInput, todayIso,
 } from "../ui.js";
 
@@ -37,13 +37,19 @@ export function cardRewardsPage(app) {
   // Whether a shop takes Amex is a fact about the shop, not this purchase,
   // so it is remembered per shop (at explicit user request) and filled in
   // the next time that shop is picked:
-  // { "<normalised name>": { value, on, name?, purchase? } }. A shop that is
-  // not in the list keeps its typed name and purchase so search can offer it.
+  // { "<normalised name>": { value?, on, name?, purchase? } }. A shop added
+  // with the Add button (never by just typing, at explicit user request, so
+  // nothing is added by accident) also keeps its name and purchase, so
+  // search can offer it.
   if (!settings.shopAmex || typeof settings.shopAmex !== "object") settings.shopAmex = {};
   const shopKey = (m) => normalise(m.name);
   const typedShops = () => Object.values(settings.shopAmex)
     .filter((entry) => entry?.name && PURCHASES.some((p) => p.id === entry.purchase))
-    .map((entry) => ({ name: entry.name, purchase: entry.purchase, answers: {}, typed: true }));
+    .map((entry) => typedShop(entry.name, entry.purchase));
+  // A shop you add is a Canadian one like the list's (bookings aside), so
+  // it charges Canadian dollars.
+  const typedShop = (name, purchase) =>
+    ({ name, purchase, answers: purchase === "travel" ? {} : { currency: "cad" }, typed: true });
 
   // Answers belong to one purchase, so they are not saved: tomorrow's
   // groceries may be at a different store.
@@ -78,9 +84,7 @@ export function cardRewardsPage(app) {
       store.save();
       answers = {};
       // Picking a category by hand means it is not about that shop any more.
-      // A typed name that is not in the list stays: it is the shop being
-      // described, and its Amex answer is saved under it.
-      if (shop || found.length) setShop(null);
+      setShop(null);
       render();
     });
 
@@ -129,7 +133,20 @@ export function cardRewardsPage(app) {
     clear(shopList);
     found = shop ? [] : searchMerchants(shopInput.value, 6, typedShops());
     if (!shop && shopInput.value.trim() && !found.length) {
-      shopList.append(hint("Not in the list: pick what you are buying below. If you say whether it takes Amex, it is saved under this name."));
+      const typed = shopInput.value.trim();
+      shopList.append(el("div", { class: "reward-shop-missing" },
+        hint("Not in the list: pick what you are buying below, or"),
+        button(`Add "${typed}"`, { small: true, onClick: () => addShop(typed) })));
+    }
+    if (shop?.typed) {
+      shopList.append(el("div", { class: "reward-shop-missing" },
+        hint("One of your shops."),
+        el("button", {
+          type: "button",
+          class: "btn btn-small btn-link",
+          text: "Remove it",
+          onClick: () => removeShop(shop),
+        })));
     }
     for (const m of found) {
       shopList.append(el("button", {
@@ -145,7 +162,7 @@ export function cardRewardsPage(app) {
     shopInput.value = m ? m.name : "";
     shopClear.hidden = !m;
     found = [];
-    clear(shopList);
+    paintShops();
   }
 
   // A shop sets the purchase and answers what it already settles (which
@@ -156,7 +173,7 @@ export function cardRewardsPage(app) {
     purchaseSelect.value = m.purchase;
     store.save();
     const saved = settings.shopAmex[shopKey(m)];
-    answers = { ...m.answers, ...(saved ? { amex: saved.value } : {}) };
+    answers = { ...m.answers, ...(saved?.value ? { amex: saved.value } : {}) };
     shopInput.blur();
     render();
   }
@@ -414,8 +431,11 @@ export function cardRewardsPage(app) {
           title: `${question.text} Click to ask again.`,
           onClick: () => {
             delete answers[question.id];
-            if (question.id === "amex" && shop && settings.shopAmex[shopKey(shop)]) {
-              delete settings.shopAmex[shopKey(shop)];
+            const savedShop = question.id === "amex" && shop && settings.shopAmex[shopKey(shop)];
+            if (savedShop) {
+              // A shop you added stays; only its answer is forgotten.
+              if (shop.typed) delete savedShop.value;
+              else delete settings.shopAmex[shopKey(shop)];
               store.save();
             }
             if (settings.capAnswers[question.id]) {
@@ -427,7 +447,7 @@ export function cardRewardsPage(app) {
         }, el("span", {
           text: savedUntil(question.id)
             ? `${text}, until ${shortDate(savedUntil(question.id))}`
-            : question.id === "amex" && shop && settings.shopAmex[shopKey(shop)]
+            : question.id === "amex" && shop && settings.shopAmex[shopKey(shop)]?.value
               ? `${text}, saved for ${shop.name}`
               : text,
         }), icon("x", { size: 14 }))),
@@ -453,10 +473,6 @@ export function cardRewardsPage(app) {
       answers = rest;
     } else {
       answers = { ...answers, [id]: value };
-      // A typed name that is not in the list becomes a shop of its own,
-      // so the answer has somewhere to be kept.
-      const typed = shopInput.value.trim();
-      if (id === "amex" && !shop && typed && !searchMerchants(typed, 1).length) setShop({ name: typed, purchase: settings.purchase, answers: {}, typed: true });
       if (id === "amex" && shop && value !== UNSURE) {
         settings.shopAmex[shopKey(shop)] = {
           value,
@@ -794,6 +810,57 @@ export function cardRewardsPage(app) {
         resolved.checked ? `Checked ${dateLabel(resolved.checked)} against ${resolved.source}.` : resolved.source + ".",
       ].join(" ")));
     }, { confirmText: "Done", hideCancel: true });
+  }
+
+  async function addShop(typed) {
+    const result = await customDialog("Add a shop", (body) => {
+      const name = textInput(typed, { placeholder: "e.g. Bob's Corner Grocer" });
+      const purchase = select(
+        PURCHASES.map((p) => ({ value: p.id, label: p.label })),
+        settings.purchase, () => {});
+      const amex = select([
+        { value: "", label: "Not sure" },
+        { value: "yes", label: "Yes" },
+        { value: "no", label: "No" },
+      ], "", () => {});
+      const error = el("p", { class: "hint is-error" });
+      body.append(
+        el("div", { class: "card-grid" },
+          field("Name", name),
+          field("What you buy there", purchase),
+          field("Takes American Express?", amex)),
+        error);
+      return {
+        validate: () => {
+          const text = name.value.trim();
+          if (!text) error.textContent = "Give the shop a name.";
+          else if (merchantByName(text)) error.textContent = `${merchantByName(text).name} is already in the list.`;
+          else return true;
+          return false;
+        },
+        value: () => ({ name: name.value.trim(), purchase: purchase.value, amex: amex.value }),
+      };
+    }, { confirmText: "Add shop" });
+    if (!result) return;
+    const m = typedShop(result.name, result.purchase);
+    settings.shopAmex[shopKey(m)] = {
+      name: m.name,
+      purchase: m.purchase,
+      on: localToday(),
+      ...(result.amex ? { value: result.amex } : {}),
+    };
+    store.save();
+    pickShop(m);
+  }
+
+  async function removeShop(m) {
+    const ok = await confirmDialog("Remove shop", `Remove ${m.name} from your shops?`, { confirmText: "Remove" });
+    if (!ok) return;
+    delete settings.shopAmex[shopKey(m)];
+    store.save();
+    answers = {};
+    setShop(null);
+    render();
   }
 
   async function editCustom(existing) {

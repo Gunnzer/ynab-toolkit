@@ -1848,6 +1848,7 @@ td .btn-small { min-height: 28px; padding: 0 9px; font-size: 12.5px; }
 /* ---------- card rewards ---------- */
 
 .reward-shop-search { margin-bottom: 14px; }
+.reward-shop-missing { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
 .reward-shop-field { position: relative; }
 .reward-shop-field input { padding-right: 40px; }
 .reward-shop-clear {
