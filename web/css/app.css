@@ -37,6 +37,13 @@
   /* status */
   --ok: #2c7a58;
   --ok-soft: #e4f1eb;
+  /* Card Rewards' top three. The solid colours carry white numbers. */
+  --gold: #8a6408;
+  --gold-soft: #fbf3dc;
+  --silver: #5f6975;
+  --silver-soft: #eef1f4;
+  --bronze: #9a5a2c;
+  --bronze-soft: #f8ece2;
   --warn: #a85f18;
   --warn-soft: #fbf0e2;
   --error: #bc4029;
@@ -1890,19 +1897,10 @@ td .btn-small { min-height: 28px; padding: 0 9px; font-size: 12.5px; }
 .reward-pick { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
 
 
-.reward-answer {
-  display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
-  gap: 12px;
-  align-items: center;
-  margin-top: 6px;
-}
-.reward-answer .reward-rate { font-size: 28px; color: var(--ok); }
-.reward-answer .reward-name { font-size: 17px; }
-.reward-answer-body .hint { margin: 2px 0 0; }
 .reward-answer-none { margin: 6px 0 0; font-weight: 600; color: var(--error); }
 
-.reward-sure { margin-top: 14px; }
+.reward-ask:not(:empty) { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+.reward-sure-head .hint { margin: 0; }
 .reward-sure-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .reward-meter {
   height: 6px;
@@ -1969,8 +1967,6 @@ td .btn-small { min-height: 28px; padding: 0 9px; font-size: 12.5px; }
 .reward-chip.is-fixed { cursor: default; padding-right: 10px; background: var(--bg); color: var(--muted); }
 .reward-chip.is-fixed:hover { border-color: var(--border-strong); }
 .reward-known + .reward-asked { margin-top: 8px; padding-top: 0; border-top: 0; }
-.reward-answer-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; }
-.reward-answer-head .field-label { margin: 0; }
 .reward-offer-tag {
   flex: none;
   padding: 1px 8px;
@@ -1996,17 +1992,37 @@ td .btn-small { min-height: 28px; padding: 0 9px; font-size: 12.5px; }
 .reward-groups { display: flex; flex-direction: column; gap: 14px; }
 .reward-group-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 6px; }
 .reward-group-head .section-title { margin: 0; }
-.reward-group-head .hint { margin: 0; }
+.reward-group-head .hint { margin: 0; flex-basis: 100%; }
 
 .reward-row {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
+  grid-template-columns: 26px 70px minmax(0, 1fr);
   gap: 12px;
   align-items: start;
-  padding: 10px 0;
-  border-top: 1px solid var(--border);
+  margin: 0 -10px;
+  padding: 10px;
+  border-radius: 10px;
 }
-.reward-group-head + .reward-row { border-top: 0; }
+.reward-row + .reward-row { margin-top: 4px; }
+/* The top three, numbered and tinted gold, silver and bronze. */
+.reward-rank {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.reward-row:not(.is-out) .reward-rank { border: 1px solid var(--border-strong); }
+.reward-row.is-gold { background: var(--gold-soft); }
+.reward-row.is-gold .reward-rank { background: var(--gold); border-color: var(--gold); color: #fff; }
+.reward-row.is-silver { background: var(--silver-soft); }
+.reward-row.is-silver .reward-rank { background: var(--silver); border-color: var(--silver); color: #fff; }
+.reward-row.is-bronze { background: var(--bronze-soft); }
+.reward-row.is-bronze .reward-rank { background: var(--bronze); border-color: var(--bronze); color: #fff; }
 .reward-rate { font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; color: var(--muted); }
 .reward-row.is-best .reward-rate { color: var(--ok); }
 .reward-rate { display: flex; flex-direction: column; line-height: 1.1; }
@@ -2192,7 +2208,8 @@ td .btn-small { min-height: 28px; padding: 0 9px; font-size: 12.5px; }
   /* Amount beside the purchase, not under it, so the answer starts higher. */
   .reward-pick { grid-template-columns: minmax(0, 1fr) 104px; gap: 12px; }
   .reward-options .btn { width: 100%; }
-  .reward-row { grid-template-columns: 56px minmax(0, 1fr); gap: 10px; }
+  .reward-row { grid-template-columns: 24px 58px minmax(0, 1fr); gap: 8px; }
+  .reward-rank { width: 24px; height: 24px; font-size: 12px; }
   .reward-rate { font-size: 17px; }
   /* Thumb-sized targets: answer chips, text buttons, the remove cross. */
   .reward-chip { min-height: 36px; padding: 4px 8px 4px 12px; }

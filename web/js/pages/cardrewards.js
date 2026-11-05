@@ -210,9 +210,13 @@ export function cardRewardsPage(app) {
     el("div", { class: "card-grid reward-pick" },
       field("Or pick what you are buying", purchaseSelect),
       field("Amount ($)", amountInput)));
+  // The questions live with "Where are you shopping?" (at explicit user
+  // request): they are about the shop, and the ranked list below already
+  // shows the best card, so a separate "Best card" box only repeated it.
+  const askHost = el("div", { class: "reward-ask" });
+  pickCard.append(askHost);
   root.append(pickCard);
 
-  const askHost = el("div");
   const resultsHost = el("div", { class: "reward-groups" });
   const walletList = el("div", { class: "reward-wallet" });
   const addSelect = el("select", { "aria-label": "Card to add" });
@@ -270,7 +274,7 @@ export function cardRewardsPage(app) {
   // (at explicit user request), with an "Offer" tag on what they are about.
   const offersHost = el("div");
   let offers = [];
-  root.append(askHost, resultsHost, offersHost, walletCard, preferredCard);
+  root.append(resultsHost, offersHost, walletCard, preferredCard);
 
   let feed = null;
 
@@ -410,34 +414,11 @@ export function cardRewardsPage(app) {
     const pct = Math.floor(last.confidence * 100);
     const kind = last.confidence >= TARGET_CONFIDENCE ? "ok" : pct >= 70 ? "caution" : "warn";
     const body = [];
-    const spend = amount();
-    // The best card overall, not just the first group's: with preferred
-    // points the preferred group leads, but the headline must not hide a
-    // better card in another program.
-    const top = last.groups.map((g) => g.cards[0])
-      .filter(Boolean)
-      .sort((a, b) => Number(b.accepted) - Number(a.accepted) || b.score - a.score ||
-        Number(b.card.points === settings.preferred) - Number(a.card.points === settings.preferred))[0];
-
-    const what = purchaseLabel(settings.purchase).toLowerCase();
-    const shopOffer = shop && offers.find(({ offer }) => offerAtShop(offer, shop.name))?.offer;
-    body.push(el("div", { class: "reward-answer-head" },
-      el("span", {
-        class: "field-label",
-        text: shop ? `Best card at ${shop.name}` : `Best card for ${what}`,
-      }),
-      shopOffer ? offerTag(shopOffer, `Offer at ${shop.name}`) : ""));
-    body.push(top?.accepted
-      ? el("div", { class: "reward-answer" },
-        rateCell(top),
-        el("div", { class: "reward-answer-body" },
-          el("div", { class: "reward-name" }, cardName(top.card)),
-          detailLines(detailLine(top, spend), "hint")))
-      : el("p", { class: "reward-answer-none", text: "None of your cards are accepted here." }));
 
     body.push(el("div", { class: "reward-sure" },
       el("div", { class: "reward-sure-head" },
-        pill(`${pct}% sure`, kind)),
+        pill(`${pct}% sure`, kind),
+        el("span", { class: "hint", text: "of the top card" })),
       el("div", {
         class: `reward-meter is-${kind}`,
         role: "progressbar",
@@ -552,7 +533,7 @@ export function cardRewardsPage(app) {
         })));
     }
 
-    askHost.append(card(...body));
+    askHost.append(...body);
   }
 
   function answer(id, value) {
@@ -605,12 +586,22 @@ export function cardRewardsPage(app) {
       return;
     }
     const spend = amount();
+    const what = purchaseLabel(settings.purchase).toLowerCase();
+    const shopOffer = shop && offers.find(({ offer }) => offerAtShop(offer, shop.name))?.offer;
     for (const group of last.groups) {
+      // Numbered best first; the top three are tinted gold, silver and
+      // bronze (at explicit user request). A card not accepted here gets no
+      // number, since it is not an option at all.
+      let rank = 0;
       resultsHost.append(el("section", { class: "card reward-group" },
         el("div", { class: "reward-group-head" },
-          el("h3", { class: "section-title", text: "All your cards" }),
+          el("h3", { class: "section-title", text: shop ? `Your cards at ${shop.name}` : `Your cards for ${what}` }),
+          shopOffer ? offerTag(shopOffer, "Offer here") : "",
           el("span", { class: "hint", text: "Best first, by what you get back, using cautious point values" })),
-        group.cards.map((stat, i) => resultRow(stat, i === 0 && stat.accepted, group.cards.length > 1, spend))));
+        group.cards.some((stat) => stat.accepted)
+          ? ""
+          : el("p", { class: "reward-answer-none", text: "None of your cards are accepted here." }),
+        group.cards.map((stat) => resultRow(stat, stat.accepted ? ++rank : 0, spend))));
     }
   }
 
@@ -674,15 +665,22 @@ export function cardRewardsPage(app) {
     return parts.map((text) => el("div", { class: className, text }));
   }
 
-  function resultRow(stat, best, labelBest, spend) {
+  function resultRow(stat, rank, spend) {
     const lines = explain(stat, settings.purchase, allAnswers());
     const detail = stat.accepted ? detailLine(stat, spend) : [];
-    return el("div", { class: `reward-row${best ? " is-best" : ""}${stat.accepted ? "" : " is-out"}` },
+    const medal = ["", "gold", "silver", "bronze"][rank] || "";
+    return el("div", {
+      class: `reward-row${rank === 1 ? " is-best" : ""}${medal ? ` is-${medal}` : ""}${stat.accepted ? "" : " is-out"}`,
+    },
+      el("span", {
+        class: "reward-rank",
+        text: rank ? String(rank) : "",
+        "aria-label": rank ? `Number ${rank}` : "Not accepted",
+      }),
       rateCell(stat),
       el("div", { class: "reward-body" },
         el("div", { class: "reward-name" },
           cardName(stat.card),
-          best && labelBest ? pill("Best", "ok") : null,
           stat.accepted ? null : pill("Not accepted", "error"),
           offerForCard(stat.card.id) ? offerTag(offerForCard(stat.card.id)) : null),
         detailLines(detail, "reward-detail-line"),

@@ -11,6 +11,11 @@ before or as part of the push itself.
 
 ## 2026-11-05
 
+**Card Rewards: one numbered list, questions with the shop** (`pages/cardrewards.js`, `css/app.css`, `CLAUDE.md`)
+* The questions ("Which grocery store?", "Does it take Amex?"), how sure it is and your answers now sit in the same box as "Where are you shopping?", where the shop is chosen.
+* The separate "Best card" box is gone, since it repeated the top of the list. The list is numbered best first, with the top three tinted gold, silver and bronze, and headed "Your cards at Loblaws" (or "for groceries"). A card that is not accepted there gets no number.
+* A shop with an offer shows "Offer here" next to the list's heading.
+
 **Card Rewards: offers and events** (`data/cards.json`, `tools/card_catalogue.js`, `tools/card_rewards.js`, `pages/cardrewards.js`, `css/app.css`, tests, `CLAUDE.md`)
 * A new "Offers and events" section below your cards lists special events and limited-time offers for the cards and points you hold, such as a Shoppers bonus redemption event or an Amex transfer bonus, each with its dates ("Until Nov 9" or "Starts Nov 27") and where it came from. Events starting within 30 days show too.
 * A card with an offer gets a small "Offer" tag in the list, and a shop with one gets "Offer at <shop>" next to the best card. Tapping the tag scrolls down to the offer and highlights it.
