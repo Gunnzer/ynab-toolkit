@@ -2007,16 +2007,21 @@ select.is-empty option { color: var(--text); }
   border-radius: 10px;
 }
 .reward-row + .reward-row { margin-top: 4px; }
-/* Numbered best first; the top three are medals (a disc hanging from a
-   ribbon) on a row tinted to match, at explicit user request. */
+/* Numbered best first; the top three are medals (a disc with ribbon tails)
+   on a row tinted to match, at explicit user request.
+   Alignment: every column's first line is one --line tall (the medal disc,
+   the percent and the card name), so their centres sit at --line / 2 from
+   the row's content edge, whatever the font sizes. */
+.reward-row { --line: 28px; }
 .reward-rank {
   position: relative;
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  height: var(--line);
 }
 .reward-rank > span {
+  position: relative;
+  z-index: 1;
   display: grid;
   place-items: center;
   width: 26px;
@@ -2025,28 +2030,27 @@ select.is-empty option { color: var(--text); }
   font-size: 13px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  line-height: 1;
   color: var(--muted);
 }
 .reward-row:not(.is-out) .reward-rank:not(.reward-medal) > span { border: 1px solid var(--border-strong); }
-.reward-medal { height: 40px; place-items: end center; }
-.reward-medal::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 50%;
-  width: 18px;
-  height: 14px;
-  transform: translateX(-50%);
-  background: linear-gradient(90deg, var(--ribbon-a) 50%, var(--ribbon-b) 50%);
-  clip-path: polygon(0 0, 100% 0, 78% 100%, 22% 100%);
-}
 .reward-medal > span {
-  position: relative;
-  width: 28px;
-  height: 28px;
+  width: var(--line);
+  height: var(--line);
   font-size: 14px;
   font-weight: 800;
   box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.55), inset 0 -2px 3px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+/* Ribbon tails: 16px wide, from the disc's lower third to 8px below it. */
+.reward-medal::before {
+  content: "";
+  position: absolute;
+  top: calc(var(--line) * 2 / 3);
+  left: calc(50% - 8px);
+  width: 16px;
+  height: calc(var(--line) / 3 + 8px);
+  background: linear-gradient(90deg, var(--ribbon-a) 50%, var(--ribbon-b) 50%);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 75% 80%, 50% 100%, 25% 80%, 0 100%);
 }
 .reward-row.is-gold, .reward-row.is-silver, .reward-row.is-bronze { border-left: 3px solid; padding-left: 7px; }
 .reward-row.is-gold {
@@ -2070,12 +2074,15 @@ select.is-empty option { color: var(--text); }
 .reward-rate { font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; color: var(--muted); }
 .reward-row.is-best .reward-rate { color: var(--ok); }
 .reward-rate { display: flex; flex-direction: column; line-height: 1.1; }
+.reward-row .reward-rate > span:first-child { line-height: var(--line); }
+.reward-row .reward-rate-unit { line-height: 14px; }
 .reward-rate-unit { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
 .reward-row.is-out { opacity: .6; }
 /* Card names stay on one line and cut off with an ellipsis, so every row is
    the same shape whatever the issuer calls the card; the full name is on
    hover and in Details. Badges never shrink. */
 .reward-name { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 600; }
+.reward-row .reward-name { min-height: var(--line); line-height: var(--line); }
 .reward-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .reward-name .pill { flex: none; }
 .reward-body .hint { margin: 2px 0 0; }

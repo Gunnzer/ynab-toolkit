@@ -632,7 +632,7 @@ export function cardRewardsPage(app) {
   // say what it was a percent of (reported live): by value it is what
   // comes back per dollar spent, like a cash back rate.
   function rateCell(stat) {
-    if (!stat.accepted) return el("div", { class: "reward-rate", text: "-" });
+    if (!stat.accepted) return el("div", { class: "reward-rate" }, el("span", { text: "-" }));
     return el("div", { class: "reward-rate" },
       el("span", { text: bigNumber(stat) }),
       el("span", { class: "reward-rate-unit", text: "back" }));
