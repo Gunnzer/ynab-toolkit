@@ -38,6 +38,9 @@ describe("shops", () => {
     assert.deepEqual(searchMerchants(""), []);
     assert.deepEqual(searchMerchants("zzzz"), []);
     assert.ok(searchMerchants("a").length <= 6);
+    const typed = [{ name: "Bob's Corner Grocer", purchase: "groceries", answers: {} }];
+    assert.equal(searchMerchants("bobs", 6, typed)[0].name, "Bob's Corner Grocer");
+    assert.deepEqual(searchMerchants("bobs"), []);
   });
 
   test("exact names are found ignoring case", () => {

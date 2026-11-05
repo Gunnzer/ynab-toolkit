@@ -11,6 +11,11 @@ before or as part of the push itself.
 
 ## 2026-11-05
 
+**Card Rewards remembers which shops take Amex** (`pages/cardrewards.js`, `tools/merchants.js`, `store.js`, tests, `CLAUDE.md`)
+* Answering "Does this place take American Express?" at a shop saves the answer for that shop, so it is filled in (and not asked) the next time you pick it. The chip reads "No Amex, saved for Swiss Chalet"; its x forgets it.
+* A shop that is not in the list keeps the name you typed: say whether it takes Amex and it is saved, and it then shows up in the shop search like any other.
+* Picking what you are buying by hand no longer wipes a typed shop name that is not in the list.
+
 **Card Rewards: cautious point values** (`data/cards.json`, `pages/cardrewards.js`, `tools/card_catalogue.js`, tests, `CLAUDE.md`)
 * Aeroplan and Amex Membership Rewards points are now valued at 1.1 cents, the low end of published estimates for an economy flight, instead of 2 cents. The Cobalt on groceries and restaurants now shows 5.5% back, not 10%; the TD Aeroplan about 1.65%. Scene+, Avion, BMO, TD and PC Optimum were already at the low end.
 * The page says these are cautious values, and Point values explains that business-class flights can be worth about twice as much, and gift cards less. You can still set your own.

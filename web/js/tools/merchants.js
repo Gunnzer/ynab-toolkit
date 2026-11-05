@@ -194,14 +194,14 @@ export function normalise(text) {
  * Shops matching what has been typed, best first: a name or nickname that
  * starts with it, then one with a word starting with it, then one that
  * contains it anywhere. A shop matched by a nickname ranks the same as by
- * its name.
+ * its name. `extra` are more shops to search, such as ones you typed in.
  */
-export function searchMerchants(query, limit = 6) {
+export function searchMerchants(query, limit = 6, extra = []) {
   const q = normalise(query);
   if (!q) return [];
   const squashed = q.replace(/ /g, "");
   const scored = [];
-  for (const merchant of MERCHANTS) {
+  for (const merchant of [...MERCHANTS, ...extra]) {
     let best = 0;
     for (const label of [merchant.name, ...(merchant.aliases || [])]) {
       const text = normalise(label);

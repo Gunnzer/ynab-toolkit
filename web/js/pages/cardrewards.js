@@ -6,7 +6,7 @@
 
 import { CARDS, CATALOGUE_CHECKED, NETWORKS, POINT_TYPES, PURCHASES } from "../tools/card_catalogue.js";
 import { browserFetchJson, loadCatalogue } from "../tools/card_feed.js";
-import { searchMerchants } from "../tools/merchants.js";
+import { normalise, searchMerchants } from "../tools/merchants.js";
 import {
   TARGET_CONFIDENCE, UNSURE, centsPerPoint, daysSince, describeEarn, explain,
   formatEarned, formatRate, formatValue, formatWorth, groupName, groupUnit,
@@ -34,6 +34,16 @@ export function cardRewardsPage(app) {
   for (const [id, entry] of Object.entries(settings.capAnswers)) {
     if (!(entry?.until >= localToday())) delete settings.capAnswers[id];
   }
+  // Whether a shop takes Amex is a fact about the shop, not this purchase,
+  // so it is remembered per shop (at explicit user request) and filled in
+  // the next time that shop is picked:
+  // { "<normalised name>": { value, on, name?, purchase? } }. A shop that is
+  // not in the list keeps its typed name and purchase so search can offer it.
+  if (!settings.shopAmex || typeof settings.shopAmex !== "object") settings.shopAmex = {};
+  const shopKey = (m) => normalise(m.name);
+  const typedShops = () => Object.values(settings.shopAmex)
+    .filter((entry) => entry?.name && PURCHASES.some((p) => p.id === entry.purchase))
+    .map((entry) => ({ name: entry.name, purchase: entry.purchase, answers: {}, typed: true }));
 
   // Answers belong to one purchase, so they are not saved: tomorrow's
   // groceries may be at a different store.
@@ -68,7 +78,9 @@ export function cardRewardsPage(app) {
       store.save();
       answers = {};
       // Picking a category by hand means it is not about that shop any more.
-      setShop(null);
+      // A typed name that is not in the list stays: it is the shop being
+      // described, and its Amex answer is saved under it.
+      if (shop || found.length) setShop(null);
       render();
     });
 
@@ -115,9 +127,9 @@ export function cardRewardsPage(app) {
 
   function paintShops() {
     clear(shopList);
-    found = shop ? [] : searchMerchants(shopInput.value);
+    found = shop ? [] : searchMerchants(shopInput.value, 6, typedShops());
     if (!shop && shopInput.value.trim() && !found.length) {
-      shopList.append(hint("Not in the list: pick what you are buying below."));
+      shopList.append(hint("Not in the list: pick what you are buying below. If you say whether it takes Amex, it is saved under this name."));
     }
     for (const m of found) {
       shopList.append(el("button", {
@@ -143,7 +155,8 @@ export function cardRewardsPage(app) {
     settings.purchase = m.purchase;
     purchaseSelect.value = m.purchase;
     store.save();
-    answers = { ...m.answers };
+    const saved = settings.shopAmex[shopKey(m)];
+    answers = { ...m.answers, ...(saved ? { amex: saved.value } : {}) };
     shopInput.blur();
     render();
   }
@@ -401,6 +414,10 @@ export function cardRewardsPage(app) {
           title: `${question.text} Click to ask again.`,
           onClick: () => {
             delete answers[question.id];
+            if (question.id === "amex" && shop && settings.shopAmex[shopKey(shop)]) {
+              delete settings.shopAmex[shopKey(shop)];
+              store.save();
+            }
             if (settings.capAnswers[question.id]) {
               delete settings.capAnswers[question.id];
               store.save();
@@ -410,7 +427,9 @@ export function cardRewardsPage(app) {
         }, el("span", {
           text: savedUntil(question.id)
             ? `${text}, until ${shortDate(savedUntil(question.id))}`
-            : text,
+            : question.id === "amex" && shop && settings.shopAmex[shopKey(shop)]
+              ? `${text}, saved for ${shop.name}`
+              : text,
         }), icon("x", { size: 14 }))),
         button("Start over", {
           small: true,
@@ -434,6 +453,18 @@ export function cardRewardsPage(app) {
       answers = rest;
     } else {
       answers = { ...answers, [id]: value };
+      // A typed name that is not in the list becomes a shop of its own,
+      // so the answer has somewhere to be kept.
+      const typed = shopInput.value.trim();
+      if (id === "amex" && !shop && typed && !searchMerchants(typed, 1).length) setShop({ name: typed, purchase: settings.purchase, answers: {}, typed: true });
+      if (id === "amex" && shop && value !== UNSURE) {
+        settings.shopAmex[shopKey(shop)] = {
+          value,
+          on: localToday(),
+          ...(shop.typed ? { name: shop.name, purchase: shop.purchase } : {}),
+        };
+        store.save();
+      }
     }
     render();
   }
