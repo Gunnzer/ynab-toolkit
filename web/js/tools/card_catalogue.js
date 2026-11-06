@@ -36,7 +36,9 @@
 //   ("YYYY-MM-DD", inclusive; ends is required, so an offer never lingers),
 //   and what it is about, any of: cards (card ids), points (point type ids),
 //   shops (shop names as in merchants.js). One with none of these is shown
-//   to everyone. source: named, never linked, like a card's.
+//   to everyone, and so is one with everyone: true (anyone can take part
+//   without the card, like a Shoppers PC Optimum event; the cards and
+//   points it names are still tagged). source: named, never linked.
 //
 // A card:
 //   id, name, issuer, network ("amex" | "visa" | "mastercard"),

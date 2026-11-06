@@ -484,6 +484,15 @@ describe("offers and events", () => {
     assert.equal(offersFor([offer({ ends: "2026-11-05" })], cards, "2026-11-05").length, 1);
   });
 
+  test("an offer anyone can join shows without the card, and still tags it", () => {
+    const shopper = offer({ points: ["pc"], shops: ["Shoppers Drug Mart"], everyone: true });
+    const without = offersFor([shopper], walletCards([{ id: "amex-cobalt" }]), "2026-11-05");
+    assert.deepEqual(without.map((o) => o.cardIds), [[]]);
+    const withPc = offersFor([shopper], walletCards([{ id: "pc-world-elite" }]), "2026-11-05");
+    assert.deepEqual(withPc[0].cardIds, ["pc-world-elite"]);
+    assert.ok(validateCatalogue({ ...SHIPPED, offers: [offer({ everyone: "yes" })] }).some((p) => /everyone is not/.test(p)));
+  });
+
   test("points moved to preferred points still match the program they came from", () => {
     const moved = asPreferred(walletCards([{ id: "amex-cobalt" }]), "aeroplan");
     assert.deepEqual(offersFor([offer({ points: ["mr"] })], moved, "2026-11-05")[0].cardIds, ["amex-cobalt"]);

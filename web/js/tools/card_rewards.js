@@ -231,6 +231,7 @@ export function validateCatalogue(data) {
     for (const key of ["cards", "points", "shops"]) {
       if (offer?.[key] !== undefined && !Array.isArray(offer[key])) problems.push(`Offer ${name}: ${key} is not a list.`);
     }
+    if (offer?.everyone !== undefined && typeof offer.everyone !== "boolean") problems.push(`Offer ${name}: everyone is not true or false.`);
   }
   return problems;
 }
@@ -257,7 +258,10 @@ export function offersFor(offers, cards, today) {
   for (const offer of offers || []) {
     if (!offer?.ends || offer.ends < today) continue;
     if (offer.starts && offer.starts > soon) continue;
-    const general = !offer.cards?.length && !offer.points?.length;
+    // `everyone`: anyone can take part without one of the cards (a store's
+    // own loyalty program, such as a Shoppers PC Optimum event, at explicit
+    // user request), so it shows whatever cards are held.
+    const general = offer.everyone === true || (!offer.cards?.length && !offer.points?.length);
     const cardIds = cards
       .filter((c) => offer.cards?.includes(c.id) ||
         offer.points?.includes(c.points) || offer.points?.includes(c.convertedFrom))

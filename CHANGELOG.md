@@ -11,6 +11,10 @@ before or as part of the push itself.
 
 ## 2026-11-06
 
+**Card Rewards: Shoppers events for everyone, and a mid-week event check** (`tools/card_rewards.js`, `tools/card_catalogue.js`, tests, `CLAUDE.md`)
+* An event anyone can join without one of the cards, like a Shoppers PC Optimum event, now shows in Offers and events whatever cards you hold, and still tags a PC card if you have one.
+* A second check runs every Saturday, looking only for new events in the next two weeks, so short Shoppers events announced late in the week are not missed between the Wednesday updates. It only publishes and notifies when it finds something.
+
 **Card Rewards: eight more cards, and filters for welcome offers** (`data/cards.json`, `tools/card_rewards.js`, `tools/merchants.js`, `tools/welcome_bonuses.js`, `pages/welcomebonuses.js`, `css/app.css`, tests, `CLAUDE.md`)
 * New cards: Amex Platinum, Amex Aeroplan Reserve, TD Aeroplan Visa Infinite Privilege, CIBC Aeroplan Visa Infinite Privilege, Scotiabank Platinum Amex, Marriott Bonvoy Amex, MBNA Rewards World Elite and BMO eclipse Visa Infinite Privilege. They show up in Best card's card list and, where they have a confirmed offer, in Welcome bonuses. Marriott Bonvoy and MBNA points are new point types, valued cautiously.
 * Welcome offers added for Amex Gold Rewards (60,000 points), Amex Platinum, Amex Aeroplan Reserve, Marriott Bonvoy Amex and BMO eclipse Visa Infinite Privilege.
