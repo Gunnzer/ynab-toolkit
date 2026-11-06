@@ -3,11 +3,11 @@
 // and how a bonus you are working towards is going. Offers come from the
 // same card details file as Card Rewards; tracked bonuses are saved here.
 
-import { CARDS, POINT_TYPES } from "../tools/card_catalogue.js";
+import { CARDS, NETWORKS, POINT_TYPES } from "../tools/card_catalogue.js";
 import { browserFetchJson, loadCatalogue } from "../tools/card_feed.js";
 import { shortName } from "../tools/card_rewards.js";
 import {
-  CHEXY_FEE, addMonths, progress, rankOffers, spentOnAccount,
+  CHEXY_FEE, NO_FILTERS, addMonths, filterOffers, progress, rankOffers, spentOnAccount,
 } from "../tools/welcome_bonuses.js";
 import {
   button, card, checkbox, clear, confirmDialog, customDialog, el, field, hint, icon, pageHeading, pill,
@@ -35,6 +35,9 @@ export function welcomeBonusesPage(app) {
   // Offers you are not interested in (at explicit user request), hidden
   // until brought back.
   if (!Array.isArray(settings.dismissed)) settings.dismissed = [];
+  // Narrowing the Offers list (at explicit user request: "filter by point
+  // types, card types, etc"), remembered.
+  settings.filters = { ...NO_FILTERS, ...(settings.filters || {}) };
   let showDismissed = false;
   const rewards = store.section("cardRewards");
   // YNAB spending per account, loaded once per visit when a bonus is linked.
@@ -65,9 +68,11 @@ export function welcomeBonusesPage(app) {
     const all = rankOffers(CARDS, { values: rewards.values || {}, held: held(), today });
     const isDismissed = (o) => settings.dismissed.includes(o.card.id);
     const dismissedCount = all.filter(isDismissed).length;
-    const shown = all
+    const narrowed = filterOffers(all, settings.filters);
+    const shown = narrowed
       .filter((o) => !settings.hideHeld || !o.held)
       .filter((o) => showDismissed || !isDismissed(o));
+    const filtering = Object.values(settings.filters).some(Boolean);
     const toggle = checkbox("Hide cards you have", settings.hideHeld, (on) => {
       settings.hideHeld = on;
       store.save();
@@ -77,12 +82,15 @@ export function welcomeBonusesPage(app) {
       el("div", { class: "reward-group-head" },
         el("h3", { class: "section-title", text: "Offers" }),
         el("span", { class: "hint", text: "Best first year first: the bonus at cautious point values, less the first year's fee" })),
+      all.length ? filterBar(all) : "",
       all.some((o) => o.held) ? toggle : "",
       shown.length
         ? shown.map(offerRow)
         : hint(!CARDS.length
           ? "Getting the latest card details..."
-          : all.length
+          : filtering && !narrowed.length
+            ? "No offers match these filters."
+            : all.length
             ? "Nothing left to show: every offer is for a card you have or one you dismissed."
             : "No welcome offers in the card list yet. They are looked up every week along with the card details."),
       dismissedCount
@@ -96,6 +104,48 @@ export function welcomeBonusesPage(app) {
           },
         })
         : ""));
+  }
+
+  /** Points / Network / Issuer / Fee selects, offering only what the offers have. */
+  function filterBar(all) {
+    const distinct = (pick) => [...new Set(all.map((o) => pick(o.card)))].filter(Boolean);
+    const choose = (key, label, options) => {
+      const node = select([{ value: "", label: `Any ${label.toLowerCase()}` }, ...options], settings.filters[key] || "", (value) => {
+        settings.filters[key] = value;
+        store.save();
+        renderOffers();
+      });
+      node.setAttribute("aria-label", label);
+      return field(label, node);
+    };
+    const filtering = Object.values(settings.filters).some(Boolean);
+    return el("div", { class: "bonus-filters" },
+      el("div", { class: "card-grid bonus-filter-grid" },
+        choose("points", "Points", distinct((c) => c.points)
+          .map((id) => ({ value: id, label: POINT_TYPES[id]?.name || id }))
+          .sort((a, b) => a.label.localeCompare(b.label))),
+        choose("network", "Network", distinct((c) => c.network)
+          .map((id) => ({ value: id, label: NETWORKS[id] || id }))),
+        choose("issuer", "Issuer", distinct((c) => c.issuer).sort()
+          .map((name) => ({ value: name, label: name }))),
+        choose("fee", "Fee", [
+          { value: "none", label: "No fee" },
+          { value: "first-free", label: "Free first year" },
+          { value: "under-200", label: "Under $200" },
+          { value: "premium", label: "$200 or more" },
+        ])),
+      filtering
+        ? el("button", {
+          type: "button",
+          class: "btn btn-small btn-link",
+          text: "Clear filters",
+          onClick: () => {
+            settings.filters = { ...NO_FILTERS };
+            store.save();
+            renderOffers();
+          },
+        })
+        : "");
   }
 
   function offerRow({ card: c, value, fee, net, held: have }) {

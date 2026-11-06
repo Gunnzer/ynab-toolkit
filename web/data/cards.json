@@ -1,12 +1,13 @@
 {
-  "checked": "2026-11-05",
+  "checked": "2026-11-06",
   "pointTypes": {
     "mr": {
       "name": "Amex Membership Rewards",
       "unit": "points",
       "cents": 1.1,
       "transfers": {
-        "aeroplan": 1
+        "aeroplan": 1,
+        "bonvoy": 1.2
       }
     },
     "aeroplan": {
@@ -44,6 +45,18 @@
       "name": "Cash back",
       "unit": "percent",
       "cents": 1
+    },
+    "bonvoy": {
+      "name": "Marriott Bonvoy",
+      "unit": "points",
+      "cents": 0.7,
+      "note": "Hotel points; worth more on pricier hotel nights, less on cheap ones"
+    },
+    "mbna": {
+      "name": "MBNA Rewards",
+      "unit": "points",
+      "cents": 1,
+      "note": "100 points = $1 off travel"
     }
   },
   "cards": [
@@ -139,7 +152,15 @@
         "Gas, grocery and drugstore 2x is for merchants in Canada."
       ],
       "source": "americanexpress.com/ca, NerdWallet Canada, Rewards Canada",
-      "checked": "2026-10-31"
+      "checked": "2026-10-31",
+      "welcome": {
+        "points": 60000,
+        "minSpend": 12000,
+        "months": 12,
+        "detail": "5,000 Membership Rewards points for each monthly statement with $1,000 of purchases, for the first 12 months.",
+        "source": "Frugal Flyer, Milesopedia, PointsWise",
+        "checked": "2026-11-06"
+      }
     },
     {
       "id": "amex-aeroplan",
@@ -947,6 +968,323 @@
       ],
       "source": "tangerine.ca",
       "checked": "2026-10-31"
+    },
+    {
+      "id": "amex-platinum",
+      "name": "The Platinum Card from American Express",
+      "short": "Amex Platinum",
+      "issuer": "American Express",
+      "network": "amex",
+      "points": "mr",
+      "annualFee": 799,
+      "base": 1,
+      "earn": [
+        {
+          "on": [
+            "dining",
+            "delivery"
+          ],
+          "rate": 2,
+          "when": {
+            "currency": [
+              "cad"
+            ]
+          }
+        },
+        {
+          "on": [
+            "travel"
+          ],
+          "rate": 2
+        }
+      ],
+      "notes": [
+        "Dining and food delivery 2x is for purchases in Canada.",
+        "A $200 yearly dining credit and lounge access are not counted here."
+      ],
+      "source": "americanexpress.com/ca, Milesopedia, Mindful Travellers",
+      "welcome": {
+        "points": 70000,
+        "minSpend": 10000,
+        "months": 3,
+        "detail": "70,000 Membership Rewards points after $10,000 in the first 3 months, with up to 30,000 more later in the first year.",
+        "source": "American Express, Milesopedia, PaySmarter",
+        "checked": "2026-11-06"
+      },
+      "fxFee": 0.025,
+      "checked": "2026-11-06"
+    },
+    {
+      "id": "amex-aeroplan-reserve",
+      "name": "American Express Aeroplan Reserve Card",
+      "short": "Amex Aeroplan Reserve",
+      "issuer": "American Express",
+      "network": "amex",
+      "points": "aeroplan",
+      "annualFee": 599,
+      "base": 1.25,
+      "earn": [
+        {
+          "on": [
+            "travel"
+          ],
+          "rate": 3,
+          "when": {
+            "booking": [
+              "air-canada"
+            ]
+          }
+        },
+        {
+          "on": [
+            "dining",
+            "delivery"
+          ],
+          "rate": 2,
+          "when": {
+            "currency": [
+              "cad"
+            ]
+          }
+        }
+      ],
+      "notes": [
+        "3x is for Air Canada and Air Canada Vacations purchases.",
+        "The 2x on dining and food delivery in Canada is from earlier reviews; this week's sources did not restate it, so it is unconfirmed."
+      ],
+      "source": "americanexpress.com/ca, Milesopedia, Frugal Flyer",
+      "welcome": {
+        "points": 60000,
+        "minSpend": 7500,
+        "months": 3,
+        "detail": "60,000 Aeroplan points after $7,500 in the first 3 months, with up to 25,000 more for spending later in the first year.",
+        "source": "Milesopedia, PointsWise",
+        "checked": "2026-11-06"
+      },
+      "fxFee": 0.025,
+      "checked": "2026-11-06"
+    },
+    {
+      "id": "td-aeroplan-vip",
+      "name": "TD Aeroplan Visa Infinite Privilege Card",
+      "short": "TD Aeroplan VIP",
+      "issuer": "TD",
+      "network": "visa",
+      "points": "aeroplan",
+      "annualFee": 599,
+      "base": 1.25,
+      "earn": [
+        {
+          "on": [
+            "travel"
+          ],
+          "rate": 2,
+          "when": {
+            "booking": [
+              "air-canada"
+            ]
+          },
+          "cap": {
+            "key": "accel",
+            "spend": 100000,
+            "per": "year",
+            "label": "bonus rate purchases"
+          }
+        },
+        {
+          "on": [
+            "gas",
+            "ev",
+            "groceries",
+            "dining",
+            "delivery",
+            "travel",
+            "transit"
+          ],
+          "rate": 1.5,
+          "cap": {
+            "key": "accel",
+            "spend": 100000,
+            "per": "year",
+            "label": "bonus rate purchases"
+          }
+        }
+      ],
+      "notes": [
+        "2x is for Air Canada and Air Canada Vacations purchases.",
+        "The $100,000 combined yearly cap on bonus rates is from third party reviews."
+      ],
+      "source": "td.com, Milesopedia, Unravel Travel",
+      "fxFee": 0.025,
+      "checked": "2026-11-06"
+    },
+    {
+      "id": "cibc-aeroplan-vip",
+      "name": "CIBC Aeroplan Visa Infinite Privilege Card",
+      "short": "CIBC Aeroplan VIP",
+      "issuer": "CIBC",
+      "network": "visa",
+      "points": "aeroplan",
+      "annualFee": 599,
+      "base": 1.25,
+      "earn": [
+        {
+          "on": [
+            "travel"
+          ],
+          "rate": 2,
+          "when": {
+            "booking": [
+              "air-canada"
+            ]
+          }
+        },
+        {
+          "on": [
+            "gas",
+            "ev",
+            "groceries",
+            "dining",
+            "delivery",
+            "travel"
+          ],
+          "rate": 1.5
+        }
+      ],
+      "notes": [
+        "2x is for Air Canada and Air Canada Vacations purchases."
+      ],
+      "source": "cibc.com, Milesopedia, Frugal Flyer, Money.ca",
+      "fxFee": 0.025,
+      "checked": "2026-11-06"
+    },
+    {
+      "id": "scotia-platinum-amex",
+      "name": "Scotiabank Platinum American Express Card",
+      "short": "Scotia Platinum Amex",
+      "issuer": "Scotiabank",
+      "network": "amex",
+      "points": "scene",
+      "annualFee": 399,
+      "fxFee": 0,
+      "base": 2,
+      "earn": [],
+      "notes": [
+        "2 Scene+ points per $1 on everything, no foreign transaction fee."
+      ],
+      "source": "scotiabank.com, Milesopedia, Ratehub",
+      "checked": "2026-11-06"
+    },
+    {
+      "id": "marriott-bonvoy-amex",
+      "name": "Marriott Bonvoy American Express Card",
+      "short": "Marriott Bonvoy Amex",
+      "issuer": "American Express",
+      "network": "amex",
+      "points": "bonvoy",
+      "annualFee": 120,
+      "base": 2,
+      "earn": [
+        {
+          "on": [
+            "travel"
+          ],
+          "rate": 5,
+          "when": {
+            "booking": [
+              "marriott"
+            ]
+          }
+        }
+      ],
+      "notes": [
+        "5x is at Marriott hotels.",
+        "A free night each anniversary (up to 35,000 points) is not counted here."
+      ],
+      "source": "americanexpress.com/ca, Prince of Travel, Frugal Flyer",
+      "welcome": {
+        "points": 60000,
+        "minSpend": 3000,
+        "months": 3,
+        "detail": "60,000 Bonvoy points after $3,000 in the first 3 months, plus 10,000 after $500 in month 13.",
+        "source": "PointsWise, Frugal Flyer",
+        "checked": "2026-11-06"
+      },
+      "fxFee": 0.025,
+      "checked": "2026-11-06"
+    },
+    {
+      "id": "mbna-rewards-we",
+      "name": "MBNA Rewards World Elite Mastercard",
+      "short": "MBNA Rewards WE",
+      "issuer": "MBNA",
+      "network": "mastercard",
+      "points": "mbna",
+      "annualFee": 120,
+      "base": 1,
+      "earn": [
+        {
+          "on": [
+            "dining",
+            "groceries",
+            "streaming",
+            "bills"
+          ],
+          "rate": 5,
+          "cap": {
+            "key": "accel",
+            "spend": 50000,
+            "per": "year",
+            "label": "5x purchases"
+          }
+        }
+      ],
+      "notes": [
+        "5x covers restaurants, groceries, digital media, memberships and household utilities.",
+        "The $50,000 yearly cap is per category; it is counted here as one cap, which only matters for very large spending."
+      ],
+      "source": "mbna.ca, Milesopedia, Frugal Flyer",
+      "fxFee": 0.025,
+      "checked": "2026-11-06"
+    },
+    {
+      "id": "bmo-eclipse-vip",
+      "name": "BMO eclipse Visa Infinite Privilege Card",
+      "short": "BMO eclipse VIP",
+      "issuer": "BMO",
+      "network": "visa",
+      "points": "bmo",
+      "annualFee": 599,
+      "fxFee": 0,
+      "base": 1,
+      "earn": [
+        {
+          "on": [
+            "travel",
+            "groceries",
+            "gas",
+            "dining",
+            "delivery",
+            "drugstore"
+          ],
+          "rate": 5
+        }
+      ],
+      "notes": [
+        "Refreshed November 2, 2026: 5x on travel, groceries, gas, health and wellness, and dining and takeout, and no foreign transaction fee.",
+        "Drugstore is counted as health and wellness; BMO does not name it, so that is unconfirmed.",
+        "Adding an authorized user raises 5x to 6.25x, not counted here."
+      ],
+      "source": "BMO announcement, Prince of Travel, Milesopedia",
+      "welcome": {
+        "points": 80000,
+        "minSpend": 10000,
+        "months": 4,
+        "detail": "80,000 BMO Rewards points after $10,000 in the first 4 months, with more for reaching $20,000 and $40,000.",
+        "source": "Prince of Travel, Points Miles and Bling",
+        "checked": "2026-11-06"
+      },
+      "checked": "2026-11-06"
     }
   ],
   "offers": []

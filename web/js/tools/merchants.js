@@ -152,7 +152,7 @@ export const MERCHANTS = [
   travel("Expedia"),
   travel("Booking.com", "other-travel", ["booking"]),
   travel("Airbnb"),
-  travel("Marriott"),
+  travel("Marriott", "marriott", ["bonvoy"]),
   travel("Hilton"),
 
   fun("Cineplex"),

@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { setCatalogue } from "../js/tools/card_catalogue.js";
 import { validateCatalogue } from "../js/tools/card_rewards.js";
 import {
-  CHEXY_FEE, addMonths, bonusValue, daysBetween, firstYearFee, progress, rankOffers, spentOnAccount,
+  CHEXY_FEE, addMonths, bonusValue, daysBetween, filterOffers, firstYearFee, progress, rankOffers, spentOnAccount,
 } from "../js/tools/welcome_bonuses.js";
 
 const SHIPPED = JSON.parse(readFileSync(new URL("../data/cards.json", import.meta.url), "utf8"));
@@ -96,5 +96,25 @@ describe("a bonus being worked towards", () => {
     ];
     assert.equal(spentOnAccount(tx, "c", "2026-11-05", "2027-02-05"), 100);
     assert.equal(spentOnAccount([{ account_id: "c", date: "2026-11-06", amount: 5000 }], "c", "2026-11-05"), 0);
+  });
+});
+
+describe("narrowing the offers", () => {
+  const cards = [
+    { id: "a", name: "a", points: "aeroplan", network: "visa", issuer: "TD", annualFee: 139, welcome: offer({ firstYearFee: 0 }) },
+    { id: "b", name: "b", points: "mr", network: "amex", issuer: "American Express", annualFee: 799, welcome: offer({}) },
+    { id: "c", name: "c", points: "cash", network: "mastercard", issuer: "Rogers Bank", annualFee: 0, welcome: offer({ points: 0, cash: 50 }) },
+  ];
+  const ids = (filters) => filterOffers(rankOffers(cards), filters).map((o) => o.card.id).sort();
+  test("by point type, network, issuer and fee", () => {
+    assert.deepEqual(ids({}), ["a", "b", "c"]);
+    assert.deepEqual(ids({ points: "aeroplan" }), ["a"]);
+    assert.deepEqual(ids({ network: "amex" }), ["b"]);
+    assert.deepEqual(ids({ issuer: "Rogers Bank" }), ["c"]);
+    assert.deepEqual(ids({ fee: "none" }), ["c"]);
+    assert.deepEqual(ids({ fee: "first-free" }), ["a", "c"]);
+    assert.deepEqual(ids({ fee: "under-200" }), ["a", "c"]);
+    assert.deepEqual(ids({ fee: "premium" }), ["b"]);
+    assert.deepEqual(ids({ points: "aeroplan", network: "amex" }), []);
   });
 });

@@ -9,6 +9,14 @@ Maintained going forward: add a new dated entry for each push, in this same
 style (feature/fix name and files, then bullets on what changed and why),
 before or as part of the push itself.
 
+## 2026-11-06
+
+**Card Rewards: eight more cards, and filters for welcome offers** (`data/cards.json`, `tools/card_rewards.js`, `tools/merchants.js`, `tools/welcome_bonuses.js`, `pages/welcomebonuses.js`, `css/app.css`, tests, `CLAUDE.md`)
+* New cards: Amex Platinum, Amex Aeroplan Reserve, TD Aeroplan Visa Infinite Privilege, CIBC Aeroplan Visa Infinite Privilege, Scotiabank Platinum Amex, Marriott Bonvoy Amex, MBNA Rewards World Elite and BMO eclipse Visa Infinite Privilege. They show up in Best card's card list and, where they have a confirmed offer, in Welcome bonuses. Marriott Bonvoy and MBNA points are new point types, valued cautiously.
+* Welcome offers added for Amex Gold Rewards (60,000 points), Amex Platinum, Amex Aeroplan Reserve, Marriott Bonvoy Amex and BMO eclipse Visa Infinite Privilege.
+* Booking a Marriott hotel directly is now an answer, so the Marriott Bonvoy card's 5x is counted there.
+* Welcome bonuses can be narrowed by points, network, issuer and fee (no fee, free first year, under $200, $200 or more), remembered between visits.
+
 ## 2026-11-05
 
 **Welcome Bonuses: three more offers** (`data/cards.json`)

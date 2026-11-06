@@ -2165,6 +2165,9 @@ select.is-empty option { color: var(--text); }
 }
 .bonus-dismiss:hover { background: var(--sunken); color: var(--text); }
 .bonus-dismissed-toggle { margin-top: 10px; align-self: flex-start; }
+.bonus-filters { margin: 4px 0 10px; }
+.bonus-filter-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.bonus-filters .btn-link { margin-top: 6px; }
 .bonus-actions { margin-top: 6px; align-items: center; justify-content: space-between; }
 .bonus-actions .hint { margin: 0; }
 .bonus-track + .bonus-track { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
@@ -2312,6 +2315,7 @@ select.is-empty option { color: var(--text); }
   .reward-pick { grid-template-columns: minmax(0, 1fr) 104px; gap: 12px; }
   .reward-options .btn { width: 100%; }
   .reward-row { grid-template-columns: 30px 58px minmax(0, 1fr); gap: 8px; }
+  .bonus-filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .reward-rate { font-size: 17px; }
   /* Thumb-sized targets: answer chips, text buttons, the remove cross. */
   .reward-chip { min-height: 36px; padding: 4px 8px 4px 12px; }

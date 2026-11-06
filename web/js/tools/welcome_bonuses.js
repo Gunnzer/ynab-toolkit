@@ -120,3 +120,27 @@ export function spentOnAccount(transactions, accountId, since, until) {
   }
   return Math.max(0, round2(milli / 1000));
 }
+
+/** What the Offers list can be narrowed by; "" means any. */
+export const NO_FILTERS = { points: "", network: "", issuer: "", fee: "" };
+
+const FEES = {
+  none: (card) => !(Number(card.annualFee) > 0),
+  "first-free": (card) => firstYearFee(card) === 0,
+  "under-200": (card) => (Number(card.annualFee) || 0) < 200,
+  premium: (card) => (Number(card.annualFee) || 0) >= 200,
+};
+
+/**
+ * Offers narrowed by point type, network, issuer and fee (at explicit user
+ * request). `fee` is one of FEES' keys: no annual fee at all, no fee in
+ * the first year, under $200 a year, or $200 and over.
+ */
+export function filterOffers(offers, filters = NO_FILTERS) {
+  const f = { ...NO_FILTERS, ...filters };
+  return (offers || []).filter(({ card }) =>
+    (!f.points || card.points === f.points) &&
+    (!f.network || card.network === f.network) &&
+    (!f.issuer || card.issuer === f.issuer) &&
+    (!f.fee || !FEES[f.fee] || FEES[f.fee](card)));
+}

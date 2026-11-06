@@ -73,7 +73,8 @@ export const QUESTIONS = [
     options: [
       { id: "air-canada", chip: "Air Canada direct", label: "Air Canada or Air Canada Vacations, booked directly", prior: 0.3 },
       { id: "expedia", chip: "Expedia For TD", label: "Anything through Expedia For TD", prior: 0.05 },
-      { id: "other-travel", chip: "Other travel", label: "Another airline, a hotel, or another travel site", prior: 0.65 },
+      { id: "marriott", chip: "Marriott direct", label: "A Marriott hotel, booked with Marriott", prior: 0.05 },
+      { id: "other-travel", chip: "Other travel", label: "Another airline, a hotel, or another travel site", prior: 0.6 },
     ],
   },
   {
