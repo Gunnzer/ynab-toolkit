@@ -11,6 +11,9 @@ before or as part of the push itself.
 
 ## 2026-11-08
 
+**Card Rewards: the Tier list shows each card's network** (`pages/cardtiers.js`, `CLAUDE.md`)
+* Each card's line now starts with Visa, Mastercard or Amex, before its fee and points, since that decides where it is taken.
+
 **Card Rewards: one check twice a week, tier list included** (`tools/card_catalogue.js`, `tools/card_tiers.js`, `pages/cardtiers.js`, `CLAUDE.md`)
 * The two scheduled checks are now one, running Wednesdays and Saturdays. Each run covers card details, welcome offers, events (so a Shoppers event announced late in the week is still caught) and the Tier list.
 * The Tier list is reviewed on each run and a card only moves for a clear reason, like changed rates or fees or a clear shift in what Reddit recommends. Your own moves in the app stay on your device.

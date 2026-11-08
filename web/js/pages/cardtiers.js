@@ -9,6 +9,8 @@ import { shortName } from "../tools/card_rewards.js";
 import { moveCard, tierBoard } from "../tools/card_tiers.js";
 import { button, card, clear, confirmDialog, el, hint, pageHeading, pill } from "../ui.js";
 
+const NETWORK_SHORT = { amex: "Amex", visa: "Visa", mastercard: "Mastercard" };
+
 export function cardTiersPage(app) {
   const store = app.state.store;
   const settings = store.section("cardTiers");
@@ -89,7 +91,10 @@ export function cardTiersPage(app) {
   }
 
   function tierRow({ card: c, why, moved }, tierId, tierIds, mine) {
+    // The network first (asked for: "should also show type of card"), since
+    // it decides where the card is taken at all.
     const meta = [
+      NETWORK_SHORT[c.network] || "",
       c.annualFee ? `$${Number(c.annualFee).toLocaleString("en-CA")} a year` : "No annual fee",
       POINT_TYPES[c.points]?.name || "",
     ].filter(Boolean).join(" · ");
