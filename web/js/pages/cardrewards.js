@@ -810,7 +810,10 @@ export function cardRewardsPage(app) {
     const held = new Set(settings.wallet.map((e) => e.id));
     clear(addSelect);
     const available = CARDS.filter((c) => !held.has(c.id))
-      .sort((a, b) => a.issuer.localeCompare(b.issuer) || a.name.localeCompare(b.name));
+      // Short names, the same as everywhere else on the page (asked live:
+      // "where are the amex gold and platinum?" - the full name put "The
+      // Platinum Card from American Express" last in the Amex group).
+      .sort((a, b) => a.issuer.localeCompare(b.issuer) || shortName(a).localeCompare(shortName(b)));
     addSelect.append(el("option", {
       value: "",
       text: !CARDS.length ? "Card details not loaded yet"
@@ -824,7 +827,7 @@ export function cardRewardsPage(app) {
         groupNode = el("optgroup", { label: c.issuer });
         addSelect.append(groupNode);
       }
-      groupNode.append(el("option", { value: c.id, text: c.name }));
+      groupNode.append(el("option", { value: c.id, text: shortName(c), title: c.name }));
     }
     addSelect.value = "";
     addButton.disabled = true;

@@ -9,6 +9,11 @@ Maintained going forward: add a new dated entry for each push, in this same
 style (feature/fix name and files, then bullets on what changed and why),
 before or as part of the push itself.
 
+## 2026-11-08
+
+**Card Rewards: the card list uses short names** (`pages/cardrewards.js`)
+* "Choose a card to add" now lists cards by the same short names as the results ("Amex Gold Rewards", "Amex Platinum"), in order within each bank. The full name put "The Platinum Card from American Express" at the bottom of the Amex group, where it was easy to miss.
+
 ## 2026-11-06
 
 **Card Rewards: Shoppers events for everyone, and a mid-week event check** (`tools/card_rewards.js`, `tools/card_catalogue.js`, tests, `CLAUDE.md`)
