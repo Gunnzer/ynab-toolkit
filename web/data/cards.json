@@ -1,5 +1,5 @@
 {
-  "checked": "2026-11-06",
+  "checked": "2026-11-08",
   "pointTypes": {
     "mr": {
       "name": "Amex Membership Rewards",
@@ -118,7 +118,7 @@
         "Travel dropped to 1x in October 2024."
       ],
       "source": "americanexpress.com/ca, Milesopedia, Frugal Flyer",
-      "checked": "2026-10-31",
+      "checked": "2026-11-08",
       "welcome": {
         "points": 15000,
         "minSpend": 9000,
@@ -424,7 +424,16 @@
         "No foreign transaction fee."
       ],
       "source": "scotiabank.com, NerdWallet Canada, Rewards Canada",
-      "checked": "2026-10-31"
+      "checked": "2026-11-08",
+      "welcome": {
+        "points": 35000,
+        "minSpend": 10000,
+        "months": 6,
+        "ends": "2027-01-03",
+        "detail": "15,000 Scene+ points after $3,000 in the first 3 months, and 20,000 more after $10,000 in the first 6 months.",
+        "source": "Scotiabank, Milesopedia, Finly Wealth",
+        "checked": "2026-11-08"
+      }
     },
     {
       "id": "scotia-momentum-vi",
@@ -584,10 +593,11 @@
         }
       ],
       "notes": [
-        "From November 18, 2026: up to 5% on Rogers purchases, and cash back no longer redeems at 1.5x on Rogers bills."
+        "From November 18, 2026: up to 5% on Rogers purchases, and cash back no longer redeems at 1.5x on Rogers bills.",
+        "From November 18, 2026, trip cancellation, interruption and delay insurance ends, and emergency medical cover goes to 15 days per trip for ages 64 and under."
       ],
       "source": "rogersbank.com, Milesopedia, Prince of Travel",
-      "checked": "2026-10-31"
+      "checked": "2026-11-08"
     },
     {
       "id": "bmo-cashback-we",
@@ -595,7 +605,7 @@
       "issuer": "BMO",
       "network": "mastercard",
       "points": "cash",
-      "annualFee": 120,
+      "annualFee": 139,
       "fxFee": 0.025,
       "base": 1,
       "earn": [
@@ -652,8 +662,8 @@
       "notes": [
         "Caps are per statement period."
       ],
-      "source": "bmo.com, NerdWallet Canada, Ratehub",
-      "checked": "2026-10-31",
+      "source": "bmo.com, NerdWallet Canada, Rates.ca, Ratehub",
+      "checked": "2026-11-08",
       "welcome": {
         "cash": 480,
         "minSpend": 24000,
