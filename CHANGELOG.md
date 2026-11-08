@@ -11,6 +11,12 @@ before or as part of the push itself.
 
 ## 2026-11-08
 
+**Card Rewards: card types spelled out** (`tools/card_rewards.js`, `data/cards.json`, tests, `CLAUDE.md`)
+* Card names no longer shorten "Visa Infinite" to "VI", "Visa Infinite Privilege" to "VIP" or "World Elite" to "WE", everywhere cards are named. On My cards the longer names wrap to a second line instead of being cut off.
+
+**My cards: a more compact Add a card** (`pages/mycards.js`, `css/app.css`)
+* The card picker and Add sit on one line, with Add one by hand, the date the details were checked and Check for updates as small links under it. The help line about missing cards is gone.
+
 **My cards: Add a card stays at the top** (`pages/mycards.js`)
 * Adding a card no longer jumps to the bottom of the page once you have cards.
 

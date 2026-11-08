@@ -2449,6 +2449,14 @@ select.is-empty option { color: var(--text); }
 }
 
 /* ---------- my cards ---------- */
+.mycards-add { display: flex; flex-direction: column; gap: 8px; }
+.mycards-add-row { display: flex; gap: 8px; align-items: center; }
+.mycards-add-row select { flex: 1 1 auto; min-width: 0; }
+.mycards-add-row .btn { flex: none; }
+.mycards-add-more { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 12px; margin: -4px 0 -8px; }
+.mycards-feed { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.mycards-feed .hint { margin: 0; font-size: 12px; }
+.mycards-add-more .reward-quiet { font-size: 13px; padding: 0; }
 .mycards-summary p { margin: 0; }
 .mycards-summary p + p { margin-top: 4px; }
 .mycards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--gutter, 16px); align-items: start; }
@@ -2470,7 +2478,10 @@ select.is-empty option { color: var(--text); }
   width: 42px; height: 32px; border-radius: 6px; position: relative; z-index: 1;
   background: linear-gradient(135deg, #f3dc95, #b88f35); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
 }
-.card-face-name { font-size: 16px; font-weight: 600; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); }
+/* Names are spelled out in full ("Visa Infinite Privilege", at explicit user
+   request), so they wrap to two lines rather than being cut off. */
+.card-face-name { flex: 1 1 auto; font-size: 16px; font-weight: 600; min-width: 0; line-height: 1.25; max-height: 2.5em; overflow: hidden; white-space: normal; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); }
+.card-face-bottom { align-items: flex-end; }
 .card-face.is-light .card-face-name { text-shadow: none; }
 .card-face-network { flex: none; font-weight: 800; font-size: 15px; letter-spacing: 0.04em; }
 .card-face-network.is-visa { font-style: italic; font-size: 18px; }
@@ -2490,6 +2501,7 @@ select.is-empty option { color: var(--text); }
 .card-face[data-face="rose"] { background: linear-gradient(135deg, var(--face-rose-a), var(--face-rose-b)); }
 .mycard-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
 .mycard-head .reward-name { min-width: 0; }
+.mycard-head .reward-title { white-space: normal; overflow: visible; }
 .mycard-actions { display: flex; gap: 6px; flex: none; }
 .mycard-facts { display: flex; flex-direction: column; gap: 6px; }
 .mycard-fact { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }

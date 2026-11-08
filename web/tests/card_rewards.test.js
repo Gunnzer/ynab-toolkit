@@ -396,14 +396,19 @@ describe("formatting", () => {
   test("short names fit one line and stay recognisable", () => {
     const short = (name) => shortName({ name });
     assert.equal(short("American Express Aeroplan Card"), "Amex Aeroplan");
-    assert.equal(short("TD Aeroplan Visa Infinite Card"), "TD Aeroplan VI");
+    assert.equal(short("TD Aeroplan Visa Infinite Card"), "TD Aeroplan Visa Infinite");
+    assert.equal(short("TD Aeroplan Visa Infinite Privilege Card"), "TD Aeroplan Visa Infinite Privilege");
+    assert.equal(short("Scotiabank Passport Visa Infinite+ Card"), "Scotia Passport Visa Infinite+");
     assert.equal(short("Scotiabank Gold American Express Card"), "Scotia Gold Amex");
     assert.equal(short("SimplyCash Preferred Card from American Express"), "SimplyCash Preferred (Amex)");
     assert.equal(short("PC World Elite Mastercard"), "PC World Elite");
     assert.equal(shortName({ custom: true, name: "My store card" }), "My store card");
     assert.equal(shortName({ name: "Anything", short: "Mine" }), "Mine");
     for (const card of CARDS) {
-      assert.ok(shortName(card).length <= 28, `${card.name} shortens to ${shortName(card)}`);
+      // Card types are spelled out (at explicit user request), so the longest
+      // ("CIBC Aeroplan Visa Infinite Privilege") runs to 37; the page trims
+      // with an ellipsis on a narrow screen.
+      assert.ok(shortName(card).length <= 40, `${card.name} shortens to ${shortName(card)}`);
     }
   });
 

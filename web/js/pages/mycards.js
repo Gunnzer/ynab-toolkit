@@ -38,7 +38,7 @@ export function myCardsPage(app) {
 
   // ---------- adding ----------
   const addSelect = el("select", { "aria-label": "Card to add" });
-  const addButton = button("Add card", {
+  const addButton = button("Add", {
     accent: true,
     onClick: () => {
       if (!addSelect.value) return;
@@ -48,21 +48,20 @@ export function myCardsPage(app) {
     },
   });
   addSelect.addEventListener("change", () => { addButton.disabled = !addSelect.value; });
-  const feedStatus = el("p", { class: "hint" });
+  const feedStatus = el("span", { class: "hint" });
   const updateButton = el("button", {
     type: "button",
     class: "reward-quiet",
     text: "Check for updates",
     onClick: () => refreshCatalogue(true),
   });
-  const addCard = card(
-    sectionTitle("Add a card"),
-    el("div", { class: "card-row reward-add" },
-      el("div", { class: "reward-add-select" }, addSelect),
-      addButton,
-      button("Add one by hand...", { onClick: () => editCustom(null) })),
-    el("div", { class: "card-row reward-feed" }, feedStatus, updateButton),
-    hint("A card that is missing can be added by hand, or ask for it to be added to the built-in list."));
+  // Compact (at explicit user request): the picker and Add on one line, the
+  // rest as small links under it, no title or help text.
+  const addCard = el("div", { class: "card mycards-add" },
+    el("div", { class: "mycards-add-row" }, addSelect, addButton),
+    el("div", { class: "mycards-add-more" },
+      el("button", { type: "button", class: "reward-quiet", text: "Add one by hand", onClick: () => editCustom(null) }),
+      el("span", { class: "mycards-feed" }, feedStatus, updateButton)));
 
   const summary = el("div");
   const grid = el("div", { class: "mycards-grid" });
@@ -108,11 +107,15 @@ export function myCardsPage(app) {
       feedStatus.textContent = `${feed.error} Check your connection and try again.`;
       return;
     }
+    // Short, so it shares a line with the links on a phone; the long form
+    // is only for when something is wrong.
     const age = daysSince(CATALOGUE_CHECKED, todayIso());
-    const parts = [`Card details checked ${dateLabel(CATALOGUE_CHECKED)}` +
-      (age !== null && age > 45 ? ` (${age} days ago, so may be out of date)` : "") + "."];
+    const [y, m, d] = String(CATALOGUE_CHECKED).split("-").map(Number);
+    const parts = [`Checked ${new Date(y, m - 1, d).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}` +
+      (age !== null && age > 45 ? ` (${age} days ago, so may be out of date)` : "")];
     if (feed.source === "saved-fallback") parts.push(`${feed.error} Using the copy saved on this device.`);
-    feedStatus.textContent = parts.join(" ");
+    feedStatus.textContent = parts.join(". ");
+    feedStatus.title = `Card details checked ${dateLabel(CATALOGUE_CHECKED)}`;
   }
 
   function localToday() {

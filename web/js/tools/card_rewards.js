@@ -798,6 +798,8 @@ export function describeEarn(card) {
   return lines;
 }
 
+// Card types are never abbreviated ("Visa Infinite", not "VI"; at explicit
+// user request: "don't use short for like VI"), only the issuer's long forms.
 // Longest first, so "SimplyCash Preferred Card from American Express" loses
 // the whole "from American Express" before "American Express" alone is
 // considered.
@@ -807,7 +809,6 @@ const SHORTEN = [
   [/^American\s+Express\s+/i, "Amex "],
   [/^Scotiabank\s+/i, "Scotia "],
   [/\s+American\s+Express(\s+Card)?$/i, " Amex"],
-  [/\s+Visa\s+Infinite\+?/i, " VI"],
   [/\s+Mastercard$/i, ""],
   [/\s+(Credit\s+)?Card$/i, ""],
 ];
