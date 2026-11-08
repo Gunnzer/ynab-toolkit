@@ -31,9 +31,9 @@
 //     weekly check (at explicit user request), shown in their own section
 //     below the results, with a small tag on the cards they are about.
 //
-//   tiers: the Tier list tab's published ranking, edited by hand only (at
-//     explicit user request: "I will update it when needed"; the weekly
-//     update never touches it):
+//   tiers: the Tier list tab's published ranking, reviewed by the twice-weekly
+//     Card Rewards check (at explicit user request) and moved only for a
+//     clear reason:
 //     { updated, source, tiers: [{ id, label, cards: [{ card, why }] }] },
 //     best tier first; each card id at most once. People can move cards
 //     between tiers on their own device.

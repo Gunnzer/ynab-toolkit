@@ -22,7 +22,7 @@ export function cardTiersPage(app) {
     "The best Canadian credit cards, ranked from top picks down, with a line " +
     "on what each is good for. The ranking comes from long-running Reddit " +
     "advice (r/PersonalFinanceCanada and r/churningcanada), checked against " +
-    "Canadian review sites, and is updated by hand. Edit lets you move cards " +
+    "Canadian review sites, and is reviewed twice a week. Edit lets you move cards " +
     "between tiers on this device."));
   const host = el("div", { class: "tier-host" });
   root.append(host);

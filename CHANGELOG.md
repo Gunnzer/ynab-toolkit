@@ -11,9 +11,13 @@ before or as part of the push itself.
 
 ## 2026-11-08
 
+**Card Rewards: one check twice a week, tier list included** (`tools/card_catalogue.js`, `tools/card_tiers.js`, `pages/cardtiers.js`, `CLAUDE.md`)
+* The two scheduled checks are now one, running Wednesdays and Saturdays. Each run covers card details, welcome offers, events (so a Shoppers event announced late in the week is still caught) and the Tier list.
+* The Tier list is reviewed on each run and a card only moves for a clear reason, like changed rates or fees or a clear shift in what Reddit recommends. Your own moves in the app stay on your device.
+
 **Card Rewards: a Tier list tab** (`pages/cardtiers.js`, `tools/card_tiers.js`, `tools/card_catalogue.js`, `tools/card_rewards.js`, `data/cards.json`, `main.js`, `store.js`, `css/app.css`, tests, `CLAUDE.md`)
 * A third tab under Card Rewards ranks every card in the list from S (top picks: Amex Cobalt, Rogers Red World Elite, PC World Elite) down to D (usually skip), with one line on what each is good for, its fee and its points. Cards you have are marked.
-* The ranking is based on long-running Reddit advice from r/PersonalFinanceCanada and r/churningcanada, checked against Canadian review sites. It is updated by hand only, never by the weekly card update.
+* The ranking is based on long-running Reddit advice from r/PersonalFinanceCanada and r/churningcanada, checked against Canadian review sites.
 * Edit lets you move any card to another tier or off the list on your own device; moved cards are marked, and Reset puts everything back.
 
 **Card Rewards: the card list uses short names** (`pages/cardrewards.js`)

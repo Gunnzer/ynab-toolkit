@@ -1,6 +1,6 @@
 // The Tier list: a published ranking of Canadian cards (in the card details
-// file, edited by hand), which anyone can rearrange on their own device (at
-// explicit user request: "I will update it when needed"). Moves are kept as
+// file, reviewed by the twice-weekly check), which anyone can rearrange on
+// their own device (at explicit user request). Moves are kept as
 // overrides on top of the published list, so a later published change
 // still shows for every card that was not moved.
 
