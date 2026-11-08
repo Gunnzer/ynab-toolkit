@@ -17,6 +17,11 @@ before or as part of the push itself.
 **My cards: a more compact Add a card** (`pages/mycards.js`, `css/app.css`)
 * The card picker and Add sit on one line, with Add one by hand, the date the details were checked and Check for updates as small links under it. The help line about missing cards is gone.
 
+**Card Rewards: more compact inputs** (`pages/mycards.js`, `pages/cardrewards.js`, `pages/welcomebonuses.js`, `css/app.css`)
+* My cards: Preferred points and Point values are one row, with the explanation only once you pick points.
+* Which card to use: less space between Shop, Category and Amount.
+* Sign-up bonuses: the four filters lose their labels (each already says "Any network" and so on), and Track a bonus and Track it are normal-sized buttons instead of full width on a phone.
+
 **My cards: Add a card stays at the top** (`pages/mycards.js`)
 * Adding a card no longer jumps to the bottom of the page once you have cards.
 

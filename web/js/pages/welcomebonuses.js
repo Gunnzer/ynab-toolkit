@@ -115,8 +115,10 @@ export function welcomeBonusesPage(app) {
         store.save();
         renderOffers();
       });
+      // No label above each: the first option already says what it is
+      // ("Any network"), and the filters stay compact (at explicit user request).
       node.setAttribute("aria-label", label);
-      return field(label, node);
+      return node;
     };
     const filtering = Object.values(settings.filters).some(Boolean);
     return el("div", { class: "bonus-filters" },
@@ -203,8 +205,8 @@ export function welcomeBonusesPage(app) {
       el("div", { class: "reward-group-head" },
         el("h3", { class: "section-title", text: "Working towards" })),
       rows.length ? rows : hint("Got a new card? Track its bonus here to see how much is left to spend and by when."),
-      el("div", { class: "card-row" },
-        button("Track a bonus...", { accent: !rows.length, onClick: () => editTracked(null, null) }))));
+      el("div", { class: "bonus-track-row" },
+        button("Track a bonus...", { accent: !rows.length, small: true, onClick: () => editTracked(null, null) }))));
   }
 
   function spentFor(t) {

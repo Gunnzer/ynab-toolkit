@@ -74,14 +74,13 @@ export function myCardsPage(app) {
     renderAll();
   });
   const preferredHint = el("p", { class: "hint" });
-  const pointsCard = card(
-    sectionTitle("Points"),
-    el("label", { class: "field-label", text: "Preferred" }),
-    el("div", { class: "reward-preferred" }, preferredSelect),
-    preferredHint,
-    el("div", { class: "reward-points-more" },
-      hint("What a point is worth decides the ranking and the % back shown here."),
-      el("button", { type: "button", class: "reward-quiet", text: "Point values...", onClick: () => editValues() })));
+  // One compact row (at explicit user request): the picker, then Point values.
+  const pointsCard = el("div", { class: "card mycards-points" },
+    el("div", { class: "mycards-points-row" },
+      el("label", { class: "mycards-points-label", text: "Preferred points" }),
+      preferredSelect,
+      el("button", { type: "button", class: "reward-quiet", text: "Point values", onClick: () => editValues() })),
+    preferredHint);
 
   // Add a card always stays at the top, above your cards (reported live:
   // "the add card moves to the bottom when it shouldn't").
@@ -336,9 +335,9 @@ export function myCardsPage(app) {
     if (settings.preferred && !POINT_TYPES[settings.preferred] && CARDS.length) settings.preferred = "";
     preferredSelect.value = settings.preferred || "";
     const preferred = settings.preferred;
+    preferredHint.hidden = !preferred;
     if (!preferred) {
-      preferredHint.textContent = "Pick the points you collect. Cards whose points " +
-        "can be moved into them are counted as them, at the transfer rate and their value.";
+      preferredHint.textContent = "";
       return;
     }
     const moved = cards.filter((c) => c.points !== preferred && transferRatio(c.points, preferred) > 0);

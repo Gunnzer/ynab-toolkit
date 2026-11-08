@@ -2224,7 +2224,8 @@ select.is-empty option { color: var(--text); }
 .bonus-dismiss:hover { background: var(--sunken); color: var(--text); }
 .bonus-dismissed-toggle { margin-top: 10px; align-self: flex-start; }
 .bonus-filters { margin: 4px 0 10px; }
-.bonus-filter-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.bonus-filter-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.bonus-track-row { margin-top: 10px; }
 .bonus-filters .btn-link { margin-top: 6px; }
 .bonus-actions { margin-top: 6px; align-items: center; justify-content: space-between; }
 .bonus-actions .hint { margin: 0; }
@@ -2416,6 +2417,8 @@ select.is-empty option { color: var(--text); }
      cramped half-row. */
   .card-row .btn, .page-body > .card-row .btn { flex: 1 1 auto; }
   .card-row .btn-link { flex: 0 0 auto; }
+  /* Compact (at explicit user request): an offer's Track it stays its own size. */
+  .bonus-actions .btn { flex: 0 0 auto; }
 
   /* The table itself keeps scrolling horizontally (.table-wrap already
      handles that) rather than reflowing into cards - Bill Splitting's and
@@ -2449,7 +2452,7 @@ select.is-empty option { color: var(--text); }
 }
 
 /* ---------- my cards ---------- */
-.mycards-add { display: flex; flex-direction: column; gap: 8px; }
+.mycards-add { gap: 8px; }
 .mycards-add-row { display: flex; gap: 8px; align-items: center; }
 .mycards-add-row select { flex: 1 1 auto; min-width: 0; }
 .mycards-add-row .btn { flex: none; }
@@ -2457,6 +2460,17 @@ select.is-empty option { color: var(--text); }
 .mycards-feed { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 .mycards-feed .hint { margin: 0; font-size: 12px; }
 .mycards-add-more .reward-quiet { font-size: 13px; padding: 0; }
+.mycards-points-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.mycards-points-label { font-weight: 600; font-size: 14px; }
+.mycards-points-row select { flex: 1 1 180px; min-width: 0; max-width: 320px; }
+.mycards-points-row .reward-quiet { padding: 0; }
+.mycards-points { gap: 8px; }
+.mycards-points .hint { margin: 0; }
+.reward-pick-card { gap: 10px; }
+.reward-pick-card .reward-shop-search { margin-bottom: 0; }
+.reward-pick-card .reward-ask:empty { display: none; }
+.reward-pick-card .reward-pick { gap: 8px 10px; }
+.reward-pick-card .field-label { margin-bottom: 4px; }
 .mycards-summary p { margin: 0; }
 .mycards-summary p + p { margin-top: 4px; }
 .mycards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--gutter, 16px); align-items: start; }

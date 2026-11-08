@@ -223,7 +223,8 @@ export function cardRewardsPage(app) {
   // "Done", not "Next": see the Enter rule in main.js.
   amountInput.setAttribute("enterkeyhint", "done");
 
-  const pickCard = card(
+  // Compact (at explicit user request: "make the other inputs more compact").
+  const pickCard = el("div", { class: "card reward-pick-card" },
     el("div", { class: "reward-shop-search" },
       el("label", { class: "field-label", text: "Shop" }),
       el("div", { class: "reward-shop-field" }, shopInput, shopClear),
