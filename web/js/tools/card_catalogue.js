@@ -13,7 +13,7 @@
 // types and the card networks. Point types live in the data file, so a new
 // card can bring a new kind of points without a code change.
 //
-// The data file: { checked, pointTypes, cards, offers? }
+// The data file: { checked, pointTypes, cards, offers?, tiers? }
 //   checked: "YYYY-MM-DD", the newest card's `checked`
 //   pointTypes: { id: { name, unit: "points" | "percent", cents?, note? } }
 //     cents: what one point is worth in CAD cents, at the LOW END of
@@ -30,6 +30,13 @@
 //   offers: [offer] - special events and limited-time offers found during the
 //     weekly check (at explicit user request), shown in their own section
 //     below the results, with a small tag on the cards they are about.
+//
+//   tiers: the Tier list tab's published ranking, edited by hand only (at
+//     explicit user request: "I will update it when needed"; the weekly
+//     update never touches it):
+//     { updated, source, tiers: [{ id, label, cards: [{ card, why }] }] },
+//     best tier first; each card id at most once. People can move cards
+//     between tiers on their own device.
 //
 // An offer:
 //   id, title, detail (one or two plain sentences), starts and ends
@@ -96,6 +103,7 @@ export let CATALOGUE_CHECKED = "";
 export let POINT_TYPES = {};
 export let CARDS = [];
 export let OFFERS = [];
+export let TIERS = null;
 
 /** Swap in a catalogue. Validate it first (validateCatalogue). */
 export function setCatalogue(data) {
@@ -103,4 +111,5 @@ export function setCatalogue(data) {
   POINT_TYPES = data?.pointTypes || {};
   CARDS = Array.isArray(data?.cards) ? data.cards : [];
   OFFERS = Array.isArray(data?.offers) ? data.offers : [];
+  TIERS = data?.tiers && Array.isArray(data.tiers.tiers) ? data.tiers : null;
 }

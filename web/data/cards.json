@@ -1287,5 +1287,149 @@
       "checked": "2026-11-06"
     }
   ],
-  "offers": []
+  "offers": [],
+  "tiers": {
+    "updated": "2026-11-08",
+    "source": "Long-running advice on r/PersonalFinanceCanada and r/churningcanada, checked against Milesopedia, Prince of Travel, Ratehub and this card list",
+    "tiers": [
+      {
+        "id": "S",
+        "label": "Top picks",
+        "cards": [
+          {
+            "card": "amex-cobalt",
+            "why": "The usual first answer: 5x on groceries, restaurants and delivery, about 5.5% back. Not taken at Loblaw stores or Costco."
+          },
+          {
+            "card": "rogers-red-we",
+            "why": "The no-fee pick: 1.5% on everything (2% with Rogers, Fido or Shaw), 3% on US dollar purchases, and it works at Costco."
+          },
+          {
+            "card": "pc-world-elite",
+            "why": "No fee, and the card for Loblaw stores, Shoppers and Esso, where Amex is not taken."
+          }
+        ]
+      },
+      {
+        "id": "A",
+        "label": "Great",
+        "cards": [
+          {
+            "card": "scotia-gold-amex",
+            "why": "Like the Cobalt with no foreign transaction fee: 5x on food and entertainment, 6x at Sobeys stores."
+          },
+          {
+            "card": "td-aeroplan-vi",
+            "why": "The usual Aeroplan card: 1.5x on gas, groceries and Air Canada, a free first checked bag, and a big welcome bonus most of the year."
+          },
+          {
+            "card": "cibc-aeroplan-vi",
+            "why": "The same Aeroplan card from CIBC, a good second Aeroplan bonus after the TD one."
+          },
+          {
+            "card": "amex-simplycash-preferred",
+            "why": "Simple cash back: 4% on gas and groceries and 2% on everything else."
+          },
+          {
+            "card": "scotia-passport-vi",
+            "why": "The no foreign transaction fee Visa, with lounge passes, for travel where Amex is not taken."
+          }
+        ]
+      },
+      {
+        "id": "B",
+        "label": "Good for some",
+        "cards": [
+          {
+            "card": "tangerine-mc",
+            "why": "No fee, 2% in 2 or 3 categories you pick. The usual first card for building credit."
+          },
+          {
+            "card": "bmo-cashback-we",
+            "why": "5% on groceries, but only on the first $500 a month."
+          },
+          {
+            "card": "amex-gold",
+            "why": "Flexible Amex points with travel perks, but 2x at best on everyday spending for a $250 fee."
+          },
+          {
+            "card": "amex-aeroplan",
+            "why": "Aeroplan on an Amex, mostly worth it for its welcome bonus."
+          },
+          {
+            "card": "rbc-avion-vi",
+            "why": "Points that move to British Airways, Cathay and American, with frequent transfer bonuses."
+          },
+          {
+            "card": "cibc-dividend-vi",
+            "why": "4% on groceries, gas and EV charging, 2% on dining, transit and bills."
+          },
+          {
+            "card": "td-cashback-vi",
+            "why": "3% on groceries, gas and recurring bills, up to $15,000 a year each."
+          },
+          {
+            "card": "scotia-momentum-vi",
+            "why": "4% on groceries, recurring bills and streaming, up to $25,000 a year."
+          },
+          {
+            "card": "mbna-rewards-we",
+            "why": "5x on restaurants, groceries, streaming and bills, as a Mastercard."
+          },
+          {
+            "card": "bmo-eclipse-vi",
+            "why": "5x on dining, groceries, gas and transit, but BMO points are worth less."
+          },
+          {
+            "card": "marriott-bonvoy-amex",
+            "why": "Worth keeping for the free night each year if you stay at Marriott hotels."
+          },
+          {
+            "card": "cibc-costco-mc",
+            "why": "No fee, and the simplest card for Costco."
+          }
+        ]
+      },
+      {
+        "id": "C",
+        "label": "Only for heavy travellers",
+        "cards": [
+          {
+            "card": "amex-platinum",
+            "why": "Lounges, hotel status and travel credits, for $799 a year."
+          },
+          {
+            "card": "amex-aeroplan-reserve",
+            "why": "Air Canada lounges and perks for frequent Air Canada flyers, for $599 a year."
+          },
+          {
+            "card": "td-aeroplan-vip",
+            "why": "Maple Leaf Lounge access and priority perks for frequent Air Canada flyers, for $599 a year."
+          },
+          {
+            "card": "cibc-aeroplan-vip",
+            "why": "The CIBC version of the premium Aeroplan card, with Maple Leaf Lounge access, for $599 a year."
+          },
+          {
+            "card": "bmo-eclipse-vip",
+            "why": "5x on most everyday spending and no foreign fee, but $599 a year and BMO points."
+          },
+          {
+            "card": "scotia-platinum-amex",
+            "why": "2x Scene+ on everything and no foreign fee, for $399 a year."
+          }
+        ]
+      },
+      {
+        "id": "D",
+        "label": "Usually skip",
+        "cards": [
+          {
+            "card": "td-first-class-vi",
+            "why": "Big point numbers, but TD points are worth about half a cent, so it earns less than it looks."
+          }
+        ]
+      }
+    ]
+  }
 }

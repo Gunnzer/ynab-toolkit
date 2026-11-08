@@ -76,6 +76,7 @@ export const DEFAULTS = {
       categorize: true,
       cardRewards: true,
       welcomeBonuses: true,
+      cardTiers: true,
     },
     lastRun: {},
   },
@@ -172,6 +173,10 @@ export const DEFAULTS = {
     // What you answered at each shop, filled in next time you pick it:
     // { "<normalised shop name>": { answers: { amex: "no", ... }, on, name?, purchase? } }
     shops: {},
+  },
+  cardTiers: {
+    // The person's own moves on the Tier list: { cardId: tierId, or "" for off the list }.
+    overrides: {},
   },
   welcomeBonuses: {
     // Bonuses being worked towards:

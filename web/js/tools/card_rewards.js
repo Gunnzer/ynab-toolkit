@@ -215,6 +215,29 @@ export function validateCatalogue(data) {
     }
   }
 
+  if (data.tiers !== undefined) {
+    const t = data.tiers;
+    if (!t || !Array.isArray(t.tiers) || !DATE.test(t.updated || "") || !t.source) {
+      problems.push("`tiers` needs an updated date, a source and a list of tiers.");
+    } else {
+      const ranked = new Set();
+      const tierIds = new Set();
+      for (const tier of t.tiers) {
+        if (!tier?.id || !tier?.label || tierIds.has(tier.id) || !Array.isArray(tier.cards)) {
+          problems.push(`Tier ${tier?.id || "(no id)"} needs a unique id, a label and a list of cards.`);
+          continue;
+        }
+        tierIds.add(tier.id);
+        for (const entry of tier.cards) {
+          if (!ids.has(entry?.card)) problems.push(`Tier ${tier.id}: unknown card ${entry?.card}.`);
+          else if (ranked.has(entry.card)) problems.push(`Tier ${tier.id}: ${entry.card} is ranked twice.`);
+          ranked.add(entry?.card);
+          if (!entry?.why) problems.push(`Tier ${tier.id}: ${entry?.card} needs a reason.`);
+        }
+      }
+    }
+  }
+
   if (data.offers !== undefined && !Array.isArray(data.offers)) problems.push("`offers` is not a list.");
   const offerIds = new Set();
   for (const offer of Array.isArray(data.offers) ? data.offers : []) {

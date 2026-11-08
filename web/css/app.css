@@ -44,6 +44,12 @@
   --silver-soft: #eff2f5;
   --bronze: #c07a43;
   --bronze-soft: #faeadd;
+  /* Tier list badges: white letters on these, 20px bold (large text). */
+  --tier-s: #8a6408; --tier-s-light: #a57a12; --tier-s-edge: #d4a72c;
+  --tier-a: #2c7a58; --tier-a-light: #4caf7a; --tier-a-edge: #2c7a58;
+  --tier-b: #2b6f8f; --tier-b-light: #4aa3c7; --tier-b-edge: #2b6f8f;
+  --tier-c: #5f55a3; --tier-c-light: #9a8fd1; --tier-c-edge: #5f55a3;
+  --tier-d: #a8503f; --tier-d-light: #d98a7a; --tier-d-edge: #a8503f;
   --warn: #a85f18;
   --warn-soft: #fbf0e2;
   --error: #bc4029;
@@ -2136,6 +2142,42 @@ select.is-empty option { color: var(--text); }
 .reward-detail { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 12px; }
 .reward-detail .reward-rate { font-size: 16px; }
 .reward-detail .hint { margin: 2px 0 0; }
+/* ---------- tier list ---------- */
+.tier-host { display: flex; flex-direction: column; gap: 14px; }
+.tier-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.tier-head .section-title { margin: 0 0 4px; }
+.tier-head .hint { margin: 0; }
+.tier-actions { display: flex; align-items: center; gap: 8px; }
+.tier-title { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.tier-badge {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  /* 20px bold counts as large text, so every badge colour clears 3:1 against white. */
+  font-size: 20px;
+  font-weight: 800;
+  color: #fff;
+  background: var(--muted);
+}
+.tier-s .tier-badge { background: linear-gradient(145deg, var(--tier-s-light), var(--tier-s)); }
+.tier-a .tier-badge { background: linear-gradient(145deg, var(--tier-a-light), var(--tier-a)); }
+.tier-b .tier-badge { background: linear-gradient(145deg, var(--tier-b-light), var(--tier-b)); }
+.tier-c .tier-badge { background: linear-gradient(145deg, var(--tier-c-light), var(--tier-c)); }
+.tier-d .tier-badge { background: linear-gradient(145deg, var(--tier-d-light), var(--tier-d)); }
+.tier-badge-none { background: var(--border-strong); color: var(--text); }
+.tier-s { border-left: 4px solid var(--tier-s-edge); }
+.tier-a { border-left: 4px solid var(--tier-a-edge); }
+.tier-b { border-left: 4px solid var(--tier-b-edge); }
+.tier-c { border-left: 4px solid var(--tier-c-edge); }
+.tier-d { border-left: 4px solid var(--tier-d-edge); }
+.tier-label { font-weight: 700; font-size: 16px; }
+.tier-row { padding: 10px 0; border-top: 1px solid var(--border); }
+.tier-title + .tier-row { border-top: 0; }
+.tier-meta { margin: 2px 0 0; }
+.tier-move { margin-top: 8px; max-width: 220px; }
+
 /* ---------- welcome bonuses ---------- */
 .bonus-row {
   display: grid;

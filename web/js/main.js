@@ -20,6 +20,7 @@ import { upcomingPage } from "./pages/upcoming.js";
 import { categorizePage } from "./pages/categorize.js";
 import { cardRewardsPage } from "./pages/cardrewards.js";
 import { welcomeBonusesPage } from "./pages/welcomebonuses.js";
+import { cardTiersPage } from "./pages/cardtiers.js";
 
 // The app is organised into a few spaces, each holding related tools as
 // tabs (at explicit user request: 14 separate menu entries were
@@ -73,6 +74,7 @@ export const SPACES = [
     id: "cards", title: "Card Rewards", short: "Cards", icon: "wallet", tabs: [
       { page: "cardrewards", label: "Best card" },
       { page: "welcomebonuses", label: "Welcome bonuses" },
+      { page: "cardtiers", label: "Tier list" },
     ],
   },
 ];
@@ -182,6 +184,13 @@ export const PAGES = [
     build: welcomeBonusesPage,
     blurb: "Which new card's sign-up bonus is worth the most in its first " +
       "year, and how a bonus you are working towards is going.",
+    group: "cards", groupLabel: "Card Rewards",
+  },
+  {
+    id: "cardtiers", title: "Tier list", icon: "wallet", key: "cardTiers",
+    build: cardTiersPage,
+    blurb: "The best Canadian credit cards ranked from top picks down, which " +
+      "you can rearrange.",
     group: "cards", groupLabel: "Card Rewards",
   },
 ];
