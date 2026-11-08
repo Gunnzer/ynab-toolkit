@@ -11,6 +11,9 @@ before or as part of the push itself.
 
 ## 2026-11-08
 
+**My cards: Add a card stays at the top** (`pages/mycards.js`)
+* Adding a card no longer jumps to the bottom of the page once you have cards.
+
 **Card Rewards: a My cards page, and clearer tab names** (`pages/mycards.js`, `tools/my_cards.js`, `pages/cardrewards.js`, `pages/welcomebonuses.js`, `pages/cardtiers.js`, `tools/card_rewards.js`, `tools/card_catalogue.js`, `data/cards.json`, `main.js`, `store.js`, `css/app.css`, tests, `CLAUDE.md`)
 * New first tab, My cards, where you add, set up and remove your cards. Each card shows a drawn picture of the card, its annual fee, any announced fee increase, the foreign currency fee, what its points are worth, and what it earns on each kind of purchase as a % back. A summary at the top adds up your yearly fees, now and after the coming increases.
 * Opening Cards always lands on My cards.

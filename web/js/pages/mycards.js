@@ -84,7 +84,9 @@ export function myCardsPage(app) {
       hint("What a point is worth decides the ranking and the % back shown here."),
       el("button", { type: "button", class: "reward-quiet", text: "Point values...", onClick: () => editValues() })));
 
-  root.append(summary, grid, addCard, pointsCard);
+  // Add a card always stays at the top, above your cards (reported live:
+  // "the add card moves to the bottom when it shouldn't").
+  root.append(addCard, summary, grid, pointsCard);
 
   let feed = null;
 
@@ -123,9 +125,6 @@ export function myCardsPage(app) {
 
   function renderAll() {
     const cards = walletCards(settings.wallet);
-    // With no cards, adding one is the only thing to do, so it comes first.
-    if (settings.wallet.length) root.append(addCard, pointsCard);
-    else root.insertBefore(addCard, summary);
     pointsCard.hidden = !settings.wallet.length;
     renderSummary(cards);
     renderGrid(cards);
