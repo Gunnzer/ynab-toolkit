@@ -50,6 +50,22 @@
   --tier-b: #2b6f8f; --tier-b-light: #4aa3c7; --tier-b-edge: #2b6f8f;
   --tier-c: #5f55a3; --tier-c-light: #9a8fd1; --tier-c-edge: #5f55a3;
   --tier-d: #a8503f; --tier-d-light: #d98a7a; --tier-d-edge: #a8503f;
+  /* My cards: the drawn card faces, a gradient each (pictures, so the same in
+     dark mode). White writing on the dark ones, --face-ink on the light ones. */
+  --face-blue-a: #2d5fa8; --face-blue-b: #13325f;
+  --face-navy-a: #23365c; --face-navy-b: #0e1a33;
+  --face-sky-a: #cfe3f6; --face-sky-b: #8fb9e2;
+  --face-gold-a: #f1d78c; --face-gold-b: #c49a3c;
+  --face-silver-a: #eef0f3; --face-silver-b: #a9b0b9;
+  --face-black-a: #3a3a3c; --face-black-b: #0b0b0c;
+  --face-charcoal-a: #56606b; --face-charcoal-b: #262c33;
+  --face-red-a: #c8322e; --face-red-b: #7a1513;
+  --face-green-a: #2f8a4c; --face-green-b: #12502a;
+  --face-teal-a: #1f8a8a; --face-teal-b: #0c4a50;
+  --face-orange-a: #f08a2c; --face-orange-b: #b4510c;
+  --face-plum-a: #6c3f8f; --face-plum-b: #351c4d;
+  --face-rose-a: #b23a5c; --face-rose-b: #651a33;
+  --face-ink: #1d1d1f;
   --warn: #a85f18;
   --warn-soft: #fbf0e2;
   --error: #bc4029;
@@ -2430,4 +2446,71 @@ select.is-empty option { color: var(--text); }
     animation-iteration-count: 1 !important;
     transition-duration: .01ms !important;
   }
+}
+
+/* ---------- my cards ---------- */
+.mycards-summary p { margin: 0; }
+.mycards-summary p + p { margin-top: 4px; }
+.mycards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--gutter, 16px); align-items: start; }
+.mycard { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.card-face {
+  position: relative; aspect-ratio: 1.586; width: 100%; max-width: 380px; border-radius: 14px;
+  padding: 16px 18px; display: flex; flex-direction: column; justify-content: space-between;
+  color: #fff; overflow: hidden; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.card-face::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(120% 80% at 85% 0%, rgba(255, 255, 255, 0.22), transparent 55%);
+}
+.card-face.is-light { color: var(--face-ink); }
+.card-face-top, .card-face-bottom { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; position: relative; z-index: 1; min-width: 0; }
+.card-face-issuer { font-weight: 700; font-size: 15px; letter-spacing: 0.02em; }
+.card-face-points { font-size: 12px; opacity: 0.85; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-face-chip {
+  width: 42px; height: 32px; border-radius: 6px; position: relative; z-index: 1;
+  background: linear-gradient(135deg, #f3dc95, #b88f35); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+}
+.card-face-name { font-size: 16px; font-weight: 600; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); }
+.card-face.is-light .card-face-name { text-shadow: none; }
+.card-face-network { flex: none; font-weight: 800; font-size: 15px; letter-spacing: 0.04em; }
+.card-face-network.is-visa { font-style: italic; font-size: 18px; }
+.card-face-network.is-mastercard { font-weight: 700; letter-spacing: 0; font-size: 13px; }
+.card-face[data-face="blue"] { background: linear-gradient(135deg, var(--face-blue-a), var(--face-blue-b)); }
+.card-face[data-face="navy"] { background: linear-gradient(135deg, var(--face-navy-a), var(--face-navy-b)); }
+.card-face[data-face="sky"] { background: linear-gradient(135deg, var(--face-sky-a), var(--face-sky-b)); }
+.card-face[data-face="gold"] { background: linear-gradient(135deg, var(--face-gold-a), var(--face-gold-b)); }
+.card-face[data-face="silver"] { background: linear-gradient(135deg, var(--face-silver-a), var(--face-silver-b)); }
+.card-face[data-face="black"] { background: linear-gradient(135deg, var(--face-black-a), var(--face-black-b)); }
+.card-face[data-face="charcoal"] { background: linear-gradient(135deg, var(--face-charcoal-a), var(--face-charcoal-b)); }
+.card-face[data-face="red"] { background: linear-gradient(135deg, var(--face-red-a), var(--face-red-b)); }
+.card-face[data-face="green"] { background: linear-gradient(135deg, var(--face-green-a), var(--face-green-b)); }
+.card-face[data-face="teal"] { background: linear-gradient(135deg, var(--face-teal-a), var(--face-teal-b)); }
+.card-face[data-face="orange"] { background: linear-gradient(135deg, var(--face-orange-a), var(--face-orange-b)); }
+.card-face[data-face="plum"] { background: linear-gradient(135deg, var(--face-plum-a), var(--face-plum-b)); }
+.card-face[data-face="rose"] { background: linear-gradient(135deg, var(--face-rose-a), var(--face-rose-b)); }
+.mycard-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.mycard-head .reward-name { min-width: 0; }
+.mycard-actions { display: flex; gap: 6px; flex: none; }
+.mycard-facts { display: flex; flex-direction: column; gap: 6px; }
+.mycard-fact { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+.mycard-fact-label { color: var(--muted); flex: none; }
+.mycard-fact-value { text-align: right; min-width: 0; }
+.mycard-fee-change { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; justify-content: flex-end; text-align: right; }
+.mycard-fee-change .hint { margin: 0; }
+.mycard-section-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding-top: 10px; border-top: 1px solid var(--border); }
+.mycard-earn { display: flex; flex-direction: column; gap: 8px; }
+.mycard-earn-row { display: grid; grid-template-columns: 76px 1fr; gap: 10px; align-items: start; }
+.mycard-earn-rate { display: flex; flex-direction: column; font-weight: 700; font-size: 16px; line-height: 1.2; }
+.mycard-earn-rate .hint { font-weight: 400; font-size: 12px; margin: 0; }
+.mycard-earn-what { font-size: 14px; min-width: 0; }
+.mycard-earn-what .hint { margin: 2px 0 0; }
+.mycard-setup { display: flex; flex-direction: column; gap: 6px; }
+.mycard-setup .field-label { margin: 0; }
+.mycard-notes summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+.mycard-notes .hint { margin: 6px 0 0; }
+.mycard > .hint:last-child { margin: 0; font-size: 12px; }
+.reward-wallet-note { margin: 0; }
+@media (max-width: 560px) {
+  .mycards-grid { grid-template-columns: 1fr; }
+  .card-face { max-width: none; }
 }

@@ -19,6 +19,7 @@ import { rtaTrackerPage } from "./pages/rtatracker.js";
 import { upcomingPage } from "./pages/upcoming.js";
 import { categorizePage } from "./pages/categorize.js";
 import { cardRewardsPage } from "./pages/cardrewards.js";
+import { myCardsPage } from "./pages/mycards.js";
 import { welcomeBonusesPage } from "./pages/welcomebonuses.js";
 import { cardTiersPage } from "./pages/cardtiers.js";
 
@@ -71,10 +72,13 @@ export const SPACES = [
   },
   // `short` is the bottom bar's label, where a phone has about 75px a slot.
   {
-    id: "cards", title: "Card Rewards", short: "Cards", icon: "wallet", tabs: [
-      { page: "cardrewards", label: "Best card" },
-      { page: "welcomebonuses", label: "Welcome bonuses" },
-      { page: "cardtiers", label: "Tier list" },
+    // Always opens on My cards (at explicit user request: "make it the
+    // default page when you go to cards"), not on the tab last used.
+    id: "cards", title: "Card Rewards", short: "Cards", icon: "wallet", alwaysFirst: true, tabs: [
+      { page: "mycards", label: "My cards" },
+      { page: "cardrewards", label: "Which card to use" },
+      { page: "welcomebonuses", label: "Sign-up bonuses" },
+      { page: "cardtiers", label: "Card rankings" },
     ],
   },
 ];
@@ -173,21 +177,28 @@ export const PAGES = [
     group: "together", groupLabel: "Together",
   },
   {
-    id: "cardrewards", title: "Card Rewards", icon: "wallet", key: "cardRewards",
+    id: "mycards", title: "My cards", icon: "wallet", key: "myCards",
+    build: myCardsPage,
+    blurb: "The credit cards you carry, with what each costs and earns, " +
+      "and any fee changes coming.",
+    group: "cards", groupLabel: "Card Rewards",
+  },
+  {
+    id: "cardrewards", title: "Which card to use", icon: "wallet", key: "cardRewards",
     build: cardRewardsPage,
     blurb: "Search for a shop and see which of your credit cards gives you " +
       "the most back there.",
     group: "cards", groupLabel: "Card Rewards",
   },
   {
-    id: "welcomebonuses", title: "Welcome Bonuses", icon: "wallet", key: "welcomeBonuses",
+    id: "welcomebonuses", title: "Sign-up bonuses", icon: "wallet", key: "welcomeBonuses",
     build: welcomeBonusesPage,
     blurb: "Which new card's sign-up bonus is worth the most in its first " +
       "year, and how a bonus you are working towards is going.",
     group: "cards", groupLabel: "Card Rewards",
   },
   {
-    id: "cardtiers", title: "Tier list", icon: "wallet", key: "cardTiers",
+    id: "cardtiers", title: "Card rankings", icon: "wallet", key: "cardTiers",
     build: cardTiersPage,
     blurb: "The best Canadian credit cards ranked from top picks down, which " +
       "you can rearrange.",
@@ -355,11 +366,11 @@ class App {
     this.go(tab.page);
   }
 
-  /** A space opens where it was last left, else on its first tab. */
+  /** A space opens where it was last left, else on its first tab (always, with `alwaysFirst`). */
   openSpace(space) {
     const tabs = this.spaceTabsFor(space);
     const last = (this.state.store.get("nav.last", {}) || {})[space.id];
-    const remembered = last && tabs.find((t) => t.page === last.page && (t.tab || "") === (last.tab || ""));
+    const remembered = !space.alwaysFirst && last && tabs.find((t) => t.page === last.page && (t.tab || "") === (last.tab || ""));
     this.openTab(remembered || tabs[0]);
   }
 

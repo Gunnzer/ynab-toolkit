@@ -74,6 +74,7 @@ export const DEFAULTS = {
       bankImport: true,
       upcoming: true,
       categorize: true,
+      myCards: true,
       cardRewards: true,
       welcomeBonuses: true,
       cardTiers: true,

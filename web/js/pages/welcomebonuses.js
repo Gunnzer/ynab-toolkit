@@ -45,11 +45,11 @@ export function welcomeBonusesPage(app) {
 
   const root = el("div", { class: "page-body" });
   root.append(pageHeading(
-    "Welcome Bonuses",
+    "Sign-up bonuses",
     "Which card's sign-up bonus is worth the most in its first year: the bonus " +
-    "at the same cautious point values as Card Rewards, less the first year's " +
+    "at the same cautious point values as Which card to use, less the first year's " +
     "fee. Track a bonus you are working towards to see how much is left to " +
-    "spend and by when. Offers are re-checked every week with the card details."));
+    "spend and by when. Offers are re-checked twice a week with the card details."));
 
   const trackHost = el("div");
   const offersHost = el("div");

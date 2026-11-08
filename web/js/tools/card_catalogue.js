@@ -65,6 +65,10 @@
 //   notes: things the rules cannot say
 //   source, checked: where the figures came from (named, never linked - the
 //     privacy test allows no third party host) and when (YYYY-MM-DD)
+//   feeChange (optional): an announced annual fee change, for My cards -
+//     { fee, from, detail? }: the new yearly fee (CAD), charged from the first
+//     renewal on or after `from` ("YYYY-MM-DD"). annualFee stays the fee
+//     today until the change has happened for everyone.
 //   welcome (optional): the current sign-up offer, for Welcome Bonuses -
 //     { points?, cash?, minSpend, months, firstYearFee?, ends?, detail,
 //       source, checked }. points are the card's own points, cash is CAD;

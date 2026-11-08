@@ -169,6 +169,11 @@
       "network": "amex",
       "points": "aeroplan",
       "annualFee": 120,
+      "feeChange": {
+        "fee": 150,
+        "from": "2027-01-12",
+        "detail": "From the first renewal after January 12, 2027."
+      },
       "fxFee": 0.025,
       "base": 1,
       "earn": [
@@ -196,9 +201,7 @@
           }
         }
       ],
-      "notes": [
-        "The fee goes from $120 to $150 at the first renewal after January 12, 2027."
-      ],
+      "notes": [],
       "source": "americanexpress.com/ca, Milesopedia, NerdWallet Canada",
       "checked": "2026-11-08",
       "welcome": {
@@ -276,6 +279,11 @@
       "network": "visa",
       "points": "aeroplan",
       "annualFee": 139,
+      "feeChange": {
+        "fee": 159,
+        "from": "2027-01-12",
+        "detail": "From the first renewal on or after January 12, 2027."
+      },
       "fxFee": 0.025,
       "base": 1,
       "earn": [
@@ -312,8 +320,7 @@
         }
       ],
       "notes": [
-        "The $80,000 yearly cap on 1.5x is not confirmed on CIBC's own page.",
-        "The fee goes from $139 to $159 at the first renewal on or after January 12, 2027."
+        "The $80,000 yearly cap on 1.5x is not confirmed on CIBC's own page."
       ],
       "source": "cibc.com, Finder Canada, Prince of Travel",
       "checked": "2026-11-08"
@@ -1190,6 +1197,11 @@
       "network": "amex",
       "points": "aeroplan",
       "annualFee": 599,
+      "feeChange": {
+        "fee": 799,
+        "from": "2027-01-12",
+        "detail": "From the first renewal after January 12, 2027, with a $200 yearly dining credit and more lounge visits."
+      },
       "base": 1.25,
       "earn": [
         {
@@ -1217,8 +1229,7 @@
         }
       ],
       "notes": [
-        "3x is for Air Canada and Air Canada Vacations purchases.",
-        "The fee goes from $599 to $799 at the first renewal after January 12, 2027, when a $200 yearly dining credit and more lounge visits are added."
+        "3x is for Air Canada and Air Canada Vacations purchases."
       ],
       "source": "americanexpress.com/ca, Milesopedia, Frugal Flyer",
       "welcome": {
@@ -1240,6 +1251,11 @@
       "network": "visa",
       "points": "aeroplan",
       "annualFee": 599,
+      "feeChange": {
+        "fee": 699,
+        "from": "2027-01-25",
+        "detail": "From January 25, 2027."
+      },
       "base": 1.25,
       "earn": [
         {
@@ -1280,8 +1296,7 @@
       ],
       "notes": [
         "2x is for Air Canada and Air Canada Vacations purchases.",
-        "The $100,000 combined yearly cap on bonus rates is from third party reviews.",
-        "The fee goes from $599 to $699 from January 25, 2027."
+        "The $100,000 combined yearly cap on bonus rates is from third party reviews."
       ],
       "source": "td.com, Milesopedia, Unravel Travel",
       "fxFee": 0.025,
@@ -1295,6 +1310,11 @@
       "network": "visa",
       "points": "aeroplan",
       "annualFee": 599,
+      "feeChange": {
+        "fee": 699,
+        "from": "2027-01-12",
+        "detail": "From the first renewal on or after January 12, 2027."
+      },
       "base": 1.25,
       "earn": [
         {
@@ -1321,8 +1341,7 @@
         }
       ],
       "notes": [
-        "2x is for Air Canada and Air Canada Vacations purchases.",
-        "The fee goes from $599 to $699 at the first renewal on or after January 12, 2027."
+        "2x is for Air Canada and Air Canada Vacations purchases."
       ],
       "source": "cibc.com, Milesopedia, Frugal Flyer, Money.ca",
       "fxFee": 0.025,

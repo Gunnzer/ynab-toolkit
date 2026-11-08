@@ -197,6 +197,11 @@ export function validateCatalogue(data) {
     for (const id of card.picks?.from || []) {
       if (!purchases.has(id)) problems.push(`${name}: unknown pick ${id}.`);
     }
+    const change = card.feeChange;
+    if (change !== undefined && (!change || typeof change !== "object" ||
+        !(typeof change.fee === "number" && change.fee >= 0) || !DATE.test(change.from || ""))) {
+      problems.push(`${name}: a fee change needs a fee and a from date.`);
+    }
     const w = card.welcome;
     if (w !== undefined) {
       const num = (v) => v === undefined || (typeof v === "number" && v >= 0);
@@ -368,6 +373,7 @@ export function normaliseCustom(entry) {
     points: entry.points && POINT_TYPES[entry.points] ? entry.points : "custom:" + (entry.pointsName || "Points"),
     pointsName: entry.pointsName || "",
     annualFee: Number(entry.annualFee) || 0,
+    face: entry.face || "",
     fxFee: entry.fxFee === undefined ? 0.025 : Number(entry.fxFee) || 0,
     base,
     earn,

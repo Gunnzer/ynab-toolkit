@@ -11,6 +11,14 @@ before or as part of the push itself.
 
 ## 2026-11-08
 
+**Card Rewards: a My cards page, and clearer tab names** (`pages/mycards.js`, `tools/my_cards.js`, `pages/cardrewards.js`, `pages/welcomebonuses.js`, `pages/cardtiers.js`, `tools/card_rewards.js`, `tools/card_catalogue.js`, `data/cards.json`, `main.js`, `store.js`, `css/app.css`, tests, `CLAUDE.md`)
+* New first tab, My cards, where you add, set up and remove your cards. Each card shows a drawn picture of the card, its annual fee, any announced fee increase, the foreign currency fee, what its points are worth, and what it earns on each kind of purchase as a % back. A summary at the top adds up your yearly fees, now and after the coming increases.
+* Opening Cards always lands on My cards.
+* Adding cards, Preferred points and Point values moved here from the old Best card page, which now just points to My cards. Every other tab uses the same list of cards.
+* Cards added by hand can now have an annual fee and a colour.
+* The tabs are renamed My cards, Which card to use, Sign-up bonuses and Card rankings.
+* Card details can now carry an announced fee change, filled in for the Amex, TD and CIBC Aeroplan cards whose fees rise in January 2027.
+
 **Card Rewards: every card re-checked, and the no-fee SimplyCash added** (`data/cards.json`)
 * Every card was checked against current Canadian sources. Fixed: SimplyCash Preferred's 4% on groceries stops at $30,000 a year (gas has no cap); BMO eclipse Visa Infinite caps are per category ($6,000 for dining and for groceries, $20,000 for gas and for transit), not $50,000 together; BMO eclipse Privilege now has its per-category caps; TD First Class also earns 6x on transit and 4x on streaming, with $25,000 caps per category; TD Cash Back also earns 3% on EV charging and streaming.
 * Added the no-fee SimplyCash Card from American Express (2% on gas and groceries, groceries up to $15,000 a year, 1.25% on everything else). The app only had the SimplyCash Preferred.
