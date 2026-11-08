@@ -152,7 +152,7 @@
         "Gas, grocery and drugstore 2x is for merchants in Canada."
       ],
       "source": "americanexpress.com/ca, NerdWallet Canada, Rewards Canada",
-      "checked": "2026-10-31",
+      "checked": "2026-11-08",
       "welcome": {
         "points": 60000,
         "minSpend": 12000,
@@ -196,9 +196,11 @@
           }
         }
       ],
-      "notes": [],
+      "notes": [
+        "The fee goes from $120 to $150 at the first renewal after January 12, 2027."
+      ],
       "source": "americanexpress.com/ca, Milesopedia, NerdWallet Canada",
-      "checked": "2026-10-31",
+      "checked": "2026-11-08",
       "welcome": {
         "points": 45000,
         "minSpend": 7500,
@@ -252,10 +254,11 @@
       ],
       "notes": [
         "Air Canada 1.5x counts purchases made directly with Air Canada, Air Canada Vacations included.",
-        "The $80,000 yearly cap on 1.5x is from third party calculators; TD's own page does not state it."
+        "The $80,000 yearly cap on 1.5x is from third party calculators; TD's own page does not state it.",
+        "TD is raising its Aeroplan card fees from January 25, 2027, reported as matching CIBC's (this card to $159)."
       ],
       "source": "td.com, Milesopedia, The Point Calculator",
-      "checked": "2026-10-31",
+      "checked": "2026-11-08",
       "welcome": {
         "points": 50000,
         "minSpend": 12000,
@@ -309,10 +312,11 @@
         }
       ],
       "notes": [
-        "The $80,000 yearly cap on 1.5x is not confirmed on CIBC's own page."
+        "The $80,000 yearly cap on 1.5x is not confirmed on CIBC's own page.",
+        "The fee goes from $139 to $159 at the first renewal on or after January 12, 2027."
       ],
       "source": "cibc.com, Finder Canada, Prince of Travel",
-      "checked": "2026-10-31"
+      "checked": "2026-11-08"
     },
     {
       "id": "scotia-gold-amex",
@@ -376,7 +380,7 @@
         "No foreign transaction fee."
       ],
       "source": "scotiabank.com, Ratehub, Milesopedia",
-      "checked": "2026-10-31",
+      "checked": "2026-11-08",
       "welcome": {
         "points": 65000,
         "minSpend": 7500,
@@ -478,7 +482,7 @@
         "Rent and tax payments earn 1% from October 22, 2026."
       ],
       "source": "scotiabank.com, Prince of Travel, Ratehub",
-      "checked": "2026-10-31"
+      "checked": "2026-11-08"
     },
     {
       "id": "pc-world-elite",
@@ -528,7 +532,7 @@
         "Esso and Mobil earn at least 30 points per litre; shown here as about 20 per dollar at $1.50 a litre."
       ],
       "source": "pcfinancial.ca, Ratehub, Milesopedia",
-      "checked": "2026-10-31",
+      "checked": "2026-11-08",
       "welcome": {
         "points": 50000,
         "minSpend": 100,
@@ -687,23 +691,58 @@
         {
           "on": [
             "dining",
-            "delivery",
-            "groceries",
-            "gas",
+            "delivery"
+          ],
+          "rate": 5,
+          "cap": {
+            "key": "dining",
+            "spend": 6000,
+            "per": "year",
+            "label": "dining and takeout"
+          }
+        },
+        {
+          "on": [
+            "groceries"
+          ],
+          "rate": 5,
+          "cap": {
+            "key": "groceries",
+            "spend": 6000,
+            "per": "year",
+            "label": "groceries"
+          }
+        },
+        {
+          "on": [
+            "gas"
+          ],
+          "rate": 5,
+          "cap": {
+            "key": "gas",
+            "spend": 20000,
+            "per": "year",
+            "label": "gas"
+          }
+        },
+        {
+          "on": [
             "transit"
           ],
           "rate": 5,
           "cap": {
-            "key": "accel",
-            "spend": 50000,
+            "key": "transit",
+            "spend": 20000,
             "per": "year",
-            "label": "5x purchases"
+            "label": "transit"
           }
         }
       ],
-      "notes": [],
+      "notes": [
+        "Since February 2025 each 5x category has its own yearly cap: $6,000 for dining and for groceries, $20,000 for gas and for transit."
+      ],
       "source": "bmo.com, NerdWallet Canada, Milesopedia",
-      "checked": "2026-10-31"
+      "checked": "2026-11-08"
     },
     {
       "id": "rbc-avion-vi",
@@ -724,7 +763,7 @@
       ],
       "notes": [],
       "source": "rbcroyalbank.com, NerdWallet Canada, Ratehub",
-      "checked": "2026-10-31",
+      "checked": "2026-11-08",
       "welcome": {
         "points": 70000,
         "minSpend": 5000,
@@ -767,7 +806,7 @@
         "Bonus rates stop at a yearly spending cap; check your terms for the amount."
       ],
       "source": "cibc.com, Milesopedia, Frugal Flyer",
-      "checked": "2026-10-31"
+      "checked": "2026-11-08"
     },
     {
       "id": "amex-simplycash-preferred",
@@ -781,17 +820,30 @@
       "earn": [
         {
           "on": [
-            "gas",
-            "groceries"
+            "gas"
           ],
           "rate": 4
+        },
+        {
+          "on": [
+            "groceries"
+          ],
+          "rate": 4,
+          "cap": {
+            "key": "groceries",
+            "spend": 30000,
+            "per": "year",
+            "label": "groceries"
+          }
         }
       ],
       "notes": [
+        "4% on groceries is for the first $30,000 a year; gas has no cap.",
+        "4% is for stand-alone gas stations and grocery stores in Canada.",
         "Cash back is paid once a year, on the September statement."
       ],
-      "source": "americanexpress.com/ca, Savings Grove, Rewards Canada",
-      "checked": "2026-10-31",
+      "source": "americanexpress.com/ca, Rewards Canada, Frugal Flyer",
+      "checked": "2026-11-08",
       "welcome": {
         "cash": 250,
         "minSpend": 2000,
@@ -800,6 +852,42 @@
         "source": "Milesopedia, Smarter Loans, Rewards Canada",
         "checked": "2026-11-05"
       }
+    },
+    {
+      "id": "amex-simplycash",
+      "name": "SimplyCash Card from American Express",
+      "issuer": "American Express",
+      "network": "amex",
+      "points": "cash",
+      "annualFee": 0,
+      "fxFee": 0.025,
+      "base": 1.25,
+      "earn": [
+        {
+          "on": [
+            "gas"
+          ],
+          "rate": 2
+        },
+        {
+          "on": [
+            "groceries"
+          ],
+          "rate": 2,
+          "cap": {
+            "key": "groceries",
+            "spend": 15000,
+            "per": "year",
+            "label": "groceries"
+          }
+        }
+      ],
+      "notes": [
+        "The no-fee version of the SimplyCash Preferred.",
+        "2% on groceries is for the first $15,000 a year ($300 back); gas has no cap."
+      ],
+      "source": "americanexpress.com/ca, Frugal Flyer, creditcardGenius",
+      "checked": "2026-11-08"
     },
     {
       "id": "td-first-class-vi",
@@ -824,9 +912,32 @@
         },
         {
           "on": [
-            "groceries",
+            "groceries"
+          ],
+          "rate": 6,
+          "cap": {
+            "key": "groceries",
+            "spend": 25000,
+            "per": "year",
+            "label": "groceries"
+          }
+        },
+        {
+          "on": [
             "dining",
             "delivery"
+          ],
+          "rate": 6,
+          "cap": {
+            "key": "dining",
+            "spend": 25000,
+            "per": "year",
+            "label": "restaurants"
+          }
+        },
+        {
+          "on": [
+            "transit"
           ],
           "rate": 6
         },
@@ -834,12 +945,33 @@
           "on": [
             "bills"
           ],
-          "rate": 4
+          "rate": 4,
+          "cap": {
+            "key": "bills",
+            "spend": 25000,
+            "per": "year",
+            "label": "recurring bills"
+          }
+        },
+        {
+          "on": [
+            "streaming"
+          ],
+          "rate": 4,
+          "cap": {
+            "key": "streaming",
+            "spend": 25000,
+            "per": "year",
+            "label": "streaming"
+          }
         }
       ],
-      "notes": [],
+      "notes": [
+        "8x is only on travel booked through Expedia for TD.",
+        "6x and 4x stop at $25,000 a year in each category; a transit cap is not stated."
+      ],
       "source": "td.com, MoneySense",
-      "checked": "2026-10-31"
+      "checked": "2026-11-08"
     },
     {
       "id": "td-cashback-vi",
@@ -877,6 +1009,18 @@
         },
         {
           "on": [
+            "ev"
+          ],
+          "rate": 3,
+          "cap": {
+            "key": "ev",
+            "spend": 15000,
+            "per": "year",
+            "label": "EV charging"
+          }
+        },
+        {
+          "on": [
             "bills"
           ],
           "rate": 3,
@@ -886,11 +1030,25 @@
             "per": "year",
             "label": "recurring bills"
           }
+        },
+        {
+          "on": [
+            "streaming"
+          ],
+          "rate": 3,
+          "cap": {
+            "key": "streaming",
+            "spend": 15000,
+            "per": "year",
+            "label": "streaming and digital media"
+          }
         }
       ],
-      "notes": [],
+      "notes": [
+        "3% stops at $15,000 a year in each category, then 1%."
+      ],
       "source": "td.com, MoneySense, creditcardGenius",
-      "checked": "2026-10-31",
+      "checked": "2026-11-08",
       "welcome": {
         "cash": 350,
         "minSpend": 3500,
@@ -941,7 +1099,7 @@
         "Cash back comes as a Costco certificate each January."
       ],
       "source": "cibc.com, creditcardGenius, Milesopedia",
-      "checked": "2026-10-31"
+      "checked": "2026-11-08"
     },
     {
       "id": "tangerine-mc",
@@ -977,7 +1135,7 @@
         "The World Mastercard version earns the same."
       ],
       "source": "tangerine.ca",
-      "checked": "2026-10-31"
+      "checked": "2026-11-08"
     },
     {
       "id": "amex-platinum",
@@ -1022,7 +1180,7 @@
         "checked": "2026-11-06"
       },
       "fxFee": 0.025,
-      "checked": "2026-11-06"
+      "checked": "2026-11-08"
     },
     {
       "id": "amex-aeroplan-reserve",
@@ -1060,7 +1218,7 @@
       ],
       "notes": [
         "3x is for Air Canada and Air Canada Vacations purchases.",
-        "The 2x on dining and food delivery in Canada is from earlier reviews; this week's sources did not restate it, so it is unconfirmed."
+        "The fee goes from $599 to $799 at the first renewal after January 12, 2027, when a $200 yearly dining credit and more lounge visits are added."
       ],
       "source": "americanexpress.com/ca, Milesopedia, Frugal Flyer",
       "welcome": {
@@ -1072,7 +1230,7 @@
         "checked": "2026-11-06"
       },
       "fxFee": 0.025,
-      "checked": "2026-11-06"
+      "checked": "2026-11-08"
     },
     {
       "id": "td-aeroplan-vip",
@@ -1122,11 +1280,12 @@
       ],
       "notes": [
         "2x is for Air Canada and Air Canada Vacations purchases.",
-        "The $100,000 combined yearly cap on bonus rates is from third party reviews."
+        "The $100,000 combined yearly cap on bonus rates is from third party reviews.",
+        "The fee goes from $599 to $699 from January 25, 2027."
       ],
       "source": "td.com, Milesopedia, Unravel Travel",
       "fxFee": 0.025,
-      "checked": "2026-11-06"
+      "checked": "2026-11-08"
     },
     {
       "id": "cibc-aeroplan-vip",
@@ -1162,11 +1321,12 @@
         }
       ],
       "notes": [
-        "2x is for Air Canada and Air Canada Vacations purchases."
+        "2x is for Air Canada and Air Canada Vacations purchases.",
+        "The fee goes from $599 to $699 at the first renewal on or after January 12, 2027."
       ],
       "source": "cibc.com, Milesopedia, Frugal Flyer, Money.ca",
       "fxFee": 0.025,
-      "checked": "2026-11-06"
+      "checked": "2026-11-08"
     },
     {
       "id": "scotia-platinum-amex",
@@ -1183,7 +1343,7 @@
         "2 Scene+ points per $1 on everything, no foreign transaction fee."
       ],
       "source": "scotiabank.com, Milesopedia, Ratehub",
-      "checked": "2026-11-06"
+      "checked": "2026-11-08"
     },
     {
       "id": "marriott-bonvoy-amex",
@@ -1221,7 +1381,7 @@
         "checked": "2026-11-06"
       },
       "fxFee": 0.025,
-      "checked": "2026-11-06"
+      "checked": "2026-11-08"
     },
     {
       "id": "mbna-rewards-we",
@@ -1255,7 +1415,7 @@
       ],
       "source": "mbna.ca, Milesopedia, Frugal Flyer",
       "fxFee": 0.025,
-      "checked": "2026-11-06"
+      "checked": "2026-11-08"
     },
     {
       "id": "bmo-eclipse-vip",
@@ -1270,19 +1430,70 @@
       "earn": [
         {
           "on": [
-            "travel",
-            "groceries",
-            "gas",
+            "travel"
+          ],
+          "rate": 5,
+          "cap": {
+            "key": "travel",
+            "spend": 25000,
+            "per": "year",
+            "label": "travel"
+          }
+        },
+        {
+          "on": [
             "dining",
-            "delivery",
+            "delivery"
+          ],
+          "rate": 5,
+          "cap": {
+            "key": "dining",
+            "spend": 25000,
+            "per": "year",
+            "label": "dining and takeout"
+          }
+        },
+        {
+          "on": [
+            "groceries"
+          ],
+          "rate": 5,
+          "cap": {
+            "key": "groceries",
+            "spend": 20000,
+            "per": "year",
+            "label": "groceries"
+          }
+        },
+        {
+          "on": [
+            "gas"
+          ],
+          "rate": 5,
+          "cap": {
+            "key": "gas",
+            "spend": 15000,
+            "per": "year",
+            "label": "gas"
+          }
+        },
+        {
+          "on": [
             "drugstore"
           ],
-          "rate": 5
+          "rate": 5,
+          "cap": {
+            "key": "health",
+            "spend": 15000,
+            "per": "year",
+            "label": "health and wellness"
+          }
         }
       ],
       "notes": [
         "Refreshed November 2, 2026: 5x on travel, groceries, gas, health and wellness, and dining and takeout, and no foreign transaction fee.",
         "Drugstore is counted as health and wellness; BMO does not name it, so that is unconfirmed.",
+        "Each 5x category has its own yearly cap, reset every January 1: $25,000 travel, $25,000 dining, $20,000 groceries, $15,000 gas, $15,000 health and wellness ($100,000 in all).",
         "Adding an authorized user raises 5x to 6.25x, not counted here."
       ],
       "source": "BMO announcement, Prince of Travel, Milesopedia",
@@ -1294,7 +1505,7 @@
         "source": "Prince of Travel, Points Miles and Bling",
         "checked": "2026-11-06"
       },
-      "checked": "2026-11-06"
+      "checked": "2026-11-08"
     }
   ],
   "offers": [],
@@ -1308,7 +1519,7 @@
         "cards": [
           {
             "card": "amex-cobalt",
-            "why": "The usual first answer: 5x on groceries, restaurants and delivery, about 5.5% back. Not taken at Loblaw stores or Costco."
+            "why": "The usual first answer: 5x on groceries, restaurants and delivery (up to $2,500 a month), about 5.5% back. Not taken at Loblaw stores or Costco."
           },
           {
             "card": "rogers-red-we",
@@ -1316,7 +1527,7 @@
           },
           {
             "card": "pc-world-elite",
-            "why": "No fee, and the card for Loblaw stores, Shoppers and Esso, where Amex is not taken."
+            "why": "No fee, and the card for Loblaw stores (which do not take Amex), with 45 points per $1 at Shoppers and at least 30 per litre at Esso."
           }
         ]
       },
@@ -1338,7 +1549,7 @@
           },
           {
             "card": "amex-simplycash-preferred",
-            "why": "Simple cash back: 4% on gas and groceries and 2% on everything else."
+            "why": "Simple cash back: 4% on gas and groceries (groceries up to $30,000 a year) and 2% on everything else."
           },
           {
             "card": "scotia-passport-vi",
@@ -1353,6 +1564,10 @@
           {
             "card": "tangerine-mc",
             "why": "No fee, 2% in 2 or 3 categories you pick. The usual first card for building credit."
+          },
+          {
+            "card": "amex-simplycash",
+            "why": "The no-fee SimplyCash: 2% on gas and groceries (groceries up to $15,000 a year) and 1.25% on everything else."
           },
           {
             "card": "bmo-cashback-we",
@@ -1376,7 +1591,7 @@
           },
           {
             "card": "td-cashback-vi",
-            "why": "3% on groceries, gas and recurring bills, up to $15,000 a year each."
+            "why": "3% on groceries, gas, EV charging, recurring bills and streaming, up to $15,000 a year each."
           },
           {
             "card": "scotia-momentum-vi",
@@ -1384,11 +1599,11 @@
           },
           {
             "card": "mbna-rewards-we",
-            "why": "5x on restaurants, groceries, streaming and bills, as a Mastercard."
+            "why": "5x on restaurants, groceries, streaming and bills (up to $50,000 a year each), as a Mastercard."
           },
           {
             "card": "bmo-eclipse-vi",
-            "why": "5x on dining, groceries, gas and transit, but BMO points are worth less."
+            "why": "5x on dining, groceries, gas and transit, but dining and groceries stop at $6,000 a year each, and BMO points are worth less."
           },
           {
             "card": "marriott-bonvoy-amex",
@@ -1410,15 +1625,15 @@
           },
           {
             "card": "amex-aeroplan-reserve",
-            "why": "Air Canada lounges and perks for frequent Air Canada flyers, for $599 a year."
+            "why": "Air Canada lounges and perks for frequent Air Canada flyers, for $599 a year ($799 from 2027)."
           },
           {
             "card": "td-aeroplan-vip",
-            "why": "Maple Leaf Lounge access and priority perks for frequent Air Canada flyers, for $599 a year."
+            "why": "Maple Leaf Lounge access and priority perks for frequent Air Canada flyers, for $599 a year ($699 from 2027)."
           },
           {
             "card": "cibc-aeroplan-vip",
-            "why": "The CIBC version of the premium Aeroplan card, with Maple Leaf Lounge access, for $599 a year."
+            "why": "The CIBC version of the premium Aeroplan card, with Maple Leaf Lounge access, for $599 a year ($699 from 2027)."
           },
           {
             "card": "bmo-eclipse-vip",

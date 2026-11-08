@@ -11,6 +11,12 @@ before or as part of the push itself.
 
 ## 2026-11-08
 
+**Card Rewards: every card re-checked, and the no-fee SimplyCash added** (`data/cards.json`)
+* Every card was checked against current Canadian sources. Fixed: SimplyCash Preferred's 4% on groceries stops at $30,000 a year (gas has no cap); BMO eclipse Visa Infinite caps are per category ($6,000 for dining and for groceries, $20,000 for gas and for transit), not $50,000 together; BMO eclipse Privilege now has its per-category caps; TD First Class also earns 6x on transit and 4x on streaming, with $25,000 caps per category; TD Cash Back also earns 3% on EV charging and streaming.
+* Added the no-fee SimplyCash Card from American Express (2% on gas and groceries, groceries up to $15,000 a year, 1.25% on everything else). The app only had the SimplyCash Preferred.
+* Upcoming fee rises are noted: Amex Aeroplan $120 to $150 and Aeroplan Reserve $599 to $799 (from January 12, 2027), CIBC Aeroplan Visa Infinite $139 to $159, and the TD and CIBC Aeroplan Privilege cards $599 to $699.
+* Tier list lines corrected to match: Shoppers and Esso do take Amex, so the PC World Elite line no longer says otherwise.
+
 **Card Rewards: the Tier list shows each card's network** (`pages/cardtiers.js`, `CLAUDE.md`)
 * Each card's line now starts with Visa, Mastercard or Amex, before its fee and points, since that decides where it is taken.
 
