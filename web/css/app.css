@@ -2534,6 +2534,10 @@ select.is-empty option { color: var(--text); }
 .mycard-setup .field-label { margin: 0; }
 .mycard-notes summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 .mycard-notes .hint { margin: 6px 0 0; }
+.mycard-perk-group { margin-top: 8px; }
+.mycard-perk-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.mycard-perks ul { margin: 4px 0 0; padding-left: 18px; font-size: 14px; }
+.mycard-perks li + li { margin-top: 3px; }
 .mycard > .hint:last-child { margin: 0; font-size: 12px; }
 .reward-wallet-note { margin: 0; }
 @media (max-width: 560px) {

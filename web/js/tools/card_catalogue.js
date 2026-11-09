@@ -65,6 +65,12 @@
 //   notes: things the rules cannot say
 //   source, checked: where the figures came from (named, never linked - the
 //     privacy test allows no third party host) and when (YYYY-MM-DD)
+//   perks (optional): the card's benefits beyond earning, for My cards (at
+//     explicit user request: "a full list of perks") - [{ kind, text }],
+//     kind one of "travel" (bags, lounges, credits, transfers), "insurance",
+//     "everyday" (anything else: roadside help, gas savings, concierge).
+//     One plain line each; amounts only where the issuer or two sources
+//     agree, otherwise the perk without the number.
 //   feeChange (optional): an announced annual fee change, for My cards -
 //     { fee, from, detail? }: the new yearly fee (CAD), charged from the first
 //     renewal on or after `from` ("YYYY-MM-DD"). annualFee stays the fee

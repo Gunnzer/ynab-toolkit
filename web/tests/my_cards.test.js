@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 
 import { CARDS, setCatalogue } from "../js/tools/card_catalogue.js";
 import { validateCatalogue } from "../js/tools/card_rewards.js";
-import { FACES, cardFace, earnLines, feeInfo, walletFees } from "../js/tools/my_cards.js";
+import { FACES, cardFace, earnLines, feeInfo, perkGroups, walletFees } from "../js/tools/my_cards.js";
 
 const SHIPPED = JSON.parse(readFileSync(new URL("../data/cards.json", import.meta.url), "utf8"));
 setCatalogue(SHIPPED);
@@ -37,6 +37,24 @@ describe("my cards", () => {
     const sc = earnLines(byId("amex-simplycash-preferred"));
     assert.deepEqual(sc.map((l) => l.back), [4, 4, 2]);
     assert.ok(sc.some((l) => l.conditions.some((c) => /30,000/.test(c))));
+  });
+
+  test("perks are grouped travel, insurance, everyday, and every card has some", () => {
+    const groups = perkGroups({ perks: [
+      { kind: "everyday", text: "c" }, { kind: "travel", text: "a" }, { kind: "travel", text: "b" },
+    ] });
+    assert.deepEqual(groups.map((g) => [g.label, g.items]), [["Travel", ["a", "b"]], ["Everyday", ["c"]]]);
+    assert.deepEqual(perkGroups({}), []);
+    for (const c of CARDS) assert.ok(perkGroups(c).length, `${c.id} has perks`);
+    assert.ok(perkGroups(byId("td-aeroplan-vi"))[0].items.some((t) => /checked bag/.test(t)));
+  });
+
+  test("the data file's perks are checked", () => {
+    const withPerks = (perks) => ({ ...SHIPPED, cards: SHIPPED.cards.map((c, i) => (i === 0 ? { ...c, perks } : c)) });
+    assert.deepEqual(validateCatalogue(withPerks([{ kind: "travel", text: "Lounge" }])), []);
+    for (const bad of ["x", [{ kind: "fun", text: "x" }], [{ kind: "travel", text: " " }], [null]]) {
+      assert.ok(validateCatalogue(withPerks(bad)).some((p) => /perk/.test(p)), JSON.stringify(bad));
+    }
   });
 
   test("the data file's fee changes are checked", () => {

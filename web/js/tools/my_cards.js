@@ -5,7 +5,7 @@
 // cardRewards.wallet, shared with Best card, Welcome bonuses and the Tier
 // list; this page is the one place it is changed.
 
-import { centsPerPoint, describeEarn } from "./card_rewards.js";
+import { PERK_KINDS, centsPerPoint, describeEarn } from "./card_rewards.js";
 
 // Colour of the drawn card. Each name is a gradient in app.css
 // (`.card-face[data-face=...]`); a plain colour family, not an issuer's
@@ -117,4 +117,20 @@ export function walletFees(cards, today) {
   changes.sort((a, b) => a.from.localeCompare(b.from));
   const r = (n) => Math.round(n * 100) / 100;
   return { now: r(now), next: r(next), changes };
+}
+
+const PERK_LABELS = { travel: "Travel", insurance: "Insurance", everyday: "Everyday" };
+
+/**
+ * A card's perks grouped for display: [{ kind, label, items: [text] }], in
+ * PERK_KINDS order, empty groups left out.
+ */
+export function perkGroups(card) {
+  return PERK_KINDS
+    .map((kind) => ({
+      kind,
+      label: PERK_LABELS[kind],
+      items: (card?.perks || []).filter((p) => p?.kind === kind).map((p) => p.text),
+    }))
+    .filter((group) => group.items.length);
 }

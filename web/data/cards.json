@@ -117,6 +117,36 @@
         "5x only at grocery stores, restaurants and delivery in Canada; superstores and warehouse clubs earn 1x.",
         "Travel dropped to 1x in October 2024."
       ],
+      "perks": [
+        {
+          "kind": "travel",
+          "text": "Points move 1 to 1 to Aeroplan and British Airways Avios, among other programs"
+        },
+        {
+          "kind": "insurance",
+          "text": "Emergency medical outside your province for the first 15 days of a trip (age limits apply)"
+        },
+        {
+          "kind": "insurance",
+          "text": "Baggage delay, lost or stolen baggage, hotel burglary and travel accident insurance"
+        },
+        {
+          "kind": "insurance",
+          "text": "Car rental theft and damage"
+        },
+        {
+          "kind": "insurance",
+          "text": "Mobile device insurance up to $1,000"
+        },
+        {
+          "kind": "insurance",
+          "text": "Purchase protection and extended warranty"
+        },
+        {
+          "kind": "everyday",
+          "text": "Amex Experiences and Front of the Line presale tickets"
+        }
+      ],
       "source": "americanexpress.com/ca, Milesopedia, Frugal Flyer",
       "checked": "2026-11-08",
       "welcome": {
@@ -150,6 +180,32 @@
       ],
       "notes": [
         "Gas, grocery and drugstore 2x is for merchants in Canada."
+      ],
+      "perks": [
+        {
+          "kind": "travel",
+          "text": "$100 yearly travel credit on American Express Travel bookings"
+        },
+        {
+          "kind": "travel",
+          "text": "4 free Plaza Premium lounge visits a year, plus Priority Pass membership"
+        },
+        {
+          "kind": "travel",
+          "text": "NEXUS application credit"
+        },
+        {
+          "kind": "travel",
+          "text": "Points move 1 to 1 to Aeroplan"
+        },
+        {
+          "kind": "insurance",
+          "text": "Emergency medical for the first 15 days of a trip, trip cancellation and interruption (up to $1,500 each)"
+        },
+        {
+          "kind": "insurance",
+          "text": "Car rental theft and damage, purchase protection and extended warranty"
+        }
       ],
       "source": "americanexpress.com/ca, NerdWallet Canada, Rewards Canada",
       "checked": "2026-11-08",
@@ -202,6 +258,24 @@
         }
       ],
       "notes": [],
+      "perks": [
+        {
+          "kind": "travel",
+          "text": "Free first checked bag on Air Canada for you and up to 8 companions on the same booking"
+        },
+        {
+          "kind": "travel",
+          "text": "From January 12, 2027: 15% fewer points needed for Air Canada reward flights"
+        },
+        {
+          "kind": "insurance",
+          "text": "Emergency medical up to $5,000,000, travel accident and lost or stolen baggage"
+        },
+        {
+          "kind": "insurance",
+          "text": "Mobile device insurance up to $1,000"
+        }
+      ],
       "source": "americanexpress.com/ca, Milesopedia, NerdWallet Canada",
       "checked": "2026-11-08",
       "welcome": {
@@ -259,6 +333,20 @@
         "Air Canada 1.5x counts purchases made directly with Air Canada, Air Canada Vacations included.",
         "The $80,000 yearly cap on 1.5x is from third party calculators; TD's own page does not state it.",
         "TD is raising its Aeroplan card fees from January 25, 2027, reported as matching CIBC's (this card to $159)."
+      ],
+      "perks": [
+        {
+          "kind": "travel",
+          "text": "Free first checked bag on Air Canada for you and up to 8 companions on the same booking"
+        },
+        {
+          "kind": "insurance",
+          "text": "Travel medical, trip cancellation and interruption, flight delay and baggage insurance"
+        },
+        {
+          "kind": "everyday",
+          "text": "Visa Infinite concierge, Luxury Hotel Collection and dining events"
+        }
       ],
       "source": "td.com, Milesopedia, The Point Calculator",
       "checked": "2026-11-08",
@@ -321,6 +409,24 @@
       ],
       "notes": [
         "The $80,000 yearly cap on 1.5x is not confirmed on CIBC's own page."
+      ],
+      "perks": [
+        {
+          "kind": "travel",
+          "text": "Free first checked bag on Air Canada for you, authorized users and up to 8 companions"
+        },
+        {
+          "kind": "travel",
+          "text": "Status Qualifying Credits on spending, up to 25,000 a year"
+        },
+        {
+          "kind": "insurance",
+          "text": "Travel insurance package, which also covers trips booked with Aeroplan points"
+        },
+        {
+          "kind": "everyday",
+          "text": "Visa Infinite concierge, hotel benefits and dining events"
+        }
       ],
       "source": "cibc.com, Finder Canada, Prince of Travel",
       "checked": "2026-11-08"
@@ -386,6 +492,28 @@
         "6x at Sobeys, Safeway, IGA, FreshCo, Foodland and Voila.",
         "No foreign transaction fee."
       ],
+      "perks": [
+        {
+          "kind": "travel",
+          "text": "No foreign transaction fee"
+        },
+        {
+          "kind": "insurance",
+          "text": "Emergency medical for 25 days under 65 (3 days at 65 or older), and trip insurance"
+        },
+        {
+          "kind": "insurance",
+          "text": "Mobile device insurance up to $1,000"
+        },
+        {
+          "kind": "insurance",
+          "text": "Purchase security and a doubled warranty"
+        },
+        {
+          "kind": "everyday",
+          "text": "Amex Offers, Front of the Line, Amex Invites and concierge"
+        }
+      ],
       "source": "scotiabank.com, Ratehub, Milesopedia",
       "checked": "2026-11-08",
       "welcome": {
@@ -433,6 +561,28 @@
       "notes": [
         "3x at Sobeys, Safeway, IGA, Foodland and participating co-ops.",
         "No foreign transaction fee."
+      ],
+      "perks": [
+        {
+          "kind": "travel",
+          "text": "No foreign transaction fee"
+        },
+        {
+          "kind": "travel",
+          "text": "6 free airport lounge visits a year (Visa Airport Companion)"
+        },
+        {
+          "kind": "travel",
+          "text": "Avis Preferred Plus membership"
+        },
+        {
+          "kind": "everyday",
+          "text": "10,000 bonus Scene+ points when you spend $40,000 in a year"
+        },
+        {
+          "kind": "insurance",
+          "text": "Travel medical, trip cancellation and interruption, flight delay and mobile device insurance"
+        }
       ],
       "source": "scotiabank.com, NerdWallet Canada, Rewards Canada",
       "checked": "2026-11-08",
@@ -488,6 +638,20 @@
       "notes": [
         "Rent and tax payments earn 1% from October 22, 2026."
       ],
+      "perks": [
+        {
+          "kind": "insurance",
+          "text": "11 kinds of insurance, including travel medical, trip cancellation and interruption, flight delay and mobile device"
+        },
+        {
+          "kind": "everyday",
+          "text": "Car rental discount"
+        },
+        {
+          "kind": "everyday",
+          "text": "Visa Infinite concierge, Luxury Hotel Collection and dining events"
+        }
+      ],
       "source": "scotiabank.com, Prince of Travel, Ratehub",
       "checked": "2026-11-08"
     },
@@ -537,6 +701,28 @@
       ],
       "notes": [
         "Esso and Mobil earn at least 30 points per litre; shown here as about 20 per dollar at $1.50 a litre."
+      ],
+      "perks": [
+        {
+          "kind": "everyday",
+          "text": "No annual fee (needs $80,000 personal or $150,000 household income)"
+        },
+        {
+          "kind": "insurance",
+          "text": "Emergency travel medical for trips up to 10 days"
+        },
+        {
+          "kind": "insurance",
+          "text": "Car rental damage and theft"
+        },
+        {
+          "kind": "insurance",
+          "text": "Purchase assurance for 90 days and extended warranty up to 1 more year"
+        },
+        {
+          "kind": "everyday",
+          "text": "Identity theft assistance"
+        }
       ],
       "source": "pcfinancial.ca, Ratehub, Milesopedia",
       "checked": "2026-11-08",
@@ -607,6 +793,24 @@
         "From November 18, 2026: up to 5% on Rogers purchases, and cash back no longer redeems at 1.5x on Rogers bills.",
         "From November 18, 2026, trip cancellation, interruption and delay insurance ends, and emergency medical cover goes to 15 days per trip for ages 64 and under."
       ],
+      "perks": [
+        {
+          "kind": "everyday",
+          "text": "No annual fee"
+        },
+        {
+          "kind": "travel",
+          "text": "Mastercard Travel Pass lounge membership (you pay per visit)"
+        },
+        {
+          "kind": "travel",
+          "text": "From January 12, 2027: a $75 yearly Rogers roaming credit instead of free Roam Like Home days"
+        },
+        {
+          "kind": "insurance",
+          "text": "Travel medical for 10 days (64 and under) and trip cancellation; insurance changes on November 18, 2026"
+        }
+      ],
       "source": "rogersbank.com, Milesopedia, Prince of Travel",
       "checked": "2026-11-08"
     },
@@ -672,6 +876,24 @@
       ],
       "notes": [
         "Caps are per statement period."
+      ],
+      "perks": [
+        {
+          "kind": "everyday",
+          "text": "Basic BMO Roadside Assistance"
+        },
+        {
+          "kind": "travel",
+          "text": "Mastercard Travel Pass lounge membership (you pay per visit)"
+        },
+        {
+          "kind": "insurance",
+          "text": "Emergency medical for 8 days up to $5,000,000, trip cancellation and interruption"
+        },
+        {
+          "kind": "insurance",
+          "text": "Car rental collision damage waiver"
+        }
       ],
       "source": "bmo.com, NerdWallet Canada, Rates.ca, Ratehub",
       "checked": "2026-11-08",
@@ -748,6 +970,16 @@
       "notes": [
         "Since February 2025 each 5x category has its own yearly cap: $6,000 for dining and for groceries, $20,000 for gas and for transit."
       ],
+      "perks": [
+        {
+          "kind": "everyday",
+          "text": "$50 yearly lifestyle credit"
+        },
+        {
+          "kind": "insurance",
+          "text": "Travel insurance when the trip is charged to the card"
+        }
+      ],
       "source": "bmo.com, NerdWallet Canada, Milesopedia",
       "checked": "2026-11-08"
     },
@@ -769,6 +1001,24 @@
         }
       ],
       "notes": [],
+      "perks": [
+        {
+          "kind": "travel",
+          "text": "Points move 1 to 1 to British Airways Avios, Cathay Asia Miles and WestJet, and 10 to 7 to American AAdvantage"
+        },
+        {
+          "kind": "everyday",
+          "text": "Linked to Petro-Points: save 3 cents a litre and earn 20% more Petro-Points at Petro-Canada"
+        },
+        {
+          "kind": "everyday",
+          "text": "DoorDash DashPass free for 12 months"
+        },
+        {
+          "kind": "insurance",
+          "text": "Trip cancellation up to $1,500 a trip and interruption up to $5,000 a person, plus travel medical"
+        }
+      ],
       "source": "rbcroyalbank.com, NerdWallet Canada, Ratehub",
       "checked": "2026-11-08",
       "welcome": {
@@ -812,6 +1062,16 @@
       "notes": [
         "Bonus rates stop at a yearly spending cap; check your terms for the amount."
       ],
+      "perks": [
+        {
+          "kind": "everyday",
+          "text": "Gas savings at Pioneer, Fas Gas, Ultramar and Chevron with Journie Rewards"
+        },
+        {
+          "kind": "insurance",
+          "text": "Emergency travel medical and travel accident insurance"
+        }
+      ],
       "source": "cibc.com, Milesopedia, Frugal Flyer",
       "checked": "2026-11-08"
     },
@@ -848,6 +1108,28 @@
         "4% on groceries is for the first $30,000 a year; gas has no cap.",
         "4% is for stand-alone gas stations and grocery stores in Canada.",
         "Cash back is paid once a year, on the September statement."
+      ],
+      "perks": [
+        {
+          "kind": "insurance",
+          "text": "Emergency medical outside your province up to $5,000,000"
+        },
+        {
+          "kind": "insurance",
+          "text": "Flight delay and baggage delay insurance"
+        },
+        {
+          "kind": "insurance",
+          "text": "Mobile device insurance up to $1,000"
+        },
+        {
+          "kind": "insurance",
+          "text": "Car rental theft and damage, purchase protection and extended warranty"
+        },
+        {
+          "kind": "everyday",
+          "text": "Amex Experiences and Front of the Line presale tickets"
+        }
       ],
       "source": "americanexpress.com/ca, Rewards Canada, Frugal Flyer",
       "checked": "2026-11-08",
@@ -892,6 +1174,20 @@
       "notes": [
         "The no-fee version of the SimplyCash Preferred.",
         "2% on groceries is for the first $15,000 a year ($300 back); gas has no cap."
+      ],
+      "perks": [
+        {
+          "kind": "insurance",
+          "text": "Travel accident insurance up to $100,000"
+        },
+        {
+          "kind": "insurance",
+          "text": "Purchase protection"
+        },
+        {
+          "kind": "everyday",
+          "text": "Amex Experiences and Front of the Line presale tickets"
+        }
       ],
       "source": "americanexpress.com/ca, Frugal Flyer, creditcardGenius",
       "checked": "2026-11-08"
@@ -977,6 +1273,28 @@
         "8x is only on travel booked through Expedia for TD.",
         "6x and 4x stop at $25,000 a year in each category; a transit cap is not stated."
       ],
+      "perks": [
+        {
+          "kind": "travel",
+          "text": "$100 yearly TD Travel Credit on an Expedia for TD booking of $500 or more"
+        },
+        {
+          "kind": "travel",
+          "text": "Visa Airport Companion lounge membership"
+        },
+        {
+          "kind": "insurance",
+          "text": "Travel medical up to $2,000,000 for the first 21 days, plus trip insurance"
+        },
+        {
+          "kind": "insurance",
+          "text": "Mobile device insurance up to $1,000"
+        },
+        {
+          "kind": "everyday",
+          "text": "Visa Infinite concierge, Luxury Hotel Collection and dining events"
+        }
+      ],
       "source": "td.com, MoneySense",
       "checked": "2026-11-08"
     },
@@ -1054,6 +1372,28 @@
       "notes": [
         "3% stops at $15,000 a year in each category, then 1%."
       ],
+      "perks": [
+        {
+          "kind": "everyday",
+          "text": "Deluxe TD Auto Club roadside assistance"
+        },
+        {
+          "kind": "insurance",
+          "text": "Travel medical up to $2,000,000 for 10 days (4 days at 65 or older)"
+        },
+        {
+          "kind": "insurance",
+          "text": "Delayed and lost baggage, and car rental collision and loss"
+        },
+        {
+          "kind": "insurance",
+          "text": "Mobile device insurance up to $1,000 and 90-day purchase protection"
+        },
+        {
+          "kind": "everyday",
+          "text": "Visa Infinite concierge"
+        }
+      ],
       "source": "td.com, MoneySense, creditcardGenius",
       "checked": "2026-11-08",
       "welcome": {
@@ -1105,6 +1445,20 @@
         "2% at Costco.ca; Costco warehouse purchases earn 1%.",
         "Cash back comes as a Costco certificate each January."
       ],
+      "perks": [
+        {
+          "kind": "everyday",
+          "text": "No annual fee, and it is also your Costco membership card (needs a membership)"
+        },
+        {
+          "kind": "insurance",
+          "text": "Purchase security for 90 days and extended warranty"
+        },
+        {
+          "kind": "insurance",
+          "text": "Mobile device insurance up to $1,000"
+        }
+      ],
       "source": "cibc.com, creditcardGenius, Milesopedia",
       "checked": "2026-11-08"
     },
@@ -1141,6 +1495,20 @@
       "notes": [
         "The World Mastercard version earns the same."
       ],
+      "perks": [
+        {
+          "kind": "everyday",
+          "text": "No annual fee"
+        },
+        {
+          "kind": "everyday",
+          "text": "Extra fuel value at Shell stations"
+        },
+        {
+          "kind": "insurance",
+          "text": "90-day purchase protection and 1-year extended warranty"
+        }
+      ],
       "source": "tangerine.ca",
       "checked": "2026-11-08"
     },
@@ -1176,6 +1544,36 @@
       "notes": [
         "Dining and food delivery 2x is for purchases in Canada.",
         "A $200 yearly dining credit and lounge access are not counted here."
+      ],
+      "perks": [
+        {
+          "kind": "travel",
+          "text": "Unlimited lounge access: Centurion, Plaza Premium, Priority Pass and more (1,550+ lounges)"
+        },
+        {
+          "kind": "travel",
+          "text": "$200 yearly travel credit on American Express Travel bookings"
+        },
+        {
+          "kind": "travel",
+          "text": "Hotel status with several hotel programs, and The Hotel Collection perks on 2-night stays"
+        },
+        {
+          "kind": "travel",
+          "text": "Points move 1 to 1 to Aeroplan"
+        },
+        {
+          "kind": "everyday",
+          "text": "$200 yearly dining credit at listed Canadian restaurants"
+        },
+        {
+          "kind": "insurance",
+          "text": "Full travel insurance: emergency medical, trip cancellation and interruption, flight and baggage delay"
+        },
+        {
+          "kind": "insurance",
+          "text": "Hotel burglary, purchase protection and extended warranty"
+        }
       ],
       "source": "americanexpress.com/ca, Milesopedia, Mindful Travellers",
       "welcome": {
@@ -1230,6 +1628,36 @@
       ],
       "notes": [
         "3x is for Air Canada and Air Canada Vacations purchases."
+      ],
+      "perks": [
+        {
+          "kind": "travel",
+          "text": "Maple Leaf Lounge and Air Canada Cafe access in North America for you and a guest"
+        },
+        {
+          "kind": "travel",
+          "text": "Free first checked bag for you and up to 8 companions on the same booking"
+        },
+        {
+          "kind": "travel",
+          "text": "Priority check-in, boarding and baggage on Air Canada"
+        },
+        {
+          "kind": "travel",
+          "text": "Annual Worldwide Companion Pass after $25,000 of purchases a year"
+        },
+        {
+          "kind": "travel",
+          "text": "Status Qualifying Credits: 1,000 for every $5,000 spent, up to 25,000 a year"
+        },
+        {
+          "kind": "everyday",
+          "text": "From January 12, 2027: $200 yearly dining credit and Priority Pass and Amex lounge visits"
+        },
+        {
+          "kind": "insurance",
+          "text": "Emergency medical, trip cancellation and trip interruption insurance"
+        }
       ],
       "source": "americanexpress.com/ca, Milesopedia, Frugal Flyer",
       "welcome": {
@@ -1297,6 +1725,28 @@
         "2x is for Air Canada and Air Canada Vacations purchases.",
         "The $100,000 combined yearly cap on bonus rates is from third party reviews."
       ],
+      "perks": [
+        {
+          "kind": "travel",
+          "text": "Maple Leaf Lounge access, plus 6 free visits a year to other lounges (Visa Airport Companion)"
+        },
+        {
+          "kind": "travel",
+          "text": "Free first checked bag for you and up to 8 companions when the trip starts on Air Canada"
+        },
+        {
+          "kind": "travel",
+          "text": "Priority check-in, boarding and baggage on Air Canada"
+        },
+        {
+          "kind": "travel",
+          "text": "NEXUS application rebate up to $100 every 48 months"
+        },
+        {
+          "kind": "insurance",
+          "text": "Travel medical up to $5,000,000 for 31 days (4 days at 65 or older), and trip insurance"
+        }
+      ],
       "source": "td.com, Milesopedia, Unravel Travel",
       "fxFee": 0.025,
       "checked": "2026-11-08"
@@ -1341,6 +1791,28 @@
       "notes": [
         "2x is for Air Canada and Air Canada Vacations purchases."
       ],
+      "perks": [
+        {
+          "kind": "travel",
+          "text": "Maple Leaf Lounge access in North America for you and a guest"
+        },
+        {
+          "kind": "travel",
+          "text": "6 free visits a year to other lounges (Visa Airport Companion)"
+        },
+        {
+          "kind": "travel",
+          "text": "Free first checked bag for you, authorized users and up to 8 companions"
+        },
+        {
+          "kind": "travel",
+          "text": "Priority check-in, boarding and baggage on Air Canada"
+        },
+        {
+          "kind": "insurance",
+          "text": "Full travel insurance package"
+        }
+      ],
       "source": "cibc.com, Milesopedia, Frugal Flyer, Money.ca",
       "fxFee": 0.025,
       "checked": "2026-11-08"
@@ -1358,6 +1830,24 @@
       "earn": [],
       "notes": [
         "2 Scene+ points per $1 on everything, no foreign transaction fee."
+      ],
+      "perks": [
+        {
+          "kind": "travel",
+          "text": "No foreign transaction fee"
+        },
+        {
+          "kind": "travel",
+          "text": "10 free lounge visits a year at Priority Pass and Plaza Premium lounges"
+        },
+        {
+          "kind": "insurance",
+          "text": "Full insurance package, including mobile device insurance"
+        },
+        {
+          "kind": "everyday",
+          "text": "Platinum offers and Amex Invites"
+        }
       ],
       "source": "scotiabank.com, Milesopedia, Ratehub",
       "checked": "2026-11-08"
@@ -1385,8 +1875,25 @@
         }
       ],
       "notes": [
-        "5x is at Marriott hotels.",
-        "A free night each anniversary (up to 35,000 points) is not counted here."
+        "5x is at Marriott hotels."
+      ],
+      "perks": [
+        {
+          "kind": "travel",
+          "text": "A free night each year from the first anniversary, at hotels up to 35,000 points"
+        },
+        {
+          "kind": "travel",
+          "text": "Marriott Bonvoy Silver Elite status, and 15 Elite Night Credits a year"
+        },
+        {
+          "kind": "travel",
+          "text": "Gold Elite status after $30,000 of purchases in a year"
+        },
+        {
+          "kind": "everyday",
+          "text": "Buyer's Assurance and Amex Experiences"
+        }
       ],
       "source": "americanexpress.com/ca, Prince of Travel, Frugal Flyer",
       "welcome": {
@@ -1428,6 +1935,24 @@
       "notes": [
         "5x covers restaurants, groceries, digital media, memberships and household utilities.",
         "The $50,000 yearly cap is per category; it is counted here as one cap, which only matters for very large spending."
+      ],
+      "perks": [
+        {
+          "kind": "everyday",
+          "text": "Birthday bonus: 10% of the points earned in the past year, up to 15,000 points"
+        },
+        {
+          "kind": "insurance",
+          "text": "Travel medical up to $2,000,000 for the first 21 days (65 and under)"
+        },
+        {
+          "kind": "insurance",
+          "text": "Mobile device insurance up to $1,000 and 90-day purchase protection"
+        },
+        {
+          "kind": "everyday",
+          "text": "Mastercard World Elite concierge"
+        }
       ],
       "source": "mbna.ca, Milesopedia, Frugal Flyer",
       "fxFee": 0.025,
@@ -1508,8 +2033,29 @@
       "notes": [
         "Refreshed November 2, 2026: 5x on travel, groceries, gas, health and wellness, and dining and takeout, and no foreign transaction fee.",
         "Drugstore is counted as health and wellness; BMO does not name it, so that is unconfirmed.",
-        "Each 5x category has its own yearly cap, reset every January 1: $25,000 travel, $25,000 dining, $20,000 groceries, $15,000 gas, $15,000 health and wellness ($100,000 in all).",
-        "Adding an authorized user raises 5x to 6.25x, not counted here."
+        "Each 5x category has its own yearly cap, reset every January 1: $25,000 travel, $25,000 dining, $20,000 groceries, $15,000 gas, $15,000 health and wellness ($100,000 in all)."
+      ],
+      "perks": [
+        {
+          "kind": "travel",
+          "text": "No foreign transaction fee (since November 2, 2026)"
+        },
+        {
+          "kind": "travel",
+          "text": "10 free airport lounge visits a year (Visa Airport Companion)"
+        },
+        {
+          "kind": "travel",
+          "text": "$200 yearly travel credit on a travel purchase of $500 or more"
+        },
+        {
+          "kind": "everyday",
+          "text": "Adding an authorized user raises 5x to 6.25x"
+        },
+        {
+          "kind": "insurance",
+          "text": "Travel insurance package"
+        }
       ],
       "source": "BMO announcement, Prince of Travel, Milesopedia",
       "welcome": {

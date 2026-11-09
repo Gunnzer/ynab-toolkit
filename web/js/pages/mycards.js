@@ -10,7 +10,7 @@ import { browserFetchJson, loadCatalogue } from "../tools/card_feed.js";
 import {
   centsPerPoint, daysSince, groupName, groupUnit, shortName, transferRatio, walletCards,
 } from "../tools/card_rewards.js";
-import { FACES, LIGHT_FACES, cardFace, earnLines, feeInfo, walletFees } from "../tools/my_cards.js";
+import { FACES, LIGHT_FACES, cardFace, earnLines, feeInfo, perkGroups, walletFees } from "../tools/my_cards.js";
 import {
   button, card, checkbox, clear, confirmDialog, customDialog, dateLabel, el, field, hint,
   pageHeading, pill, sectionTitle, select, textInput, todayIso,
@@ -293,12 +293,29 @@ export function myCardsPage(app) {
       sectionLabel("Rewards"),
       rewardList(resolved),
       setup(entry, resolved),
+      perksList(resolved),
       notes.length
         ? el("details", { class: "mycard-notes" },
           el("summary", { text: `Notes (${notes.length})` }),
           notes.map((n) => hint(n)))
         : "",
       hint(resolved.checked ? `Checked ${dateLabel(resolved.checked)} against ${resolved.source}.` : `${resolved.source}.`));
+  }
+
+  // Every perk, folded away like Notes (at explicit user request: "a full
+  // list of perks somewhere with either a collapse like notes or a pop up").
+  function perksList(c) {
+    const groups = perkGroups(c);
+    const count = groups.reduce((n, g) => n + g.items.length, 0);
+    if (!count) return "";
+    return el("details", { class: "mycard-notes mycard-perks" },
+      el("summary", { text: `Perks (${count})` }),
+      groups.map((g) => el("div", { class: "mycard-perk-group" },
+        el("div", { class: "mycard-perk-label", text: g.label }),
+        el("ul", {}, g.items.map((t) => el("li", { text: t }))))),
+      groups.some((g) => g.kind === "insurance")
+        ? hint("Insurance has conditions, limits and age rules, and travel cover usually needs the trip charged to the card. Check the card's insurance certificate before relying on it.")
+        : "");
   }
 
   // A card dropped from the downloaded list (discontinued, usually). Kept

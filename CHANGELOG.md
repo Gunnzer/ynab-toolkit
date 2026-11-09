@@ -9,6 +9,12 @@ Maintained going forward: add a new dated entry for each push, in this same
 style (feature/fix name and files, then bullets on what changed and why),
 before or as part of the push itself.
 
+## 2026-11-09
+
+**My cards: every card's perks** (`data/cards.json`, `tools/card_rewards.js`, `tools/card_catalogue.js`, `tools/my_cards.js`, `pages/mycards.js`, `css/app.css`, tests, `CLAUDE.md`)
+* Each card on My cards has a folded-away Perks list, grouped into Travel (free checked bags, lounges, travel credits, points transfers), Insurance and Everyday (roadside help, gas savings, concierge and the like), with a reminder that insurance has conditions.
+* Filled in for all 29 cards from current Canadian sources. Where sources disagreed on an amount, the perk is listed without the number rather than guessed.
+
 ## 2026-11-08
 
 **Card Rewards: card types spelled out** (`tools/card_rewards.js`, `data/cards.json`, tests, `CLAUDE.md`)

@@ -125,6 +125,9 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
  * shipped file, so a bad weekly update fails the deploy instead of
  * reaching anyone.
  */
+/** What a card's perks are grouped under on My cards, in this order. */
+export const PERK_KINDS = ["travel", "insurance", "everyday"];
+
 export function validateCatalogue(data) {
   const problems = [];
   if (!data || typeof data !== "object") return ["It is not a catalogue at all."];
@@ -201,6 +204,10 @@ export function validateCatalogue(data) {
     if (change !== undefined && (!change || typeof change !== "object" ||
         !(typeof change.fee === "number" && change.fee >= 0) || !DATE.test(change.from || ""))) {
       problems.push(`${name}: a fee change needs a fee and a from date.`);
+    }
+    if (card.perks !== undefined && (!Array.isArray(card.perks) || card.perks.some((perk) =>
+      !perk || !PERK_KINDS.includes(perk.kind) || typeof perk.text !== "string" || !perk.text.trim() || perk.text.length > 200))) {
+      problems.push(`${name}: each perk needs a kind (${PERK_KINDS.join(", ")}) and a short text.`);
     }
     const w = card.welcome;
     if (w !== undefined) {
