@@ -10,11 +10,11 @@ import { merchantByName, normalise, searchMerchants } from "../tools/merchants.j
 import {
   TARGET_CONFIDENCE, UNSURE, centsPerPoint, explain,
   formatEarned, formatRate, formatValue, formatWorth, groupName, groupUnit,
-  asPreferred, capAnswerUntil, offerAtShop, offersFor, purchaseLabel, recommend, savedCapAnswers, shortName,
+  asPreferred, capAnswerUntil, offerAtShop, offersFor, purchaseLabel, rankOthers, recommend, savedCapAnswers, shortName,
   walletCards,
 } from "../tools/card_rewards.js";
 import {
-  button, card, clear, confirmDialog, customDialog, el, field, hint, icon,
+  button, card, checkbox, clear, confirmDialog, customDialog, el, field, hint, icon,
   pageHeading, pill, sectionTitle, select, textInput,
 } from "../ui.js";
 
@@ -253,7 +253,10 @@ export function cardRewardsPage(app) {
   // (at explicit user request), with an "Offer" tag on what they are about.
   const offersHost = el("div");
   let offers = [];
-  root.append(resultsHost, offersHost, walletNote);
+  // Cards you do not have, ranked for the same purchase (at explicit user
+  // request: "a toggle or something to show best card not owned").
+  const othersHost = el("div", { class: "reward-others" });
+  root.append(resultsHost, othersHost, offersHost, walletNote);
 
   let feed = null;
 
@@ -295,7 +298,59 @@ export function cardRewardsPage(app) {
     offers = offersFor(OFFERS, offerCards(), localToday());
     renderAsk();
     renderResults();
+    renderOthers();
     renderOffers();
+  }
+
+  const OTHERS_SHOWN = 5;
+  const NETWORK_SHORT = { amex: "Amex", visa: "Visa", mastercard: "Mastercard" };
+
+  function renderOthers() {
+    clear(othersHost);
+    if (!settings.purchase || !CARDS.length) return;
+    othersHost.append(el("div", { class: "reward-others-toggle" },
+      checkbox("Show the best cards you don't have", settings.showOthers, (on) => {
+        settings.showOthers = on;
+        store.save();
+        renderOthers();
+      })));
+    if (!settings.showOthers) return;
+    const held = new Set(settings.wallet.map((e) => e.id));
+    const ranked = rankOthers(CARDS.filter((c) => !held.has(c.id)), settings.purchase, allAnswers(), {
+      values: settings.values,
+      preferred: settings.preferred,
+    }).filter((stat) => stat.accepted).slice(0, OTHERS_SHOWN);
+    const mine = last?.groups?.[0]?.cards?.find((stat) => stat.accepted);
+    const spend = amount();
+    const what = shop ? `at ${shop.name}` : `for ${purchaseLabel(settings.purchase).toLowerCase()}`;
+    othersHost.append(el("section", { class: "card reward-group" },
+      el("div", { class: "reward-group-head" },
+        el("h3", { class: "section-title", text: `Cards you don't have, ${what}` }),
+        el("span", {
+          class: "hint",
+          text: "Best first, from the card list. Caps count as unused, since a new card starts fresh. Annual fees are not taken off.",
+        })),
+      ranked.length
+        ? ranked.map((stat, i) => otherRow(stat, i + 1, mine, spend))
+        : el("p", { class: "reward-answer-none", text: "No other card in the list is accepted here." })));
+  }
+
+  function otherRow(stat, rank, mine, spend) {
+    const c = stat.card;
+    const beats = mine && stat.score > mine.score + 1e-9;
+    const meta = [
+      NETWORK_SHORT[c.network] || "",
+      c.annualFee ? `$${Number(c.annualFee).toLocaleString("en-CA")} a year` : "No annual fee",
+    ].filter(Boolean).join(" \u00b7 ");
+    return el("div", { class: "reward-row reward-other-row" },
+      el("span", { class: "reward-rank", "aria-label": `Number ${rank}` }, el("span", { text: String(rank) })),
+      rateCell(stat),
+      el("div", { class: "reward-body" },
+        el("div", { class: "reward-name" },
+          cardName(c),
+          beats ? pill("Beats yours", "ok") : null),
+        el("div", { class: "hint reward-other-meta", text: meta }),
+        detailLines(detailLine(stat, spend), "reward-detail-line")));
   }
 
   /** Your cards as offers see them, with or without a purchase picked. */

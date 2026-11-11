@@ -725,6 +725,29 @@ export function recommend(cards, purchase, answers = {}, view = {}) {
   return { ...now, next, optional, asked, questions, view: settings };
 }
 
+/**
+ * Cards you do not hold, ranked for this purchase the same way as yours, in
+ * one list best first (at explicit user request: "a toggle or something to
+ * show best card not owned"). No questions are worked out: it uses the
+ * answers already given, and a card you do not have yet has none of its
+ * caps used up, so every cap question is taken as "under" (which also keeps
+ * the scenarios small across the whole catalogue).
+ */
+export function rankOthers(cards, purchase, answers = {}, view = {}) {
+  const settings = {
+    measure: "value",
+    grouped: false,
+    values: view.values || {},
+    preferred: view.preferred && POINT_TYPES[view.preferred] ? view.preferred : "",
+  };
+  const list = asPreferred(cards || [], settings.preferred);
+  if (!list.length) return [];
+  const questions = questionsFor(purchase, list);
+  const fresh = { ...answers };
+  for (const q of questions) if (q.cap) fresh[q.id] = "under";
+  return evaluate(list, purchase, fresh, questions, settings).groups[0]?.cards || [];
+}
+
 /** Why a card's rate is what it is, in words, for the result list. */
 export function explain(stat, purchase, answers) {
   const lines = [];

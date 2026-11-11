@@ -2540,7 +2540,13 @@ select.is-empty option { color: var(--text); }
 .mycard-perks li + li { margin-top: 3px; }
 .mycard > .hint:last-child { margin: 0; font-size: 12px; }
 .reward-wallet-note { margin: 0; }
+.reward-others { display: flex; flex-direction: column; gap: 12px; }
+.reward-others:empty { display: none; }
+.reward-others-toggle { padding: 0 4px; }
+.reward-other-meta { margin: 0; }
 @media (max-width: 560px) {
   .mycards-grid { grid-template-columns: 1fr; }
   .card-face { max-width: none; }
 }
+.reward-other-row .reward-name { flex-wrap: wrap; row-gap: 2px; }
+.reward-other-row .reward-title { white-space: normal; overflow: visible; }

@@ -510,3 +510,22 @@ describe("offers and events", () => {
     assert.ok(!offerAtShop(offer({}), "Rexall"));
   });
 });
+
+describe("cards you do not have", () => {
+  test("ranked best first, caps fresh, acceptance still counts", async () => {
+    const { rankOthers } = await import("../js/tools/card_rewards.js");
+    const { CARDS } = await import("../js/tools/card_catalogue.js");
+    const groceries = rankOthers(CARDS, "groceries", {});
+    assert.ok(groceries.length === CARDS.length);
+    assert.ok(groceries.slice(1).every((s, i) => !s.accepted || groceries[i].accepted));
+    const top = groceries[0];
+    assert.ok(top.accepted && top.score >= 5, `${top.card.id} ${top.score}`);
+    // At a Loblaw store Amex is not taken, so the top card is not an Amex.
+    const loblaw = rankOthers(CARDS, "groceries", { store: "loblaw" });
+    assert.notEqual(loblaw[0].card.network, "amex");
+    // A cap you said was used up on your own card says nothing about a new one.
+    const fresh = rankOthers(CARDS.filter((c) => c.id === "amex-cobalt"), "groceries", { "cap:amex-cobalt:eats": "over" });
+    assert.equal(fresh[0].rate, 5);
+    assert.deepEqual(rankOthers([], "groceries"), []);
+  });
+});

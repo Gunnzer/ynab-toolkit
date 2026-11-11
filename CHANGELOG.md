@@ -9,6 +9,12 @@ Maintained going forward: add a new dated entry for each push, in this same
 style (feature/fix name and files, then bullets on what changed and why),
 before or as part of the push itself.
 
+## 2026-11-11
+
+**Which card to use: the best cards you don't have** (`pages/cardrewards.js`, `tools/card_rewards.js`, `store.js`, `css/app.css`, tests, `CLAUDE.md`)
+* A "Show the best cards you don't have" switch under the results lists the top 5 cards from the card list that you don't hold, for the same shop or category, with their % back, network and annual fee, and "Beats yours" when one earns more than your best card there.
+* It uses the answers you already gave (a Loblaw store still leaves out Amex), and counts caps as unused, since a new card starts fresh. Annual fees are not taken off. The switch is remembered.
+
 ## 2026-11-09
 
 **My cards: every card's perks** (`data/cards.json`, `tools/card_rewards.js`, `tools/card_catalogue.js`, `tools/my_cards.js`, `pages/mycards.js`, `css/app.css`, tests, `CLAUDE.md`)

@@ -174,6 +174,8 @@ export const DEFAULTS = {
     // What you answered at each shop, filled in next time you pick it:
     // { "<normalised shop name>": { answers: { amex: "no", ... }, on, name?, purchase? } }
     shops: {},
+    // Which card to use also ranks the cards you do not have.
+    showOthers: false,
   },
   cardTiers: {
     // The person's own moves on the Tier list: { cardId: tierId, or "" for off the list }.
