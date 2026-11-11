@@ -11,6 +11,16 @@ before or as part of the push itself.
 
 ## 2026-11-11
 
+**Card Rewards: every card re-checked in detail** (`data/cards.json`)
+* All 28 cards were checked one by one against current Canadian sources, including which categories each rate covers and every cap. A figure was changed only where the bank says so or two current sources agree.
+* TD Cash Back Visa Infinite also earns 3% on public transit (TD's own welcome guide); recurring bills share one $15,000 bucket with streaming and digital media.
+* TD First Class Travel: the 6x categories (groceries, restaurants, public transit) share one $25,000 yearly cap, and the 4x categories (bills, streaming, digital gaming and media) share another.
+* CIBC Dividend Visa Infinite: 4% stops at $20,000 a year of gas, EV and grocery purchases.
+* PC World Elite: at Shoppers only the card's own 30 points per $1 are counted; the advertised 45 includes the 15 every PC Optimum member earns with any card.
+* TD Aeroplan Visa Infinite's $80,000 cap is now confirmed by TD's terms, and CIBC's by its own calculator.
+* New 2027 perks: 15% fewer points on Air Canada reward flights for every Aeroplan card, and Air Canada Wallet credits (up to $50 a year on the Amex Aeroplan and TD Aeroplan Visa Infinite, up to $100 on the Reserve and TD Privilege).
+* Card rankings lines updated to match (PC World Elite, TD Cash Back, CIBC Dividend, MBNA).
+
 **Card Rewards: every bonus category** (`tools/card_catalogue.js`, `tools/card_rewards.js`, `tools/merchants.js`, `pages/cardrewards.js`, `pages/mycards.js`, `data/cards.json`, tests, `CLAUDE.md`)
 * New categories: Parking, Apps games and digital media, Gyms spas and wellness, Hotels (travel is now Flights and other travel), Home improvement, and Furniture. Recurring bills now mention utilities.
 * Fixed: BMO eclipse Visa Infinite Privilege's 5x health and wellness is spas, massage, gyms, golf and recreation, and no longer drugstores, since BMO's November 2 refresh. Go Place and other spas now earn 5x on it.

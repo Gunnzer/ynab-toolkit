@@ -276,6 +276,10 @@
         {
           "kind": "insurance",
           "text": "Mobile device insurance up to $1,000"
+        },
+        {
+          "kind": "travel",
+          "text": "From January 12, 2027: up to $50 a year in Air Canada Wallet credit"
         }
       ],
       "source": "americanexpress.com/ca, Milesopedia, NerdWallet Canada",
@@ -334,8 +338,8 @@
       ],
       "notes": [
         "Air Canada 1.5x counts purchases made directly with Air Canada, Air Canada Vacations included.",
-        "The $80,000 yearly cap on 1.5x is from third party calculators; TD's own page does not state it.",
-        "TD is raising its Aeroplan card fees from January 25, 2027, reported as matching CIBC's (this card to $159)."
+        "TD is raising its Aeroplan card fees from January 25, 2027, reported as matching CIBC's (this card to $159).",
+        "TD's terms put the 1.5x on gas, grocery and Air Canada purchases on up to $80,000 a year combined; EV charging at 1.5x is from Ratehub and Milesopedia."
       ],
       "perks": [
         {
@@ -349,6 +353,10 @@
         {
           "kind": "everyday",
           "text": "Visa Infinite concierge, Luxury Hotel Collection and dining events"
+        },
+        {
+          "kind": "travel",
+          "text": "From January 12, 2027: 15% fewer points on Air Canada reward flights, and up to $50 a year in Air Canada Wallet credit"
         }
       ],
       "source": "td.com, Milesopedia, The Point Calculator",
@@ -412,7 +420,7 @@
         }
       ],
       "notes": [
-        "The $80,000 yearly cap on 1.5x is not confirmed on CIBC's own page."
+        "CIBC's calculator shows the $80,000 yearly limit, reset after the December statement."
       ],
       "perks": [
         {
@@ -430,10 +438,14 @@
         {
           "kind": "everyday",
           "text": "Visa Infinite concierge, hotel benefits and dining events"
+        },
+        {
+          "kind": "travel",
+          "text": "From January 12, 2027: 15% fewer points on Air Canada reward flights"
         }
       ],
       "source": "cibc.com, Finder Canada, Prince of Travel",
-      "checked": "2026-11-08"
+      "checked": "2026-11-11"
     },
     {
       "id": "scotia-gold-amex",
@@ -564,7 +576,8 @@
       ],
       "notes": [
         "3x at Sobeys, Safeway, IGA, Foodland and participating co-ops.",
-        "No foreign transaction fee."
+        "No foreign transaction fee.",
+        "One review says the 3x and 2x stop at $50,000 a year; Scotiabank's page does not say, so no cap is counted."
       ],
       "perks": [
         {
@@ -589,7 +602,7 @@
         }
       ],
       "source": "scotiabank.com, NerdWallet Canada, Rewards Canada",
-      "checked": "2026-11-08",
+      "checked": "2026-11-11",
       "welcome": {
         "points": 35000,
         "minSpend": 10000,
@@ -657,7 +670,7 @@
         }
       ],
       "source": "scotiabank.com, Prince of Travel, Ratehub",
-      "checked": "2026-11-08"
+      "checked": "2026-11-11"
     },
     {
       "id": "pc-world-elite",
@@ -673,7 +686,7 @@
           "on": [
             "drugstore"
           ],
-          "rate": 45,
+          "rate": 30,
           "when": {
             "pharmacy": [
               "shoppers"
@@ -704,7 +717,8 @@
         }
       ],
       "notes": [
-        "Esso and Mobil earn at least 30 points per litre; shown here as about 20 per dollar at $1.50 a litre."
+        "Esso and Mobil earn at least 30 points per litre; shown here as about 20 per dollar at $1.50 a litre.",
+        "At Shoppers the card is advertised at 45 points per $1, which includes the 15 every PC Optimum member earns with any card, so only the card's 30 is counted."
       ],
       "perks": [
         {
@@ -729,7 +743,7 @@
         }
       ],
       "source": "pcfinancial.ca, Ratehub, Milesopedia",
-      "checked": "2026-11-08",
+      "checked": "2026-11-11",
       "welcome": {
         "points": 50000,
         "minSpend": 100,
@@ -816,7 +830,7 @@
         }
       ],
       "source": "rogersbank.com, Milesopedia, Prince of Travel",
-      "checked": "2026-11-08"
+      "checked": "2026-11-11"
     },
     {
       "id": "bmo-cashback-we",
@@ -976,7 +990,7 @@
         }
       ],
       "source": "bmo.com, NerdWallet Canada, Milesopedia",
-      "checked": "2026-11-08"
+      "checked": "2026-11-11"
     },
     {
       "id": "rbc-avion-vi",
@@ -1043,7 +1057,13 @@
             "gas",
             "ev"
           ],
-          "rate": 4
+          "rate": 4,
+          "cap": {
+            "key": "four",
+            "spend": 20000,
+            "per": "year",
+            "label": "4% purchases"
+          }
         },
         {
           "on": [
@@ -1056,7 +1076,7 @@
         }
       ],
       "notes": [
-        "Bonus rates stop at a yearly spending cap; check your terms for the amount."
+        "4% stops at $20,000 a year of gas, EV charging and grocery purchases (PointCrunch, Ratesopedia); CIBC's own terms were not found."
       ],
       "perks": [
         {
@@ -1069,7 +1089,7 @@
         }
       ],
       "source": "cibc.com, Milesopedia, Frugal Flyer",
-      "checked": "2026-11-08"
+      "checked": "2026-11-11"
     },
     {
       "id": "amex-simplycash-preferred",
@@ -1128,7 +1148,7 @@
         }
       ],
       "source": "americanexpress.com/ca, Rewards Canada, Frugal Flyer",
-      "checked": "2026-11-08",
+      "checked": "2026-11-11",
       "welcome": {
         "cash": 250,
         "minSpend": 2000,
@@ -1186,7 +1206,7 @@
         }
       ],
       "source": "americanexpress.com/ca, Frugal Flyer, creditcardGenius",
-      "checked": "2026-11-08"
+      "checked": "2026-11-11"
     },
     {
       "id": "td-first-class-vi",
@@ -1212,63 +1232,37 @@
         },
         {
           "on": [
-            "groceries"
-          ],
-          "rate": 6,
-          "cap": {
-            "key": "groceries",
-            "spend": 25000,
-            "per": "year",
-            "label": "groceries"
-          }
-        },
-        {
-          "on": [
+            "groceries",
             "dining",
-            "delivery"
-          ],
-          "rate": 6,
-          "cap": {
-            "key": "dining",
-            "spend": 25000,
-            "per": "year",
-            "label": "restaurants"
-          }
-        },
-        {
-          "on": [
+            "delivery",
             "transit"
           ],
-          "rate": 6
-        },
-        {
-          "on": [
-            "bills"
-          ],
-          "rate": 4,
+          "rate": 6,
           "cap": {
-            "key": "bills",
+            "key": "six",
             "spend": 25000,
             "per": "year",
-            "label": "recurring bills"
+            "label": "6x purchases"
           }
         },
         {
           "on": [
-            "streaming"
+            "bills",
+            "streaming",
+            "digital"
           ],
           "rate": 4,
           "cap": {
-            "key": "streaming",
+            "key": "four",
             "spend": 25000,
             "per": "year",
-            "label": "streaming"
+            "label": "4x purchases"
           }
         }
       ],
       "notes": [
         "8x is only on travel booked through Expedia for TD.",
-        "6x and 4x stop at $25,000 a year in each category; a transit cap is not stated."
+        "6x on groceries, restaurants and public transit share one $25,000 yearly cap; 4x on recurring bills, streaming, digital gaming and media share another (some sources say per category)."
       ],
       "perks": [
         {
@@ -1293,7 +1287,7 @@
         }
       ],
       "source": "td.com, MoneySense",
-      "checked": "2026-11-08"
+      "checked": "2026-11-11"
     },
     {
       "id": "td-cashback-vi",
@@ -1319,56 +1313,46 @@
         },
         {
           "on": [
-            "gas"
+            "gas",
+            "ev"
           ],
           "rate": 3,
           "cap": {
             "key": "gas",
             "spend": 15000,
             "per": "year",
-            "label": "gas"
+            "label": "gas and EV charging"
           }
         },
         {
           "on": [
-            "ev"
+            "transit"
           ],
           "rate": 3,
           "cap": {
-            "key": "ev",
+            "key": "transit",
             "spend": 15000,
             "per": "year",
-            "label": "EV charging"
+            "label": "public transit"
           }
         },
         {
           "on": [
-            "bills"
+            "bills",
+            "streaming",
+            "digital"
           ],
           "rate": 3,
           "cap": {
             "key": "bills",
             "spend": 15000,
             "per": "year",
-            "label": "recurring bills"
-          }
-        },
-        {
-          "on": [
-            "streaming",
-            "digital"
-          ],
-          "rate": 3,
-          "cap": {
-            "key": "streaming",
-            "spend": 15000,
-            "per": "year",
-            "label": "streaming, gaming and digital media"
+            "label": "bills, streaming and digital media"
           }
         }
       ],
       "notes": [
-        "3% stops at $15,000 a year in each category, then 1%.",
+        "3% stops at $15,000 a year in each of: groceries; gas and EV charging; public transit; recurring bills with streaming, digital gaming and media. Then 1%.",
         "Streaming, digital gaming and media cover streaming services, in-game purchases, apps, music and e-books."
       ],
       "perks": [
@@ -1686,12 +1670,16 @@
           "text": "Status Qualifying Credits: 1,000 for every $5,000 spent, up to 25,000 a year"
         },
         {
-          "kind": "everyday",
-          "text": "From January 12, 2027: $200 yearly dining credit and Priority Pass and Amex lounge visits"
-        },
-        {
           "kind": "insurance",
           "text": "Emergency medical, trip cancellation and trip interruption insurance"
+        },
+        {
+          "kind": "travel",
+          "text": "From January 12, 2027: 15% fewer points on Air Canada reward flights, and up to $100 a year in Air Canada Wallet credit"
+        },
+        {
+          "kind": "everyday",
+          "text": "From January 12, 2027: $200 yearly dining credit and Priority Pass and Amex lounge visits"
         }
       ],
       "source": "americanexpress.com/ca, Milesopedia, Frugal Flyer",
@@ -1704,7 +1692,7 @@
         "checked": "2026-11-06"
       },
       "fxFee": 0.025,
-      "checked": "2026-11-08"
+      "checked": "2026-11-11"
     },
     {
       "id": "td-aeroplan-vip",
@@ -1782,11 +1770,15 @@
         {
           "kind": "insurance",
           "text": "Travel medical up to $5,000,000 for 31 days (4 days at 65 or older), and trip insurance"
+        },
+        {
+          "kind": "travel",
+          "text": "From January 12, 2027: 15% fewer points on Air Canada reward flights, and up to $100 a year in Air Canada Wallet credit"
         }
       ],
       "source": "td.com, Milesopedia, Unravel Travel",
       "fxFee": 0.025,
-      "checked": "2026-11-08"
+      "checked": "2026-11-11"
     },
     {
       "id": "cibc-aeroplan-vip",
@@ -1828,7 +1820,8 @@
         }
       ],
       "notes": [
-        "2x is for Air Canada and Air Canada Vacations purchases."
+        "2x is for Air Canada and Air Canada Vacations purchases.",
+        "One review says the 1.5x stops at $100,000 a year; CIBC's page does not say, so no cap is counted."
       ],
       "perks": [
         {
@@ -1850,11 +1843,15 @@
         {
           "kind": "insurance",
           "text": "Full travel insurance package"
+        },
+        {
+          "kind": "travel",
+          "text": "From January 12, 2027: 15% fewer points on Air Canada reward flights"
         }
       ],
       "source": "cibc.com, Milesopedia, Frugal Flyer, Money.ca",
       "fxFee": 0.025,
-      "checked": "2026-11-08"
+      "checked": "2026-11-11"
     },
     {
       "id": "scotia-platinum-amex",
@@ -2134,7 +2131,7 @@
     }
   ],
   "tiers": {
-    "updated": "2026-11-08",
+    "updated": "2026-11-11",
     "source": "Long-running advice on r/PersonalFinanceCanada and r/churningcanada, checked against Milesopedia, Prince of Travel, Ratehub and this card list",
     "tiers": [
       {
@@ -2151,7 +2148,7 @@
           },
           {
             "card": "pc-world-elite",
-            "why": "No fee, and the card for Loblaw stores (which do not take Amex), with 45 points per $1 at Shoppers and at least 30 per litre at Esso."
+            "why": "No fee, and the card for Loblaw stores (which do not take Amex), with 30 points per $1 at Shoppers on top of the usual 15, and at least 30 per litre at Esso."
           }
         ]
       },
@@ -2211,11 +2208,11 @@
           },
           {
             "card": "cibc-dividend-vi",
-            "why": "4% on groceries, gas and EV charging, 2% on dining, transit and bills."
+            "why": "4% on groceries, gas and EV charging (up to $20,000 a year), 2% on dining, transit and bills."
           },
           {
             "card": "td-cashback-vi",
-            "why": "3% on groceries, gas, EV charging, recurring bills and streaming, up to $15,000 a year each."
+            "why": "3% on groceries, gas and EV charging, public transit, and bills, streaming and digital media, up to $15,000 a year each."
           },
           {
             "card": "scotia-momentum-vi",
@@ -2223,7 +2220,7 @@
           },
           {
             "card": "mbna-rewards-we",
-            "why": "5x on restaurants, groceries, streaming and bills (up to $50,000 a year each), as a Mastercard."
+            "why": "5x on restaurants, groceries, streaming, digital media and bills (up to $50,000 a year each), as a Mastercard."
           },
           {
             "card": "bmo-eclipse-vi",
