@@ -19,7 +19,7 @@ before or as part of the push itself.
 
 **My cards: every card's perks** (`data/cards.json`, `tools/card_rewards.js`, `tools/card_catalogue.js`, `tools/my_cards.js`, `pages/mycards.js`, `css/app.css`, tests, `CLAUDE.md`)
 * Each card on My cards has a folded-away Perks list, grouped into Travel (free checked bags, lounges, travel credits, points transfers), Insurance and Everyday (roadside help, gas savings, concierge and the like), with a reminder that insurance has conditions.
-* Filled in for all 29 cards from current Canadian sources. Where sources disagreed on an amount, the perk is listed without the number rather than guessed.
+* Filled in for all 28 cards from current Canadian sources. Where sources disagreed on an amount, the perk is listed without the number rather than guessed.
 
 ## 2026-11-08
 
