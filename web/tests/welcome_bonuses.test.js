@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { setCatalogue } from "../js/tools/card_catalogue.js";
 import { validateCatalogue } from "../js/tools/card_rewards.js";
 import {
-  CHEXY_FEE, addMonths, bonusValue, daysBetween, filterOffers, firstYearFee, progress, rankOffers, spentOnAccount,
+  CHEXY_FEE, ENDING_SOON_DAYS, addMonths, bonusValue, daysBetween, filterOffers, firstYearFee, offerDeadline, progress, rankOffers, spentOnAccount,
 } from "../js/tools/welcome_bonuses.js";
 
 const SHIPPED = JSON.parse(readFileSync(new URL("../data/cards.json", import.meta.url), "utf8"));
@@ -116,5 +116,18 @@ describe("narrowing the offers", () => {
     assert.deepEqual(ids({ fee: "under-200" }), ["a", "c"]);
     assert.deepEqual(ids({ fee: "premium" }), ["b"]);
     assert.deepEqual(ids({ points: "aeroplan", network: "amex" }), []);
+  });
+});
+
+describe("offer deadlines", () => {
+  test("the last day to apply, days left, ending soon, and the spend window", () => {
+    const c = (ends) => ({ welcome: offer({ ends, minSpend: 5000, months: 6 }) });
+    const d = offerDeadline(c("2026-11-25"), "2026-11-11");
+    assert.deepEqual([d.ends, d.daysLeft, d.soon, d.minSpend, d.months], ["2026-11-25", 14, true, 5000, 6]);
+    assert.equal(offerDeadline(c("2026-12-31"), "2026-11-11").soon, false);
+    assert.equal(offerDeadline(c("2026-11-11"), "2026-11-11").daysLeft, 0);
+    const none = offerDeadline(c(undefined), "2026-11-11");
+    assert.deepEqual([none.ends, none.daysLeft, none.soon], ["", null, false]);
+    assert.equal(ENDING_SOON_DAYS, 14);
   });
 });

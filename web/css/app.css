@@ -2227,6 +2227,9 @@ select.is-empty option { color: var(--text); }
 .bonus-filter-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .bonus-track-row { margin-top: 10px; }
 .bonus-filters .btn-link { margin-top: 6px; }
+.bonus-deadline { display: flex; align-items: flex-start; gap: 6px; margin-top: 4px; font-size: 13px; color: var(--muted); }
+.bonus-deadline svg { flex: none; margin-top: 2px; }
+.bonus-deadline.is-soon { color: var(--error); font-weight: 600; }
 .bonus-actions { margin-top: 6px; align-items: center; justify-content: space-between; }
 .bonus-actions .hint { margin: 0; }
 .bonus-track + .bonus-track { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
@@ -2550,3 +2553,5 @@ select.is-empty option { color: var(--text); }
 }
 .reward-other-row .reward-name { flex-wrap: wrap; row-gap: 2px; }
 .reward-other-row .reward-title { white-space: normal; overflow: visible; }
+.bonus-row .reward-name { flex-wrap: wrap; row-gap: 2px; }
+.bonus-row .reward-title { white-space: normal; overflow: visible; }

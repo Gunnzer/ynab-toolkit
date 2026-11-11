@@ -121,6 +121,29 @@ export function spentOnAccount(transactions, accountId, since, until) {
   return Math.max(0, round2(milli / 1000));
 }
 
+// An offer this close to its last day is flagged (at explicit user request:
+// "there should be deadlines on the sign up bonus page").
+export const ENDING_SOON_DAYS = 14;
+
+/**
+ * An offer's two deadlines: the last day to apply, when one is announced,
+ * and the spend window after opening.
+ *   { ends: "YYYY-MM-DD" | "", daysLeft: number | null, soon, minSpend, months }
+ * daysLeft counts today as a day left (0 on the last day).
+ */
+export function offerDeadline(card, today) {
+  const w = card?.welcome || {};
+  const ends = w.ends || "";
+  const daysLeft = ends && today ? daysBetween(today, ends) : null;
+  return {
+    ends,
+    daysLeft,
+    soon: daysLeft !== null && daysLeft >= 0 && daysLeft <= ENDING_SOON_DAYS,
+    minSpend: Number(w.minSpend) || 0,
+    months: Number(w.months) || 0,
+  };
+}
+
 /** What the Offers list can be narrowed by; "" means any. */
 export const NO_FILTERS = { points: "", network: "", issuer: "", fee: "" };
 

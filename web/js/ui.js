@@ -93,6 +93,9 @@ const ICONS = {
     '<circle cx="6" cy="12" r="1.4" fill="currentColor" stroke="none"/>' +
     '<circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/>' +
     '<circle cx="18" cy="12" r="1.4" fill="currentColor" stroke="none"/>',
+  clock:
+    '<circle cx="12" cy="12" r="8.5"/>' +
+    '<path d="M12 7.5V12l3 2"/>',
   layout:
     '<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/>' +
     '<rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/>' +

@@ -11,6 +11,12 @@ before or as part of the push itself.
 
 ## 2026-11-11
 
+**Sign-up bonuses: deadlines on every offer** (`pages/welcomebonuses.js`, `tools/welcome_bonuses.js`, `ui.js`, `css/app.css`, `data/cards.json`, tests, `CLAUDE.md`)
+* Every offer now says when it ends: "Apply by Nov 25, 2026 (14 days left)", with a red "Ends in n days" tag in the last two weeks, or "No end date announced, so it can change at any time" when the bank gives none.
+* The same line says how long you then have to spend: "Then spend $5,000 within 6 months of opening."
+* Card names in the list are shown in full instead of being cut off.
+* BMO eclipse Visa Infinite Privilege's offer is removed: the old one ended October 31, and the new one (up to 200,000 points, to October 31, 2027) has not published its spending steps.
+
 **Card Rewards: every card re-checked in detail** (`data/cards.json`)
 * All 28 cards were checked one by one against current Canadian sources, including which categories each rate covers and every cap. A figure was changed only where the bank says so or two current sources agree.
 * TD Cash Back Visa Infinite also earns 3% on public transit (TD's own welcome guide); recurring bills share one $15,000 bucket with streaming and digital media.

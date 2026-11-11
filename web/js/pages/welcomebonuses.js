@@ -7,7 +7,7 @@ import { CARDS, NETWORKS, POINT_TYPES } from "../tools/card_catalogue.js";
 import { browserFetchJson, loadCatalogue } from "../tools/card_feed.js";
 import { shortName } from "../tools/card_rewards.js";
 import {
-  CHEXY_FEE, NO_FILTERS, addMonths, filterOffers, progress, rankOffers, spentOnAccount,
+  CHEXY_FEE, NO_FILTERS, addMonths, filterOffers, offerDeadline, progress, rankOffers, spentOnAccount,
 } from "../tools/welcome_bonuses.js";
 import {
   button, card, checkbox, clear, confirmDialog, customDialog, el, field, hint, icon, pageHeading, pill,
@@ -164,6 +164,7 @@ export function welcomeBonusesPage(app) {
       ? `${w.points.toLocaleString("en-CA")} ${POINT_TYPES[c.points]?.name || "points"}`
       : "";
     const parts = [points, w.cash ? `${money(w.cash)} cash` : ""].filter(Boolean).join(" + ");
+    const deadline = offerDeadline(c, today);
     return el("div", { class: `bonus-row${have || dismissed ? " is-held" : ""}` },
       el("div", { class: "bonus-value" },
         el("span", { text: money(Math.round(net)) }),
@@ -172,7 +173,7 @@ export function welcomeBonusesPage(app) {
         el("div", { class: "reward-name" },
           el("span", { class: "reward-title", text: shortName(c), title: c.name }),
           have ? pill("You have it", "muted") : null,
-          w.ends ? pill(`Until ${shortDate(w.ends)}`, "caution") : null,
+          deadlinePill(deadline),
           dismissed
             ? null
             : el("button", {
@@ -186,14 +187,35 @@ export function welcomeBonusesPage(app) {
         el("div", {
           class: "reward-detail-line",
           text: (w.points ? `${parts} (about ${money(value)}). ` : `${parts} back. `) +
-            `Spend ${money(w.minSpend)} in ${w.months} month${w.months === 1 ? "" : "s"}. ` +
             `First year fee ${fee ? money(fee) : "$0"}${fee !== (Number(c.annualFee) || 0) ? `, then ${money(Number(c.annualFee) || 0)}` : ""}.`,
         }),
+        deadlineLine(deadline),
         el("div", { class: "card-row bonus-actions" },
           el("span", { class: "hint", text: `Source: ${w.source}.` }),
           dismissed
             ? button("Bring back", { small: true, onClick: () => setDismissed(false) })
             : have ? "" : button("Track it", { small: true, onClick: () => editTracked(null, c) }))));
+  }
+
+  // Every offer says when it ends, or that no end is announced, and how
+  // long you have to spend after opening (at explicit user request: "there
+  // should be deadlines on the sign up bonus page").
+  function deadlinePill(d) {
+    if (!d.ends || d.daysLeft === null || d.daysLeft < 0) return null;
+    if (d.daysLeft === 0) return pill("Ends today", "error");
+    return pill(d.soon ? `Ends in ${d.daysLeft} day${d.daysLeft === 1 ? "" : "s"}` : `Until ${shortDate(d.ends)}`, d.soon ? "error" : "caution");
+  }
+
+  function deadlineLine(d) {
+    const apply = d.ends
+      ? `Apply by ${longDate(d.ends)}${d.daysLeft > 0 ? ` (${d.daysLeft} day${d.daysLeft === 1 ? "" : "s"} left)` : d.daysLeft === 0 ? " (today)" : ""}.`
+      : "No end date announced, so it can change at any time.";
+    const spend = d.months
+      ? ` Then spend ${money(d.minSpend)} within ${d.months} month${d.months === 1 ? "" : "s"} of opening.`
+      : "";
+    return el("div", { class: `bonus-deadline${d.soon ? " is-soon" : ""}` },
+      icon("clock", { size: 14 }),
+      el("span", { text: apply + spend }));
   }
 
   // ---------- tracking ----------
