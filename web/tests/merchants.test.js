@@ -72,3 +72,19 @@ describe("shops", () => {
     assert.ok(![atEsso.next?.id, atEsso.optional?.id].includes("amex"));
   });
 });
+
+describe("shops in the newer categories", () => {
+  test("spas, gyms, home, furniture, parking, hotels and digital stores land in their categories", async () => {
+    const { searchMerchants } = await import("../js/tools/merchants.js");
+    const top = (q) => searchMerchants(q)[0];
+    assert.equal(top("go place").purchase, "wellness");
+    assert.equal(top("goodlife").purchase, "wellness");
+    assert.equal(top("home depot").purchase, "homeimprovement");
+    assert.equal(top("lowes").purchase, "homeimprovement");
+    assert.equal(top("ikea").purchase, "furniture");
+    assert.equal(top("green p").purchase, "parking");
+    assert.equal(top("steam").purchase, "digital");
+    assert.deepEqual([top("marriott").purchase, top("marriott").answers.booking], ["hotels", "marriott"]);
+    assert.equal(top("hilton").purchase, "hotels");
+  });
+});

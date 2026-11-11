@@ -11,6 +11,14 @@ before or as part of the push itself.
 
 ## 2026-11-11
 
+**Card Rewards: every bonus category** (`tools/card_catalogue.js`, `tools/card_rewards.js`, `tools/merchants.js`, `pages/cardrewards.js`, `pages/mycards.js`, `data/cards.json`, tests, `CLAUDE.md`)
+* New categories: Parking, Apps games and digital media, Gyms spas and wellness, Hotels (travel is now Flights and other travel), Home improvement, and Furniture. Recurring bills now mention utilities.
+* Fixed: BMO eclipse Visa Infinite Privilege's 5x health and wellness is spas, massage, gyms, golf and recreation, and no longer drugstores, since BMO's November 2 refresh. Go Place and other spas now earn 5x on it.
+* MBNA Rewards World Elite's 5x and TD Cash Back's 3% now count apps, games and digital media.
+* Tangerine now offers all 13 of its choices, including hotels, home improvement, furniture, fitness, e-games and foreign currency, and its transit choice covers parking.
+* New shops to search: hotel brands, Home Depot, Rona, IKEA and other furniture stores, parking operators, gyms, Nordic spas (Go Place, Scandinave, Nordik, Thermea and more) and game and app stores.
+* Hotels never ask about Air Canada.
+
 **Which card to use: the best cards you don't have** (`pages/cardrewards.js`, `tools/card_rewards.js`, `store.js`, `css/app.css`, tests, `CLAUDE.md`)
 * A "Show the best cards you don't have" switch under the results lists the top 5 cards from the card list that you don't hold, for the same shop or category, with their % back, network and annual fee, and "Beats yours" when one earns more than your best card there.
 * It uses the answers you already gave (a Loblaw store still leaves out Amex), and counts caps as unused, since a new card starts fresh. Annual fees are not taken off. The switch is remembered.

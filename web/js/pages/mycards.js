@@ -8,7 +8,7 @@
 import { CARDS, CATALOGUE_CHECKED, NETWORKS, POINT_TYPES, PURCHASES } from "../tools/card_catalogue.js";
 import { browserFetchJson, loadCatalogue } from "../tools/card_feed.js";
 import {
-  centsPerPoint, daysSince, groupName, groupUnit, shortName, transferRatio, walletCards,
+  centsPerPoint, daysSince, groupName, groupUnit, pickLabel, shortName, transferRatio, walletCards,
 } from "../tools/card_rewards.js";
 import { FACES, LIGHT_FACES, cardFace, earnLines, feeInfo, perkGroups, walletFees } from "../tools/my_cards.js";
 import {
@@ -253,7 +253,7 @@ export function myCardsPage(app) {
         }
       };
       for (const id of resolved.picks.from) {
-        boxes.append(checkbox(PURCHASES.find((p) => p.id === id)?.label || id, chosen.has(id), (on) => {
+        boxes.append(checkbox(pickLabel(resolved, id), chosen.has(id), (on) => {
           if (on) chosen.add(id); else chosen.delete(id);
           entry.picks = resolved.picks.from.filter((p) => chosen.has(p));
           store.save();

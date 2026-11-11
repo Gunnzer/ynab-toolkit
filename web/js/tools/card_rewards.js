@@ -23,7 +23,8 @@ const ALL = PURCHASES.map((p) => p.id);
 
 // Purchases nearly always made at home, in Canadian dollars.
 const EVERYDAY = (p) => Object.fromEntries(
-  ["groceries", "gas", "ev", "transit", "bills", "drugstore", "delivery", "streaming"]
+  ["groceries", "gas", "ev", "transit", "parking", "bills", "drugstore", "delivery", "streaming",
+    "wellness", "homeimprovement", "furniture"]
     .map((id) => [id, p]));
 
 export const QUESTIONS = [
@@ -69,12 +70,14 @@ export const QUESTIONS = [
     id: "booking",
     unsure: "Booking not sure",
     text: "What are you booking, and with whom?",
-    appliesTo: ["travel"],
+    appliesTo: ["travel", "hotels"],
+    // A hotel is never Air Canada; an option with no chance for this
+    // purchase is not offered (optionApplies()).
     options: [
-      { id: "air-canada", chip: "Air Canada direct", label: "Air Canada or Air Canada Vacations, booked directly", prior: 0.3 },
-      { id: "expedia", chip: "Expedia For TD", label: "Anything through Expedia For TD", prior: 0.05 },
-      { id: "marriott", chip: "Marriott direct", label: "A Marriott hotel, booked with Marriott", prior: 0.05 },
-      { id: "other-travel", chip: "Other travel", label: "Another airline, a hotel, or another travel site", prior: 0.6 },
+      { id: "air-canada", chip: "Air Canada direct", label: "Air Canada or Air Canada Vacations, booked directly", prior: { travel: 0.3, hotels: 0 } },
+      { id: "expedia", chip: "Expedia For TD", label: "Anything through Expedia For TD", prior: { travel: 0.05, hotels: 0.05 } },
+      { id: "marriott", chip: "Marriott direct", label: "A Marriott hotel, booked with Marriott", prior: { travel: 0.05, hotels: 0.15 } },
+      { id: "other-travel", chip: "Other travel", label: "Another airline, a hotel, or another travel site", prior: { travel: 0.6, hotels: 0.8 } },
     ],
   },
   {
@@ -83,9 +86,9 @@ export const QUESTIONS = [
     text: "What currency is it charged in?",
     appliesTo: ALL,
     options: [
-      { id: "cad", chip: "CAD", label: "Canadian dollars", prior: { ...EVERYDAY(0.99), default: 0.93, travel: 0.75 } },
-      { id: "usd", chip: "USD", label: "US dollars", prior: { ...EVERYDAY(0.008), default: 0.05, travel: 0.15 } },
-      { id: "foreign", chip: "Other currency", label: "Another currency", prior: { ...EVERYDAY(0.002), default: 0.02, travel: 0.1 } },
+      { id: "cad", chip: "CAD", label: "Canadian dollars", prior: { ...EVERYDAY(0.99), default: 0.93, travel: 0.75, hotels: 0.75 } },
+      { id: "usd", chip: "USD", label: "US dollars", prior: { ...EVERYDAY(0.008), default: 0.05, travel: 0.15, hotels: 0.15 } },
+      { id: "foreign", chip: "Other currency", label: "Another currency", prior: { ...EVERYDAY(0.002), default: 0.02, travel: 0.1, hotels: 0.1 } },
     ],
   },
   {
@@ -98,14 +101,16 @@ export const QUESTIONS = [
         id: "yes", chip: "Takes Amex", label: "Yes",
         prior: {
           default: 0.85, groceries: 0.97, delivery: 0.99, streaming: 0.99,
-          drugstore: 0.97, travel: 0.97, gas: 0.92, transit: 0.92, bills: 0.92,
+          drugstore: 0.97, travel: 0.97, hotels: 0.97, gas: 0.92, transit: 0.92, bills: 0.92,
+          digital: 0.97,
         },
       },
       {
         id: "no", chip: "No Amex", label: "No",
         prior: {
           default: 0.15, groceries: 0.03, delivery: 0.01, streaming: 0.01,
-          drugstore: 0.03, travel: 0.03, gas: 0.08, transit: 0.08, bills: 0.08,
+          drugstore: 0.03, travel: 0.03, hotels: 0.03, gas: 0.08, transit: 0.08, bills: 0.08,
+          digital: 0.03,
         },
         blocks: ["amex"],
       },
@@ -198,7 +203,15 @@ export function validateCatalogue(data) {
       }
     }
     for (const id of card.picks?.from || []) {
-      if (!purchases.has(id)) problems.push(`${name}: unknown pick ${id}.`);
+      if (!purchases.has(id) && !card.picks?.labels?.[id]) problems.push(`${name}: unknown pick ${id}.`);
+    }
+    for (const [id, list] of Object.entries(card.picks?.covers || {})) {
+      if (!card.picks.from.includes(id) || !Array.isArray(list) || list.some((p) => !purchases.has(p))) {
+        problems.push(`${name}: pick ${id} covers something odd.`);
+      }
+    }
+    for (const rule of card.earn || []) {
+      if (rule.pick !== undefined && !card.picks?.from?.includes(rule.pick)) problems.push(`${name}: a rule needs pick ${rule.pick}, which it does not offer.`);
     }
     const change = card.feeChange;
     if (change !== undefined && (!change || typeof change !== "object" ||
@@ -407,7 +420,17 @@ function capQuestionId(card, cap) {
 
 function ruleCovers(rule, card, purchase) {
   return rule.on.some((on) => on === "*" || on === purchase ||
-    (on === "picks" && card.chosen?.includes(purchase)));
+    (on === "picks" && (card.chosen || []).some((id) => (card.picks?.covers?.[id] || [id]).includes(purchase))));
+}
+
+/** What a card's category choice is called: its own label, else the purchase's. */
+export function pickLabel(card, id) {
+  return card?.picks?.labels?.[id] || purchaseLabel(id);
+}
+
+/** Whether a question's option can happen for this purchase (a hotel is never Air Canada). */
+export function optionApplies(option, purchase) {
+  return priorOf(option, purchase) > 0;
 }
 
 /** Every question that could matter for this purchase with these cards. */
@@ -479,6 +502,7 @@ export function earnFor(card, purchase, answers, questions = QUESTIONS) {
 
   for (const rule of card.earn) {
     if (!ruleCovers(rule, card, category)) continue;
+    if (rule.pick && !card.chosen?.includes(rule.pick)) continue;
     if (!conditionsHold(rule.when, card, answers)) continue;
     if (rule.cap && answers[capQuestionId(card, rule.cap)] === "over") continue;
     return { accepted: true, rate: rule.rate, rule };
@@ -804,12 +828,14 @@ export function describeEarn(card) {
       if (on === "*") return "Everything";
       if (on === "picks") {
         return card.chosen?.length
-          ? card.chosen.map(purchaseLabel).join(", ")
+          ? card.chosen.filter((id) => !card.earn.some((r) => r.pick === id)).map((id) => pickLabel(card, id)).join(", ") ||
+            "The categories you choose"
           : "The categories you choose";
       }
       return purchaseLabel(on);
     }).join(", ");
     const conditions = [];
+    if (rule.pick) conditions.push(`If you chose ${pickLabel(card, rule.pick).toLowerCase()}`);
     for (const [key, allowed] of Object.entries(rule.when || {})) {
       if (key === "flag") {
         conditions.push(card.flags?.find((f) => f.id === allowed)?.label || allowed);

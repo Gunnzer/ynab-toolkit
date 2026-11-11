@@ -529,3 +529,40 @@ describe("cards you do not have", () => {
     assert.deepEqual(rankOthers([], "groceries"), []);
   });
 });
+
+describe("the newer categories", () => {
+  test("Tangerine choices: transit covers parking, foreign currency is a choice", async () => {
+    const { earnFor, walletCards, describeEarn, validateCatalogue, QUESTIONS } = await import("../js/tools/card_rewards.js");
+    const [t] = walletCards([{ id: "tangerine-mc", picks: ["transit", "foreign", "homeimprovement"] }]);
+    assert.equal(earnFor(t, "parking", {}, QUESTIONS).rate, 2);
+    assert.equal(earnFor(t, "homeimprovement", {}, QUESTIONS).rate, 2);
+    assert.equal(earnFor(t, "furniture", {}, QUESTIONS).rate, 0.5);
+    assert.equal(earnFor(t, "other", { currency: "usd" }, QUESTIONS).rate, 2);
+    assert.equal(earnFor(t, "other", { currency: "cad" }, QUESTIONS).rate, 0.5);
+    const [noFx] = walletCards([{ id: "tangerine-mc", picks: ["transit"] }]);
+    assert.equal(earnFor(noFx, "other", { currency: "usd" }, QUESTIONS).rate, 0.5);
+    const lines = describeEarn(t);
+    assert.ok(lines.some((l) => /Public transit and parking/.test(l.what)));
+    assert.ok(lines.some((l) => l.conditions.some((c) => /foreign currency/.test(c))));
+    // A pick a rule needs must be on offer.
+    const shipped = JSON.parse(readFileSync(new URL("../data/cards.json", import.meta.url), "utf8"));
+    const broken = structuredClone(shipped);
+    broken.cards.find((c) => c.id === "tangerine-mc").earn.push({ on: ["*"], rate: 3, pick: "nope" });
+    assert.ok(validateCatalogue(broken).some((p) => /pick nope/.test(p)));
+  });
+
+  test("BMO eclipse Privilege: 5x at spas and gyms, not at drugstores; hotels count as travel", async () => {
+    const { earnFor, walletCards, QUESTIONS, optionApplies } = await import("../js/tools/card_rewards.js");
+    const [b] = walletCards([{ id: "bmo-eclipse-vip" }]);
+    assert.equal(earnFor(b, "wellness", {}, QUESTIONS).rate, 5);
+    assert.equal(earnFor(b, "drugstore", {}, QUESTIONS).rate, 1);
+    const [g] = walletCards([{ id: "amex-gold" }]);
+    assert.equal(earnFor(g, "hotels", {}, QUESTIONS).rate, 2);
+    const [m] = walletCards([{ id: "marriott-bonvoy-amex" }]);
+    assert.equal(earnFor(m, "hotels", { booking: "marriott" }, QUESTIONS).rate, 5);
+    const booking = QUESTIONS.find((q) => q.id === "booking");
+    const airCanada = booking.options.find((o) => o.id === "air-canada");
+    assert.equal(optionApplies(airCanada, "hotels"), false);
+    assert.equal(optionApplies(airCanada, "travel"), true);
+  });
+});

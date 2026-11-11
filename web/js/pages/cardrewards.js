@@ -10,7 +10,7 @@ import { merchantByName, normalise, searchMerchants } from "../tools/merchants.j
 import {
   TARGET_CONFIDENCE, UNSURE, centsPerPoint, explain,
   formatEarned, formatRate, formatValue, formatWorth, groupName, groupUnit,
-  asPreferred, capAnswerUntil, offerAtShop, offersFor, purchaseLabel, rankOthers, recommend, savedCapAnswers, shortName,
+  asPreferred, capAnswerUntil, offerAtShop, offersFor, optionApplies, purchaseLabel, rankOthers, recommend, savedCapAnswers, shortName,
   walletCards,
 } from "../tools/card_rewards.js";
 import {
@@ -439,7 +439,7 @@ export function cardRewardsPage(app) {
     const questionBlock = (q) => [
       el("p", { class: "reward-question", text: q.text }),
       el("div", { class: "reward-options" },
-        q.options.map((option) => button(option.label, {
+        q.options.filter((option) => optionApplies(option, settings.purchase)).map((option) => button(option.label, {
           onClick: () => answer(q.id, option.id),
         })),
         el("button", {

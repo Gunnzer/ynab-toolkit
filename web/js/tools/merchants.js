@@ -31,6 +31,13 @@ const ev = AT("ev");
 const other = AT("other");
 const travel = (name, booking = "other-travel", aliases = []) =>
   ({ name, purchase: "travel", answers: { booking }, aliases });
+const hotel = (name, booking = "other-travel", aliases = []) =>
+  ({ name, purchase: "hotels", answers: { booking }, aliases });
+const home = AT("homeimprovement");
+const furniture = AT("furniture");
+const parking = AT("parking");
+const wellness = AT("wellness");
+const digital = AT("digital");
 
 export const MERCHANTS = [
   // Loblaw banners: where PC Optimum's grocery rate applies.
@@ -152,8 +159,58 @@ export const MERCHANTS = [
   travel("Expedia"),
   travel("Booking.com", "other-travel", ["booking"]),
   travel("Airbnb"),
-  travel("Marriott", "marriott", ["bonvoy"]),
-  travel("Hilton"),
+  // Hotels booked directly: Marriott's own brands earn the Bonvoy card's 5x.
+  hotel("Marriott", "marriott", ["bonvoy"]),
+  hotel("Sheraton", "marriott"),
+  hotel("Westin", "marriott"),
+  hotel("Delta Hotels", "marriott", ["delta"]),
+  hotel("Fairmont"),
+  hotel("Hilton"),
+  hotel("Hyatt"),
+  hotel("IHG", "other-travel", ["holiday inn", "crowne plaza"]),
+  hotel("Best Western"),
+  hotel("Choice Hotels", "other-travel", ["comfort inn", "quality inn"]),
+
+  home("Home Depot"),
+  home("Rona", ["lowes", "lowe's", "rona+"]),
+  home("Home Hardware"),
+  home("Kent"),
+  furniture("IKEA"),
+  furniture("The Brick", ["brick"]),
+  furniture("Leon's", ["leons"]),
+  furniture("Structube"),
+  furniture("EQ3"),
+  furniture("Wayfair"),
+  furniture("Sleep Country"),
+  furniture("Article"),
+
+  parking("Impark"),
+  parking("Indigo Park", ["indigo parking"]),
+  parking("Green P"),
+  parking("HonkMobile", ["honk"]),
+  parking("PayByPhone"),
+  parking("Precise ParkLink", ["parklink"]),
+
+  // Health and beauty spas, gyms and clubs: where BMO eclipse Visa
+  // Infinite Privilege's 5x health and wellness applies.
+  wellness("GoodLife Fitness", ["goodlife"]),
+  wellness("Planet Fitness"),
+  wellness("Anytime Fitness"),
+  wellness("Fit4Less"),
+  wellness("Orangetheory", ["orange theory"]),
+  wellness("Go Place", ["goplace"]),
+  wellness("Scandinave Spa", ["scandinave"]),
+  wellness("Nordik Spa-Nature", ["nordik"]),
+  wellness("Thermea", ["thermea spa"]),
+  wellness("Elmwood Spa", ["elmwood"]),
+  wellness("Ste. Anne's Spa", ["ste annes", "st annes"]),
+
+  digital("Steam"),
+  digital("PlayStation Store", ["psn", "playstation"]),
+  digital("Xbox", ["microsoft store"]),
+  digital("Nintendo eShop", ["eshop", "nintendo"]),
+  digital("App Store", ["itunes", "apple app store"]),
+  digital("Google Play"),
 
   fun("Cineplex"),
   fun("Landmark Cinemas", ["landmark"]),
@@ -167,10 +224,7 @@ export const MERCHANTS = [
 
   other("Amazon.ca", ["amazon"]),
   other("Canadian Tire", ["ct"]),
-  other("Home Depot"),
-  other("Lowe's", ["lowes", "rona"]),
   other("Best Buy"),
-  other("IKEA"),
   other("Winners", ["homesense", "marshalls"]),
   other("Indigo", ["chapters"]),
   other("Sport Chek", ["sportchek"]),

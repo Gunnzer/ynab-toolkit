@@ -60,7 +60,14 @@
 //         cardholder sets once on the card (see `flags`).
 //     cap: { key, spend, per: "month" | "year", label } - past it the rule
 //         stops matching. Rules sharing a key share the cap.
-//   picks: { count, from, label } - categories the cardholder chooses
+//   picks: { count, from, label, covers?, labels? } - categories the
+//     cardholder chooses. An id in `from` is a purchase id, or anything
+//     named in `labels` (Tangerine's "foreign" currency choice). covers maps
+//     a choice to the purchases it counts for ({ transit: ["transit",
+//     "parking"] }, since Tangerine's is "public transportation and
+//     parking"); labels names a choice when the purchase label would not.
+//   A rule may carry pick: a choice id - it only applies once that choice
+//     is picked (Tangerine's 2% on foreign currency, on "*").
 //   flags: [{ id, label }] - yes/no facts about the cardholder
 //   notes: things the rules cannot say
 //   source, checked: where the figures came from (named, never linked - the
@@ -92,11 +99,17 @@ export const PURCHASES = [
   { id: "gas", label: "Gas" },
   { id: "ev", label: "EV charging" },
   { id: "transit", label: "Transit, taxis and rideshare" },
+  { id: "parking", label: "Parking" },
   { id: "streaming", label: "Streaming (Netflix, Spotify, Crave)" },
-  { id: "bills", label: "Recurring bills (phone, internet, insurance)" },
+  { id: "digital", label: "Apps, games and digital media" },
+  { id: "bills", label: "Recurring bills (phone, internet, utilities, insurance)" },
   { id: "drugstore", label: "Drugstore" },
+  { id: "wellness", label: "Gyms, spas and wellness" },
   { id: "entertainment", label: "Movies, concerts and events" },
-  { id: "travel", label: "Flights, hotels and travel" },
+  { id: "travel", label: "Flights and other travel" },
+  { id: "hotels", label: "Hotels" },
+  { id: "homeimprovement", label: "Home improvement (Home Depot, Rona)" },
+  { id: "furniture", label: "Furniture (IKEA, The Brick)" },
   { id: "other", label: "Everything else" },
 ];
 
