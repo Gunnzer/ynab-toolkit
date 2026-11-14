@@ -1,5 +1,5 @@
 {
-  "checked": "2026-11-11",
+  "checked": "2026-11-14",
   "pointTypes": {
     "mr": {
       "name": "Amex Membership Rewards",
@@ -1922,7 +1922,7 @@
       "perks": [
         {
           "kind": "travel",
-          "text": "A free night each year from the first anniversary, at hotels up to 35,000 points"
+          "text": "A free night each year from the first anniversary, at hotels up to 35,000 points. From the 2028 anniversary on, only after $3,000 of purchases on the card that card year"
         },
         {
           "kind": "travel",
@@ -1951,7 +1951,7 @@
         "checked": "2026-11-11"
       },
       "fxFee": 0.025,
-      "checked": "2026-11-11"
+      "checked": "2026-11-14"
     },
     {
       "id": "mbna-rewards-we",
