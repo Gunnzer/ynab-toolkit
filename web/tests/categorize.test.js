@@ -102,9 +102,108 @@ describe("categorize and approve", () => {
       { id: "c", approved: true },
     ], "no suggestion and no category: left alone unless asked");
     assert.deepEqual(cz.undoUpdate(backup).find((u) => u.id === "a"),
-      { id: "a", category_id: null, approved: false });
+      { id: "a", category_id: null, approved: false, memo: "" });
 
     const all = cz.buildUpdate(queue, { approveUncategorized: true });
     assert.deepEqual(all.updates.find((u) => u.id === "d"), { id: "d", approved: true });
+  });
+});
+
+describe("categorize: new shops, notes and splits", () => {
+  const groups = [{ name: "Internal Master Category", categories: [{ id: "uncat", name: "Uncategorized" }] }];
+  const uncategorized = cz.uncategorizedIds(groups);
+
+  test("a shop's kind comes from the shop list, then words in its name", () => {
+    assert.deepEqual(cz.payeeKind("TIM HORTONS #1234 TORONTO ON"), { kind: "dining", shop: "Tim Hortons" });
+    assert.deepEqual(cz.payeeKind("SQ *SUSHI PLACE"), { kind: "dining", shop: null });
+    assert.equal(cz.payeeKind("COSTCO WHOLESALE #55"), null, "a mixed basket says nothing");
+    assert.equal(cz.payeeKind("WALMART SUPERCENTRE"), null, "everything-else shops are no help");
+    assert.equal(cz.payeeKind("INDEPENDENT AUTO REPAIR"), null);
+    assert.equal(cz.payeeKind("Some Business"), null);
+  });
+
+  test("a new restaurant gets the category your other restaurants go to", () => {
+    const past = [
+      tx("STARBUCKS 123", "eating-out", { account_id: "a1" }),
+      tx("MCDONALDS #44", "eating-out", { account_id: "a1" }),
+      tx("PIZZA PIZZA 12", "eating-out", { account_id: "a2" }),
+      tx("THE KEG #5", "date-night", { account_id: "a2" }),
+    ];
+    const kinds = cz.kindHistory(past, { uncategorized });
+    const fresh = tx("A&W 991", null, { account_id: "a1", approved: false });
+    const found = cz.suggestByKind(fresh, kinds);
+    assert.equal(found.categoryId, "eating-out");
+    assert.equal(found.kind, "dining");
+    assert.equal(found.shop, "A&W");
+    assert.equal(found.strength, "weak", "two on this account is not enough to tick it");
+
+    const queue = cz.reviewQueue([...past, fresh], { history: cz.payeeHistory(past, { uncategorized }), kinds, uncategorized });
+    const item = queue.find((i) => i.transaction.id === fresh.id);
+    assert.equal(item.categoryId, "eating-out");
+    assert.equal(item.suggestion.source, "kind");
+  });
+
+  test("the payee's own history wins over the kind of shop", () => {
+    const past = [tx("Starbucks", "coffee"), tx("McDonalds", "eating-out"), tx("A&W", "eating-out")];
+    const kinds = cz.kindHistory(past, { uncategorized });
+    const fresh = tx("STARBUCKS", null, { approved: false });
+    const [item] = cz.reviewQueue([fresh], { history: cz.payeeHistory(past, { uncategorized }), kinds, uncategorized });
+    assert.equal(item.categoryId, "coffee");
+    assert.notEqual(item.suggestion.source, "kind");
+  });
+
+  test("a kind with no history is named but nothing is filled in", () => {
+    const fresh = tx("Joe's Pizzeria", null, { approved: false });
+    const [item] = cz.reviewQueue([fresh], { history: new Map(), kinds: new Map(), uncategorized });
+    assert.equal(item.categoryId, null);
+    assert.equal(item.looksLike.kind, "dining");
+  });
+
+  test("the last split of a payee is offered as shares", () => {
+    const past = [tx("COSTCO WHOLESALE", null, {
+      date: "2026-09-01", amount: -100000,
+      subtransactions: [
+        { category_id: "groceries", amount: -70000, deleted: false },
+        { category_id: "household", amount: -30000, deleted: false },
+      ],
+    })];
+    const splits = cz.splitHistory(past);
+    const fresh = tx("Costco Wholesale", null, { approved: false, amount: -45670 });
+    const [item] = cz.reviewQueue([fresh], { history: new Map(), splits, uncategorized });
+    assert.deepEqual(item.lastSplit.legs.map((l) => [l.categoryId, l.share]), [["groceries", 0.7], ["household", 0.3]]);
+    const amounts = cz.splitByShares(fresh.amount, item.lastSplit.legs.map((l) => l.share));
+    assert.deepEqual(amounts, [-31970, -13700]);
+    assert.equal(amounts[0] + amounts[1], fresh.amount);
+  });
+
+  test("a split must add up and have a category on every part", () => {
+    assert.match(cz.splitProblem(-10000, [{ categoryId: "a", amount: -10000 }]), /two parts/);
+    assert.match(cz.splitProblem(-10000, [{ categoryId: "a", amount: -6000 }, { categoryId: null, amount: -4000 }]), /category/);
+    assert.match(cz.splitProblem(-10000, [{ categoryId: "a", amount: -6000 }, { categoryId: "b", amount: -3000 }]), /short by \$1\.00/);
+    assert.equal(cz.splitProblem(-10000, [{ categoryId: "a", amount: -6000 }, { categoryId: "b", amount: -4000 }]), "");
+    assert.match(cz.splitProblem(-9900, [{ categoryId: "a", amount: -50000 }, { categoryId: "b", amount: 40100 }]),
+      /more than the whole/, "typing more than the total into one part");
+  });
+
+  test("notes and splits go into the update; only notes can be undone", () => {
+    const plain = tx("Shop", "food", { approved: false, memo: "old" });
+    const toSplit = tx("Costco", null, { approved: false, amount: -10000 });
+    const items = [
+      { transaction: plain, kind: "normal", categoryId: "food", memo: "new note" },
+      { transaction: toSplit, kind: "normal", categoryId: null, memo: "big shop",
+        split: [{ categoryId: "groceries", amount: -6000, memo: "" }, { categoryId: "household", amount: -4000, memo: "soap" }] },
+    ];
+    const { updates, backup, splits } = cz.buildUpdate(items);
+    assert.deepEqual(updates, [{ id: plain.id, memo: "new note", approved: true }]);
+    assert.equal(backup[0].memo, "old");
+    assert.deepEqual(cz.undoUpdate(backup), [{ id: plain.id, category_id: "food", approved: false, memo: "old" }]);
+    assert.equal(splits.length, 1);
+    assert.equal(splits[0].category_id, null);
+    assert.equal(splits[0].approved, true);
+    assert.equal(splits[0].memo, "big shop");
+    assert.deepEqual(splits[0].subtransactions, [
+      { amount: -6000, category_id: "groceries", memo: "" },
+      { amount: -4000, category_id: "household", memo: "soap" },
+    ]);
   });
 });

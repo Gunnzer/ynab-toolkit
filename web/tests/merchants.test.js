@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 
 import { PURCHASES, setCatalogue } from "../js/tools/card_catalogue.js";
 import { QUESTIONS, recommend, walletCards } from "../js/tools/card_rewards.js";
-import { MERCHANTS, merchantByName, normalise, searchMerchants } from "../js/tools/merchants.js";
+import { MERCHANTS, merchantByName, merchantInPayee, normalise, searchMerchants } from "../js/tools/merchants.js";
 
 setCatalogue(JSON.parse(readFileSync(new URL("../data/cards.json", import.meta.url), "utf8")));
 
@@ -86,5 +86,24 @@ describe("shops in the newer categories", () => {
     assert.equal(top("steam").purchase, "digital");
     assert.deepEqual([top("marriott").purchase, top("marriott").answers.booking], ["hotels", "marriott"]);
     assert.equal(top("hilton").purchase, "hotels");
+  });
+});
+
+describe("shops in bank payees", () => {
+  test("a bank payee starting with a shop's name is that shop", () => {
+    const name = (payee) => merchantInPayee(payee)?.name || null;
+    assert.equal(name("TIM HORTONS #1234 TORONTO ON"), "Tim Hortons");
+    assert.equal(name("TIMHORTONS#123"), "Tim Hortons");
+    assert.equal(name("TST* THE KEG MISSISSAUGA"), "The Keg");
+    assert.equal(name("MCDONALDS #4040"), "McDonald's");
+    assert.equal(name("LEONS FURNITURE"), "Leon's");
+    assert.equal(name("COSTCO GAS #123"), "Costco Gas", "the longest match wins");
+  });
+
+  test("a shop's name inside another business's name does not count", () => {
+    assert.equal(merchantInPayee("INDEPENDENT AUTO REPAIR"), null);
+    assert.equal(merchantInPayee("BRICK OVEN PIZZA"), null);
+    assert.equal(merchantInPayee("MAXIMUM AUTO"), null);
+    assert.equal(merchantInPayee("JOE AT TIM HORTONS"), null);
   });
 });

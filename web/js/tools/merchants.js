@@ -282,3 +282,45 @@ export function merchantByName(name) {
   const q = normalise(name);
   return MERCHANTS.find((m) => normalise(m.name) === q) || null;
 }
+
+// Card processors put their own name in front of the shop's on a bank
+// statement ("SQ *SUSHI PLACE", "TST* THE KEG").
+const PROCESSOR = /^(sq|tst|sp|pp|ppl|paypal|zettle|clv|square|ls)\s+/;
+
+// Nicknames that are ordinary words too, so at the start of a bank payee
+// they are as likely another business ("INDEPENDENT AUTO REPAIR", "BRICK
+// OVEN PIZZA"). The shop's full name still matches.
+const LOOSE_NICKNAMES = new Set(["independent", "thrifty", "coop", "co op", "skip", "compass", "via", "virgin",
+  "freedom", "booking", "delta", "brick", "landmark", "apple", "elmwood", "keg", "petro", "hydro", "honk",
+  "chapters", "tesla", "amazon", "leons", "nordik"]);
+
+/**
+ * The listed shop a bank payee is, if it starts with one's name or
+ * nickname ("TIM HORTONS #1234 TORONTO ON" is Tim Hortons). Only a match at
+ * the start counts, after any card processor's prefix, so a shop's name
+ * buried in another business's name does not. The longest match wins.
+ */
+export function merchantInPayee(payee) {
+  // Apostrophes dropped, not turned into spaces, so "LEONS" is Leon's.
+  const plain = (value) => normalise(String(value || "").replace(/['\u2019]/g, ""));
+  let text = plain(payee);
+  for (let i = 0; i < 2; i += 1) text = text.replace(PROCESSOR, "");
+  if (!text) return null;
+  const squashed = text.replace(/ /g, "");
+  let best = null;
+  let bestLength = 0;
+  for (const merchant of MERCHANTS) {
+    for (const label of [merchant.name, ...(merchant.aliases || []).filter((a) => !LOOSE_NICKNAMES.has(normalise(a)))]) {
+      const name = plain(label);
+      if (name.length < 3 || name.length <= bestLength) continue;
+      const flat = name.replace(/ /g, "");
+      const hit = text === name || text.startsWith(`${name} `) ||
+        (flat.length >= 5 && squashed.startsWith(flat) && !/[a-z]/.test(squashed[flat.length] || ""));
+      if (hit) {
+        best = merchant;
+        bestLength = name.length;
+      }
+    }
+  }
+  return best;
+}

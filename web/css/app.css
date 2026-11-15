@@ -1681,6 +1681,25 @@ tr.group-row td:first-child { padding: 0; }
 .history-month.is-focus:hover td { background: var(--accent-soft); }
 .history-month td.num { font-weight: 600; }
 .history-payee { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+/* Categorize: a note on every row, and splits (at explicit user request). */
+.categorize-memo { width: 100%; min-width: 160px; max-width: 280px; margin-top: 4px; padding: 4px 8px; font-size: 13px; }
+.categorize-actions { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 2px; }
+.categorize-actions:empty { display: none; }
+.categorize-split { display: flex; flex-direction: column; gap: 2px; min-width: 200px; }
+.categorize-split-leg { display: flex; justify-content: space-between; gap: 12px; font-size: 13.5px; }
+.split-shortcuts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0 12px; }
+.split-shortcuts select { width: auto; }
+.split-rows { display: flex; flex-direction: column; gap: 8px; }
+.split-row { display: grid; grid-template-columns: minmax(0, 2fr) 110px minmax(0, 1.4fr) auto; gap: 8px; align-items: center; }
+.split-left { margin: 0; font-size: 13px; color: var(--muted); }
+.split-left.is-warn { color: var(--warn); font-weight: 600; }
+.split-problem { margin: 6px 0 0; color: var(--error); font-size: 13px; }
+.split-problem:empty { display: none; }
+@media (max-width: 560px) {
+  .split-row { grid-template-columns: minmax(0, 1fr) 100px auto; }
+  .split-row .split-memo { grid-column: 1 / -1; grid-row: 2; }
+  .categorize-memo { max-width: none; }
+}
 
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 td.indent { padding-left: 30px; }
