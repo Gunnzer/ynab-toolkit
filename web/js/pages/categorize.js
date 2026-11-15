@@ -9,10 +9,9 @@ import * as cz from "../tools/categorize.js";
 import { isComplete } from "../tools/shared_expenses.js";
 import { ownerOf, sharedRatio } from "../tools/split_sheet.js";
 import {
-  button, card, categoryPicker, checkbox, clear, confirmDialog, customDialog, dateLabel, el,
-  emptyRow, hint, logPane, pageHeading, pill, sectionTitle, table,
+  button, categoryPicker, checkbox, clear, confirmDialog, customDialog, dateLabel, el,
+  hint, logPane, pageHeading,
 } from "../ui.js";
-import { stat } from "./report_kit.js";
 
 /** Counts for Home's dashboard: what is waiting, and how many have a suggestion. */
 export function reviewCounts(state, transactions) {
@@ -76,7 +75,9 @@ export function categorizePage(app) {
     "restaurant gets your usual restaurant category). You can add a note or " +
     "split one into several categories, including your shared split. Nothing " +
     "changes in YNAB until you press Approve, and the last batch can be " +
-    "undone, except splits, which can be changed in YNAB."));
+    "undone, except splits, which can be changed in YNAB. Ticked to start: " +
+    "anything that already has a category, and suggestions you use nearly " +
+    "every time."));
 
   const approveButton = button("Approve selected", { accent: true, onClick: apply });
   const undoLink = button("Undo last batch", { small: true, onClick: undo });
@@ -89,23 +90,27 @@ export function categorizePage(app) {
       paintSelection();
     });
 
-  root.append(card(
+  // One compact bar, and the list as rows that read at a glance (at
+  // explicit user request: "it doesn't look great visually to read"): no
+  // stat boxes, no status pills, a note box only when wanted.
+  root.append(el("div", { class: "card review-bar" },
     el("div", { class: "card-row" }, approveButton, selectionNote,
       el("span", { class: "spacer" }), undoLink),
-    el("div", { class: "card-row" }, includeUncategorized),
-    hint("Ticked by default: anything that already has a category, and ones " +
-      "where the suggestion is what you use nearly every time. Check the rest " +
-      "and pick a category before ticking them.")));
+    includeUncategorized));
 
-  const stats = el("div", { class: "stat-grid" });
-  const list = table([
-    { key: "pick", label: "", className: "check" },
-    { key: "date", label: "Date" },
-    { key: "payee", label: "Payee" },
-    { key: "amount", label: "Amount", className: "num" },
-    { key: "category", label: "Category" },
-  ]);
-  root.append(stats, sectionTitle("Waiting on you"), list, log);
+  const selectAll = el("input", { type: "checkbox", "aria-label": "Select all" });
+  selectAll.addEventListener("change", () => {
+    for (const row of rows) {
+      row.item.checked = selectAll.checked;
+      row.box.checked = selectAll.checked;
+    }
+    paintSelection();
+  });
+  const summary = el("span", { class: "review-summary" });
+  const list = el("div", { class: "review-list" });
+  root.append(
+    el("div", { class: "review-head" }, el("label", { class: "review-check" }, selectAll), summary),
+    list, log);
 
   function backups() {
     return (settings.undo || {})[state.budgetId] || [];
@@ -133,125 +138,155 @@ export function categorizePage(app) {
   }
 
   function render() {
-    clear(stats).append(
-      stat("Waiting", String(queue.length)),
-      stat("No category", String(queue.filter((i) => i.needsCategory).length), {
-        kind: queue.some((i) => i.needsCategory) ? "warn" : "ok",
-      }),
-      stat("To approve", String(queue.filter((i) => i.needsApproval).length)),
-      stat("Suggested", String(queue.filter((i) => i.needsCategory && i.suggestion?.usable).length), {
-        note: "From your own history",
-      }));
+    const counts = [
+      `${queue.length} waiting`,
+      queue.some((i) => i.needsCategory) ? `${queue.filter((i) => i.needsCategory).length} need a category` : "",
+      queue.some((i) => i.needsCategory && i.suggestion?.usable)
+        ? `${queue.filter((i) => i.needsCategory && i.suggestion?.usable).length} suggested` : "",
+    ].filter(Boolean);
+    summary.textContent = counts.join(" \u00b7 ");
 
-    clear(list.tbody);
+    clear(list);
     rows = [];
+    selectAll.hidden = !queue.length;
     if (!queue.length) {
-      emptyRow(list, "Nothing waiting - everything is categorized and approved.");
+      list.append(el("p", { class: "review-empty", text: "Nothing waiting. Everything is categorized and approved." }));
       paintSelection();
       paintUndo();
       return;
     }
+    for (const item of queue) list.append(reviewRow(item));
+    paintSelection();
+    paintUndo();
+  }
 
-    const selectAll = el("input", { type: "checkbox", "aria-label": "Select all" });
-    const headCell = list.querySelectorAll("th")[0];
-    clear(headCell).append(selectAll);
-    selectAll.addEventListener("change", () => {
-      for (const row of rows) row.box.checked = selectAll.checked;
+  function reviewRow(item) {
+    const t = item.transaction;
+    const row = el("div", { class: "review-row" });
+    const box = el("input", { type: "checkbox", "aria-label": `Select ${t.payee_name || "transaction"}` });
+    // Ticks live on the item, so redrawing the list (after a split is set
+    // up) keeps them.
+    if (item.checked === undefined) {
+      item.checked = Boolean(
+        (item.kind !== "normal") ||
+        (!item.needsCategory && item.categoryId) ||
+        (item.suggestion?.usable && item.suggestion.strength === "strong"));
+    }
+    const paintTick = () => row.classList.toggle("is-checked", item.checked);
+    const tick = (on) => {
+      item.checked = on;
+      box.checked = on;
+      paintTick();
+    };
+    box.checked = item.checked;
+    paintTick();
+    box.addEventListener("change", () => {
+      item.checked = box.checked;
+      paintTick();
       paintSelection();
     });
 
-    for (const item of queue) {
-      const t = item.transaction;
-      const box = el("input", { type: "checkbox", "aria-label": `Select ${t.payee_name || "transaction"}` });
-      // Ticks live on the item, so redrawing the list (after a split is set
-      // up) keeps them.
-      if (item.checked === undefined) {
-        item.checked = Boolean(
-          (item.kind !== "normal") ||
-          (!item.needsCategory && item.categoryId) ||
-          (item.suggestion?.usable && item.suggestion.strength === "strong"));
-      }
-      box.checked = item.checked;
-      const tick = (on) => {
-        item.checked = on;
-        box.checked = on;
-      };
-      box.addEventListener("change", () => {
-        item.checked = box.checked;
-        paintSelection();
+    // ---- what it is ----
+    const meta = [shortDate(t.date), t.account_name || ""];
+    if (item.needsApproval && !item.needsCategory) meta.push("not approved yet");
+    const note = noteField(item, tick);
+    const main = el("div", { class: "review-main" },
+      el("div", { class: "review-payee", text: t.payee_name || "(no payee)" }),
+      el("div", { class: "review-meta", text: meta.filter(Boolean).join(" \u00b7 ") }),
+      note.field);
+
+    // ---- its category ----
+    const cat = el("div", { class: "review-cat" });
+    if (item.kind === "normal" && item.split) {
+      cat.append(
+        el("div", { class: "review-split" },
+          ...item.split.map((leg) => el("div", { class: "review-split-leg" },
+            el("span", { text: categoryWithGroup(state, leg.categoryId) }),
+            el("span", { class: "num", text: fmt(Math.abs(leg.amount)) })))),
+        actions(
+          linkButton("Change split", () => editSplit(item)),
+          linkButton("Don't split", () => {
+            item.split = null;
+            render();
+          }),
+          note.link));
+    } else if (item.kind === "normal") {
+      const picker = categoryPicker(state, {
+        onChange: (picked) => {
+          item.categoryId = picked?.id || null;
+          if (item.categoryId) tick(true);
+          paintSelection();
+        },
       });
-
-      let categoryCell;
-      if (item.kind === "normal" && item.split) {
-        categoryCell = el("td", { class: "categorize-cell" },
-          el("div", { class: "categorize-split" },
-            el("strong", { text: "Split" }),
-            ...item.split.map((leg) => el("div", { class: "categorize-split-leg" },
-              el("span", { text: categoryWithGroup(state, leg.categoryId) }),
-              el("span", { class: "num", text: fmt(Math.abs(leg.amount)) })))),
-          el("div", { class: "categorize-actions" },
-            linkButton("Change split", () => editSplit(item)),
-            linkButton("Don't split", () => {
-              item.split = null;
-              render();
-            })));
-      } else if (item.kind === "normal") {
-        const picker = categoryPicker(state, {
-          onChange: (chosen) => {
-            item.categoryId = chosen?.id || null;
-            if (item.categoryId) tick(true);
-            paintSelection();
-          },
-        });
-        if (item.categoryId) picker.setCategory(item.categoryId);
-        const note = suggestionNote(item);
-        categoryCell = el("td", { class: "categorize-cell" }, picker,
-          note ? el("div", { class: `hint ${note.warn ? "is-warn" : ""}`, text: note.text }) : null,
-          el("div", { class: "categorize-actions" },
-            item.lastSplit ? linkButton("Split like last time", () => editSplit(item, "last")) : null,
-            state.peopleNamed ? linkButton(`Shared split ${sharedSetup().short}`, () => editSplit(item, "shared")) : null,
-            linkButton("Split", () => editSplit(item))));
-      } else {
-        categoryCell = el("td", { class: "hint", text: item.kind === "transfer"
-          ? "Transfer - approve only" : "Split - categories are on its parts" });
-      }
-
-      const tags = [];
-      if (item.needsApproval) tags.push(pill("Unapproved", "caution"));
-      if (item.needsCategory) tags.push(pill("No category", "warn"));
-
-      // A note can be added or changed on anything in the list (at explicit
-      // user request); typing one ticks the row.
-      const memo = el("input", {
-        type: "text",
-        class: "categorize-memo",
-        placeholder: "Add a note",
-        enterkeyhint: "done",
-        "aria-label": `Note for ${t.payee_name || "transaction"}`,
-      });
-      memo.value = item.memo ?? t.memo ?? "";
-      memo.addEventListener("input", () => {
-        item.memo = memo.value;
-        tick(true);
-        paintSelection();
-      });
-
-      list.tbody.append(el("tr", {},
-        el("td", { class: "check" }, box),
-        el("td", { text: dateLabel(t.date) }),
-        el("td", {},
-          el("div", { class: "history-payee" }, el("span", { text: t.payee_name || "(no payee)" }), ...tags),
-          el("div", { class: "hint", text: t.account_name || "" }),
-          memo),
-        el("td", {
-          class: `num ${t.amount > 0 ? "is-ok" : ""}`,
-          text: t.amount > 0 ? `+${fmt(t.amount)}` : fmt(t.amount),
-        }),
-        categoryCell));
-      rows.push({ item, box });
+      if (item.categoryId) picker.setCategory(item.categoryId);
+      const why = suggestionNote(item);
+      cat.append(picker,
+        why ? el("div", { class: "review-why", text: why.text }) : "",
+        actions(
+          item.lastSplit ? linkButton("Split like last time", () => editSplit(item, "last")) : null,
+          state.peopleNamed ? linkButton(`Shared split ${sharedSetup().short}`, () => editSplit(item, "shared")) : null,
+          linkButton("Split", () => editSplit(item)),
+          note.link));
+    } else {
+      cat.append(el("div", { class: "review-why", text: item.kind === "transfer"
+        ? "Transfer: approve only" : "Already split: approve only" }), actions(note.link));
     }
-    paintSelection();
-    paintUndo();
+
+    row.append(
+      el("label", { class: "review-check" }, box),
+      main,
+      cat,
+      el("div", {
+        class: `review-amount ${t.amount > 0 ? "is-in" : ""}`,
+        text: t.amount > 0 ? `+${fmt(t.amount)}` : fmt(t.amount),
+      }));
+    rows.push({ item, box });
+    return row;
+  }
+
+  // A note can be added or changed on anything in the list (at explicit
+  // user request); typing one ticks the row. The box only shows once there
+  // is a note or "Add note" (with the row's other links) is pressed, so a
+  // list of empty boxes does not crowd every row.
+  function noteField(item, tick) {
+    const t = item.transaction;
+    const value = item.memo ?? t.memo ?? "";
+    const input = el("input", {
+      type: "text", class: "review-note-input", placeholder: "Note", enterkeyhint: "done",
+      "aria-label": `Note for ${t.payee_name || "transaction"}`,
+    });
+    input.value = value;
+    input.addEventListener("input", () => {
+      item.memo = input.value;
+      tick(true);
+      paintSelection();
+    });
+    const field = el("div", { class: "review-note" });
+    if (value) {
+      field.append(input);
+      return { field, link: null };
+    }
+    field.hidden = true;
+    const link = linkButton("Add note", () => {
+      field.append(input);
+      field.hidden = false;
+      link.remove();
+      input.focus();
+    });
+    return { field, link };
+  }
+
+  function actions(...links) {
+    return el("div", { class: "review-actions" }, ...links.filter(Boolean));
+  }
+
+  /** "Nov 10" this year, "Nov 10, 2025" otherwise. */
+  function shortDate(iso) {
+    const [y, m, d] = String(iso).split("-").map(Number);
+    const date = new Date(y, m - 1, d);
+    return date.toLocaleDateString("en-CA", y === new Date().getFullYear()
+      ? { month: "short", day: "numeric" }
+      : { month: "short", day: "numeric", year: "numeric" });
   }
 
   function linkButton(text, onClick) {
@@ -260,6 +295,7 @@ export function categorizePage(app) {
     return node;
   }
 
+  // One short line on why the category is what it is.
   function suggestionNote(item) {
     if (!item.needsCategory) return null;
     const suggestion = item.suggestion;
@@ -268,24 +304,18 @@ export function categorizePage(app) {
       if (item.lastSplit) {
         const parts = item.lastSplit.legs.map((leg) =>
           `${anyCategoryName(state, leg.categoryId)} ${Math.round(leg.share * 100)}%`);
-        return { text: `Split last time: ${parts.join(", ")}`, warn: false };
+        return { text: `Split last time: ${parts.join(", ")}` };
       }
-      if (item.looksLike) {
-        return { text: `Looks like ${kindLabel(item.looksLike)}. Pick one and it is suggested next time.`, warn: true };
-      }
-      return { text: "No history for this payee - pick one", warn: true };
+      if (item.looksLike) return { text: `Looks like ${kindLabel(item.looksLike)}. Pick one and it is suggested next time.` };
+      return { text: "New payee. Pick a category." };
     }
     if (!suggestion.usable) {
-      return { text: `Last used ${anyCategoryName(state, suggestion.categoryId)} - pick one`, warn: true };
+      return { text: `Last time: ${anyCategoryName(state, suggestion.categoryId)}, which can't be picked here.` };
     }
-    const warn = suggestion.strength === "weak";
     if (suggestion.source === "kind") {
-      return {
-        text: `Suggested: your usual for ${kindLabel(suggestion)}, ${suggestion.count} of ${suggestion.total} times`,
-        warn,
-      };
+      return { text: `Your usual for ${kindLabel(suggestion)} \u00b7 ${suggestion.count} of ${suggestion.total}` };
     }
-    return { text: `Suggested: used ${suggestion.count} of ${suggestion.total} times for this payee`, warn };
+    return { text: `Your usual for this payee \u00b7 ${suggestion.count} of ${suggestion.total}` };
   }
 
   // ---------- splitting ----------

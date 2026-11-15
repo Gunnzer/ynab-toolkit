@@ -11,6 +11,13 @@ before or as part of the push itself.
 
 ## 2026-11-15
 
+**To review: easier to read** (`pages/categorize.js`, `css/app.css`, `CLAUDE.md`)
+* Each transaction is now one clean row: payee and amount, then the date and card in small grey text, then the category with one short line saying why ("Your usual for restaurants (A&W) · 3 of 3").
+* Rows you have ticked are highlighted, so you can see at a glance what Approve will save.
+* No more status pills on every row, stat boxes or long hints: one summary line ("4 waiting · 4 need a category · 3 suggested") with a select-all box.
+* The note box only shows when a transaction has a note or you press "Add note".
+* Dates are short ("Nov 10"), and on a phone the category sits under the payee.
+
 **To review: new shops, notes and splits** (`pages/categorize.js`, `tools/categorize.js`, `tools/merchants.js`, `css/app.css`, tests, `CLAUDE.md`)
 * A shop you have never categorized now gets a category from what you use for that kind of shop: a new restaurant gets your usual restaurant category, a new gas station your gas one. It is ticked when you use that category for 80% of those shops (at least 3 times). Your history with the payee itself still comes first.
 * Every row has a note box; a note is saved with the rest and undone with it.

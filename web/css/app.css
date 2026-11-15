@@ -1681,12 +1681,47 @@ tr.group-row td:first-child { padding: 0; }
 .history-month.is-focus:hover td { background: var(--accent-soft); }
 .history-month td.num { font-weight: 600; }
 .history-payee { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-/* Categorize: a note on every row, and splits (at explicit user request). */
-.categorize-memo { width: 100%; min-width: 160px; max-width: 280px; margin-top: 4px; padding: 4px 8px; font-size: 13px; }
-.categorize-actions { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 2px; }
-.categorize-actions:empty { display: none; }
-.categorize-split { display: flex; flex-direction: column; gap: 2px; min-width: 200px; }
-.categorize-split-leg { display: flex; justify-content: space-between; gap: 12px; font-size: 13.5px; }
+/* Categorize: one row per transaction that reads at a glance (at explicit
+   user request: "it doesn't look great visually to read"). */
+.review-bar { gap: 10px; }
+.review-head { display: flex; align-items: center; gap: 12px; padding: 0 14px; color: var(--muted); font-size: 13.5px; }
+.review-list { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.page-body > .review-head + .review-list { margin-top: 8px; }
+.review-empty { margin: 0; padding: 18px; color: var(--muted); }
+.review-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) minmax(0, 1.25fr) 104px;
+  grid-template-areas: "check main cat amount";
+  gap: 4px 18px;
+  align-items: start;
+  padding: 14px 14px 14px 11px;
+  border-left: 3px solid transparent;
+}
+.review-row + .review-row { border-top: 1px solid var(--border); }
+.review-row.is-checked { border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 4%, var(--card)); }
+.review-check { grid-area: check; display: flex; align-items: center; height: 24px; margin: 0; }
+.review-main { grid-area: main; min-width: 0; }
+.review-cat { grid-area: cat; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.review-amount { grid-area: amount; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 24px; }
+.review-amount.is-in { color: var(--ok); }
+.review-payee { font-weight: 600; line-height: 24px; overflow-wrap: anywhere; }
+.review-meta { color: var(--muted); font-size: 13px; }
+.review-note { margin-top: 4px; }
+.review-note-input { width: 100%; max-width: 280px; padding: 4px 8px; font-size: 13px; }
+.review-why { color: var(--muted); font-size: 13px; line-height: 1.35; }
+.review-actions { display: flex; flex-wrap: wrap; gap: 2px 14px; }
+.review-actions .btn-link { padding: 0; font-size: 13px; }
+.review-actions:empty { display: none; }
+.review-split { display: flex; flex-direction: column; gap: 2px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; }
+.review-split-leg { display: flex; justify-content: space-between; gap: 12px; font-size: 13.5px; }
+@media (max-width: 700px) {
+  .review-row {
+    grid-template-columns: 24px minmax(0, 1fr) auto;
+    grid-template-areas: "check main amount" ". cat cat";
+    gap: 8px 12px;
+  }
+  .review-note-input { max-width: none; }
+}
 .split-shortcuts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0 12px; }
 .split-shortcuts select { width: auto; }
 .split-rows { display: flex; flex-direction: column; gap: 8px; }
@@ -1699,7 +1734,6 @@ tr.group-row td:first-child { padding: 0; }
 @media (max-width: 560px) {
   .split-row { grid-template-columns: minmax(0, 1fr) 100px auto; }
   .split-row .split-memo { grid-column: 1 / -1; grid-row: 2; }
-  .categorize-memo { max-width: none; }
 }
 
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
