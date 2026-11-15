@@ -11,6 +11,9 @@ before or as part of the push itself.
 
 ## 2026-11-15
 
+**Less space under the title and tabs** (`css/app.css`, `CLAUDE.md`)
+* Pages start about 60px higher on a computer: the title row is shorter when a row of tabs sits under it, the tabs are tighter, and the 30px gap left under the old page description (now behind Help) is gone.
+
 **Card Rewards: offers and events moved to My cards** (`pages/mycards.js`, `pages/cardrewards.js`, `tools/my_cards.js`, `css/app.css`, `data/cards.json`, `CLAUDE.md`)
 * Offers and events now sit near the top of My cards, under Add a card, one short line each with its dates; tap one for the details.
 * Which card to use no longer lists them at the bottom; its "Offer" tag on a card now opens that offer on My cards.

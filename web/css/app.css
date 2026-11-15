@@ -295,7 +295,7 @@ h1, h2, h3 { margin: 0; font-weight: 600; line-height: 1.3; }
   width: 100%;
   max-width: var(--content-max);
   margin: 0 auto;
-  padding: 34px var(--gutter) 64px;
+  padding: 20px var(--gutter) 64px;
 }
 .page:focus { outline: none; }
 
@@ -361,10 +361,10 @@ h1, h2, h3 { margin: 0; font-weight: 600; line-height: 1.3; }
    occupy space until it has something to say. */
 .page-body > .hint:empty { display: none; }
 
-/* The lead paragraph introduces the page, so it needs clear air beneath it
-   rather than the standard sibling gap. Adjacent margins collapse, so the
-   space has to go on the element after it. */
-.page-body > .page-head + * { margin-top: 30px; }
+/* The page head is only a screen-reader heading now (the description moved
+   behind Help), so nothing sits above the first block: no gap after it
+   (reported live: "way too much padding" under the title and tabs). */
+.page-body > .page-head + * { margin-top: 0; }
 
 .page-title { font-size: 25px; letter-spacing: -.01em; }
 .section-title { font-size: 15px; font-weight: 600; letter-spacing: .005em; }
@@ -2262,12 +2262,14 @@ select.is-empty option { color: var(--text); }
   gap: 22px;
   overflow-x: auto;
   scrollbar-width: none;
-  margin-top: -6px;
+  margin-top: -4px;
 }
+/* With a row of tabs under it, the title row does not need its full height. */
+.topbar:has(.space-tabs:not([hidden])) .topbar-inner { height: 48px; }
 .space-tabs::-webkit-scrollbar { display: none; }
 .space-tab {
   flex: none;
-  padding: 8px 0 10px;
+  padding: 6px 0 8px;
   border: 0;
   border-bottom: 2px solid transparent;
   background: none;
