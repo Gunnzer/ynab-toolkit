@@ -236,35 +236,55 @@ export function setupPage(app) {
   // ---------- tools ----------
 
   const toolsCard = card(sectionTitle("Tools"),
-    hint("Hide the tools you do not use. Nothing is deleted and their " +
-      "settings are kept, so you can switch them back on any time."));
+    hint("Hide the tabs you do not use. Nothing is deleted and their " +
+      "settings are kept, so you can switch them back on any time. A space " +
+      "with every tab off disappears from the menu."));
 
-  import("../main.js").then(({ TOGGLEABLE }) => {
-    // Same grouping the sidebar itself uses (each page's own group/
-    // groupLabel, set once in main.js's PAGES array) - a page not in any
-    // group falls into its own "Other" bucket instead of being dropped,
-    // in case one is ever added without a group.
-    const seen = new Set();
-    for (const page of TOGGLEABLE) {
-      const groupKey = page.group || page.id;
-      if (seen.has(groupKey)) continue;
-      seen.add(groupKey);
-
-      const members = page.group
-        ? TOGGLEABLE.filter((p) => p.group === page.group)
-        : [page];
-
-      toolsCard.append(sectionTitle(page.groupLabel || "Other"));
-      for (const member of members) {
-        toolsCard.append(
-          checkbox(member.title, app.toolEnabled(member.key), (checked) => {
-            const enabled = { ...(store.get("tools.enabled", {}) || {}) };
-            enabled[member.key] = checked;
-            store.set("tools.enabled", enabled);
-            app.buildNav();
-          }),
-          hint("      " + member.blurb));
+  // One switch per tab (at explicit user request: "make it so all tabs can
+  // be enabled or disabled"), grouped by space as the menu shows them, with
+  // a switch on each space's heading for all of its tabs at once.
+  import("../main.js").then(({ SPACES }) => {
+    const allKeys = [...new Set(SPACES.flatMap((space) => space.tabs.map((tab) => app.tabKey(tab)).filter(Boolean)))];
+    const setKeys = (keys, on) => {
+      // Every flag written out, so none is left to follow a default.
+      const enabled = Object.fromEntries(allKeys.map((key) => [key, app.toolEnabled(key)]));
+      for (const key of keys) enabled[key] = on;
+      store.set("tools.enabled", { ...(store.get("tools.enabled", {}) || {}), ...enabled });
+      app.buildNav();
+    };
+    for (const space of SPACES) {
+      const tabs = space.tabs.map((tab) => ({ tab, key: app.tabKey(tab), page: app.pageById(tab.page) }))
+        .filter((entry) => entry.key);
+      if (!tabs.length) continue;
+      const boxes = [];
+      const spaceBox = el("input", { type: "checkbox", "aria-label": `All of ${space.title}` });
+      const paintSpace = () => {
+        const on = boxes.filter((box) => box.checked).length;
+        spaceBox.checked = on === boxes.length;
+        spaceBox.indeterminate = on > 0 && on < boxes.length;
+      };
+      spaceBox.addEventListener("change", () => {
+        for (const box of boxes) box.checked = spaceBox.checked;
+        setKeys(tabs.map((entry) => entry.key), spaceBox.checked);
+        paintSpace();
+      });
+      const list = el("div", { class: "tools-tabs" });
+      toolsCard.append(el("div", { class: "tools-group" },
+        el("label", { class: "checkbox tools-space" }, spaceBox,
+          el("span", { class: "section-title", text: space.title })),
+        list));
+      for (const { tab, key, page } of tabs) {
+        const box = el("input", { type: "checkbox" });
+        box.checked = app.toolEnabled(key);
+        box.addEventListener("change", () => {
+          setKeys([key], box.checked);
+          paintSpace();
+        });
+        boxes.push(box);
+        list.append(el("label", { class: "checkbox" }, box, el("span", { text: tab.label || page?.title || key })),
+          hint(tab.blurb || page?.blurb || ""));
       }
+      paintSpace();
     }
   });
   root.append(toolsCard);

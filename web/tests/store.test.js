@@ -27,6 +27,18 @@ describe("store", () => {
     assert.deepEqual(store.get("sharedExpenses.rules"), []);
   });
 
+  test("Reports switched off before its tabs had their own switches keeps all five off", () => {
+    globalThis.localStorage.setItem("ynab-toolkit.settings", JSON.stringify({ schema: 1, tools: { enabled: { reports: false } } }));
+    const off = new Store().load();
+    for (const key of ["reports", "reportBudget", "reportTrends", "reportRecurring", "reportCashflow"]) {
+      assert.equal(off.get(`tools.enabled.${key}`), false, key);
+    }
+    globalThis.localStorage.setItem("ynab-toolkit.settings", JSON.stringify({ schema: 1, tools: { enabled: { reports: false, reportTrends: true } } }));
+    const later = new Store().load();
+    assert.equal(later.get("tools.enabled.reportTrends"), true, "once a tab has its own switch it is left alone");
+    assert.equal(new Store().load().get("tools.enabled.home") ?? true, true);
+  });
+
   test("settings survive a reload", () => {
     const first = new Store().load();
     first.set("budgetName", "Household");

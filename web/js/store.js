@@ -64,7 +64,14 @@ export const DEFAULTS = {
     enabled: {
       budgetOverview: true,
       classicBudgetOverview: true,
+      home: true,
       reports: true,
+      // Reports' other tabs, each with its own switch (the Spending tab
+      // keeps the old "reports" flag).
+      reportBudget: true,
+      reportTrends: true,
+      reportRecurring: true,
+      reportCashflow: true,
       sharedExpenses: true,
       splitSheet: true,
       // Off to start with: most people never need these, and an unused
@@ -278,6 +285,12 @@ export class Store {
         this.data = deepMerge(DEFAULTS, parsed);
         if (!hadSplit && parsed?.tools?.enabled?.budgetOverview === false) {
           this.data.tools.enabled.classicBudgetOverview = false;
+        }
+        // Same for Reports: one flag used to cover all five of its tabs.
+        const reportTabs = ["reportBudget", "reportTrends", "reportRecurring", "reportCashflow"];
+        if (parsed?.tools?.enabled?.reports === false &&
+          reportTabs.every((key) => parsed.tools.enabled[key] === undefined)) {
+          for (const key of reportTabs) this.data.tools.enabled[key] = false;
         }
       }
     } catch {

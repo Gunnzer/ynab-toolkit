@@ -64,6 +64,11 @@ export function sharedExpensesPage(app) {
       el("b", { text: state.personName(1) }), ` ${percent}%`,
       el("span", { class: "split-line-sep", text: "·" }),
       el("b", { text: state.personName(2) }), ` ${100 - percent}%`);
+    const own = rules.filter((rule) => typeof rule.ratio === "number").length;
+    if (own) {
+      splitLine.append(el("span", { class: "hint split-line-own",
+        text: `${own} categor${own === 1 ? "y has" : "ies have"} ${own === 1 ? "its" : "their"} own split` }));
+    }
   }
 
   function save() {
@@ -80,6 +85,13 @@ export function sharedExpensesPage(app) {
 
   const labelP1 = el("span", { class: "field-label" });
   const labelP2 = el("span", { class: "field-label" });
+  // Blank means the usual split from Settings.
+  const labelShare = el("span", { class: "field-label" });
+  const shareInput = el("input", {
+    type: "number", min: "0", max: "100", step: "0.5", inputmode: "decimal",
+    enterkeyhint: "done", "aria-label": "Person 1's share for this category, in percent",
+  });
+  shareInput.addEventListener("input", () => setBuilderStatus(""));
   const builderStatus = hint("");
   const commitButton = button("Add", { accent: true, onClick: commitRule });
   const cancelButton = button("Cancel", { onClick: cancelEdit });
@@ -89,6 +101,7 @@ export function sharedExpensesPage(app) {
     { key: "shared", label: "Shared category" },
     { key: "p1", label: "Person 1" },
     { key: "p2", label: "Person 2" },
+    { key: "split", label: "Split" },
     { key: "actions", label: "", className: "actions" },
   ]);
   rulesTable.classList.add("rules-table");
@@ -133,7 +146,8 @@ export function sharedExpensesPage(app) {
       el("div", { class: "card-grid" },
         el("div", {}, el("span", { class: "field-label", text: "Shared category" }), pickShared),
         el("div", {}, labelP1, pickP1),
-        el("div", {}, labelP2, pickP2)),
+        el("div", {}, labelP2, pickP2),
+        el("div", {}, labelShare, shareInput)),
       el("div", { class: "card-row" }, commitButton, cancelButton, builderStatus)),
     rulesTable,
     clearAllRow);
@@ -141,6 +155,17 @@ export function sharedExpensesPage(app) {
   function paintLabels() {
     labelP1.textContent = `${state.personName(1)} gets`;
     labelP2.textContent = `${state.personName(2)} gets`;
+    labelShare.textContent = `${state.personName(1)}'s share (%)`;
+    const usual = Number(settings.person1Ratio) * 100;
+    shareInput.placeholder = Number.isFinite(usual) ? `${Number(usual.toFixed(2))} (the usual)` : "the usual";
+  }
+
+  /** "35 / 65" for a mapping, and whether it is its own or the usual. */
+  function splitText(rule) {
+    const share = shared.ruleRatio(rule, Number(settings.person1Ratio));
+    const p1 = Number((share * 100).toFixed(2));
+    const text = `${p1} / ${Number((100 - p1).toFixed(2))}`;
+    return rule.ratio === undefined || rule.ratio === null ? `${text} (usual)` : text;
   }
 
   function setBuilderStatus(text, kind = "") {
@@ -149,6 +174,7 @@ export function sharedExpensesPage(app) {
   }
 
   function renderRules() {
+    paintRatio();
     const summary = rules.length
       ? `${rules.length} mapping${rules.length === 1 ? "" : "s"} configured`
       : "No mappings yet";
@@ -166,6 +192,7 @@ export function sharedExpensesPage(app) {
         el("td", { text: rule.name || state.categoryName(rule.sharedId) }),
         el("td", { text: rule.person1Name || state.categoryName(rule.person1Id) }),
         el("td", { text: rule.person2Name || state.categoryName(rule.person2Id) }),
+        el("td", { class: rule.ratio === undefined || rule.ratio === null ? "hint" : "", text: splitText(rule) }),
         el("td", { class: "actions" },
           el("div", { class: "inline" },
             button("Edit", { small: true, onClick: () => editRule(index) }),
@@ -179,6 +206,7 @@ export function sharedExpensesPage(app) {
     pickShared.setCategory(rule.sharedId, rule.name);
     pickP1.setCategory(rule.person1Id, rule.person1Name);
     pickP2.setCategory(rule.person2Id, rule.person2Name);
+    shareInput.value = typeof rule.ratio === "number" ? String(Number((rule.ratio * 100).toFixed(2))) : "";
     commitButton.textContent = "Update";
     cancelButton.hidden = false;
     setBuilderStatus(`Editing '${rule.name}'. Change a category, then Update.`);
@@ -187,6 +215,7 @@ export function sharedExpensesPage(app) {
   function cancelEdit() {
     editingIndex = null;
     for (const picker of [pickShared, pickP1, pickP2]) picker.clearSelection();
+    shareInput.value = "";
     commitButton.textContent = "Add";
     cancelButton.hidden = true;
     setBuilderStatus("");
@@ -221,10 +250,20 @@ export function sharedExpensesPage(app) {
         `'${sharedCategory.name}' is already mapped on row ${clash + 1}.`, "error");
     }
 
+    let ownShare = null;
+    if (shareInput.value.trim() !== "") {
+      const percent = Number(shareInput.value);
+      if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
+        return setBuilderStatus(`${state.personName(1)}'s share: a number from 0 to 100, or blank for the usual split.`, "error");
+      }
+      ownShare = percent / 100;
+    }
+
     const rule = {
       sharedId: sharedCategory.id, name: sharedCategory.name,
       person1Id: first.id, person1Name: first.name,
       person2Id: second.id, person2Name: second.name,
+      ...(ownShare === null ? {} : { ratio: ownShare }),
     };
     const message = editingIndex === null
       ? `Added '${sharedCategory.name}'.` : `Updated '${sharedCategory.name}'.`;

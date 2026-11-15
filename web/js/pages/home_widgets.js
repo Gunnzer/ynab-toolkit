@@ -127,11 +127,13 @@ async function gatherFacts(app, ctx) {
       .sort((a, b) => a.balance - b.balance);
   }
 
-  if (app.toolEnabled("reports")) {
+  if (app.toolEnabled("reportBudget")) {
     facts.pace = pace({
       categories: await ctx.categories(), transactions: await ctx.allList(), currentMonth: ctx.current,
       day: ctx.day, lookback: fullMonthsBefore(ctx.current, 6),
     });
+  }
+  if (app.toolEnabled("reportRecurring")) {
     const recurring = await ctx.recurring();
     facts.recurring = {
       priceUp: recurring.filter((r) => r.priceUp),
@@ -858,7 +860,7 @@ export const WIDGETS = [
     sizes: ["s", "m", "l"], defaultSize: "s", byDefault: true, needsBudget: true, render: reviewWidget,
   },
   {
-    id: "recurring", title: "Subscriptions", icon: "pulse", tool: "reports", go: "reports", tab: "recurring",
+    id: "recurring", title: "Subscriptions", icon: "pulse", tool: "reportRecurring", go: "reports", tab: "recurring",
     blurb: "What your regular charges cost a month, and any that went up or are new.",
     sizes: ["s", "m", "l"], defaultSize: "s", byDefault: true, needsBudget: true, render: recurringWidget,
     // What to leave out is one setting shared with Reports, not this
@@ -909,7 +911,7 @@ export const WIDGETS = [
     sizes: ["s", "m", "l"], defaultSize: "m", byDefault: true, needsBudget: true, render: spendingWidget,
   },
   {
-    id: "cashflow", title: "Cash flow", icon: "fill", tool: "reports", go: "reports", tab: "cashflow",
+    id: "cashflow", title: "Cash flow", icon: "fill", tool: "reportCashflow", go: "reports", tab: "cashflow",
     blurb: "Income against spending month by month, as a chart, and what was left over.",
     sizes: ["s", "m", "l"], defaultSize: "m", byDefault: true, needsBudget: true, render: cashFlowWidget,
   },

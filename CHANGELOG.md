@@ -11,6 +11,11 @@ before or as part of the push itself.
 
 ## 2026-11-15
 
+**Every tab can be switched off, and a category can have its own split** (`main.js`, `store.js`, `pages/setup.js`, `pages/home_widgets.js`, `pages/shared.js`, `pages/categorize.js`, `tools/shared_expenses.js`, `css/app.css`, tests, `CLAUDE.md`)
+* Settings lists every tab under its space, each with its own switch, plus a switch on each space for all of its tabs. Home and each of Reports' five tabs can now be switched off on their own.
+* A space with every tab switched off disappears from the menu (sidebar, bottom bar and More). With Home off, the app opens on the first space still on.
+* A Shared Expenses mapping can have its own split: type person 1's share in the new box (blank keeps the usual split from Settings). Shared Expenses and the shared split on To review both use it, and the mapping table shows each category's split.
+
 **Import: PDF statements** (`pages/bank.js`, new `tools/pdf_text.js` and `tools/pdf_statement.js`, `tests/pdf_statement.test.js`, `CLAUDE.md`)
 * Drop a PDF statement (credit card, chequing or savings) on Import and its transactions are read out, converted and shown in the preview, ready to save for YNAB. Everything happens in the page; nothing is uploaded.
 * A small PDF reader written for the app (no outside code) pulls the text and its position on the page, so columns can be told apart.

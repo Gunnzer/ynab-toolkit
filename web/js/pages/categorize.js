@@ -6,7 +6,7 @@
 
 import { fmt, fromMilliunits, toMilliunits } from "../money.js";
 import * as cz from "../tools/categorize.js";
-import { isComplete } from "../tools/shared_expenses.js";
+import { isComplete, ruleRatio } from "../tools/shared_expenses.js";
 import { ownerOf, sharedRatio } from "../tools/split_sheet.js";
 import {
   button, categoryPicker, checkbox, clear, confirmDialog, customDialog, dateLabel, el,
@@ -224,7 +224,7 @@ export function categorizePage(app) {
         why ? el("div", { class: "review-why", text: why.text }) : "",
         actions(
           item.lastSplit ? linkButton("Split like last time", () => editSplit(item, "last")) : null,
-          state.peopleNamed ? linkButton(`Shared split ${sharedSetup().short}`, () => editSplit(item, "shared")) : null,
+          state.peopleNamed ? linkButton(`Shared split ${sharedSetup(item.categoryId).short}`, () => editSplit(item, "shared")) : null,
           linkButton("Split", () => editSplit(item)),
           note.link));
     } else {
@@ -327,10 +327,16 @@ export function categorizePage(app) {
     return (shared.rules || []).filter(isComplete);
   }
 
-  // The split share set once in Settings, and both people's names for it.
-  function sharedSetup() {
+  // The Shared Expenses mapping a category belongs to, if any.
+  function ruleFor(categoryId) {
+    return categoryId ? sharedRules().find((r) => [r.sharedId, r.person1Id, r.person2Id].includes(categoryId)) || null : null;
+  }
+
+  // The split share set once in Settings, or a category's own split from
+  // its Shared Expenses mapping, and both people's names for it.
+  function sharedSetup(categoryId = null) {
     const people = state.withPeople({});
-    const ratio = sharedRatio(people);
+    const ratio = ruleRatio(ruleFor(categoryId), sharedRatio(people));
     const percent = Math.round(ratio * 100);
     return {
       ratio,
@@ -343,10 +349,9 @@ export function categorizePage(app) {
   // ratio, in their own version of the category (a Shared Expenses mapping
   // for it first, else the same name in a group that person owns).
   function sharedLegs(total, categoryId) {
-    const { ratio } = sharedSetup();
+    const { ratio } = sharedSetup(categoryId);
     const people = state.withPeople({});
-    const rule = categoryId && sharedRules().find((r) =>
-      [r.sharedId, r.person1Id, r.person2Id].includes(categoryId));
+    const rule = ruleFor(categoryId);
     const ids = rule ? { p1: rule.person1Id, p2: rule.person2Id }
       : cz.personCategories(categoryId, state.flatCategories(true).map(({ group, category }) => ({
         id: category.id, name: category.name, owner: ownerOf(group, "", people),
@@ -395,22 +400,25 @@ export function categorizePage(app) {
         },
       }));
       if (state.peopleNamed) {
-        shortcuts.append(button(`Shared (${sharedSetup().label})`, {
+        shortcuts.append(button(`Shared (${sharedSetup(legs.find((leg) => leg.categoryId)?.categoryId || item.categoryId).label})`, {
           small: true,
           onClick: () => use(sharedLegs(total, legs.find((leg) => leg.categoryId)?.categoryId || item.categoryId)),
         }));
       }
       const rules = sharedRules();
       if (rules.length) {
-        const percent = Math.round(ratio * 100);
         const sharedPick = el("select", { "aria-label": "Shared split by mapping" },
-          el("option", { value: "", text: `Shared mapping (${percent}/${100 - percent})...` }),
-          ...rules.map((rule, i) => el("option", { value: String(i), text: rule.name || anyCategoryName(state, rule.sharedId) })));
+          el("option", { value: "", text: "Shared mapping..." }),
+          ...rules.map((rule, i) => {
+            const own = Math.round(ruleRatio(rule, ratio) * 100);
+            return el("option", { value: String(i), text: `${rule.name || anyCategoryName(state, rule.sharedId)} (${own}/${100 - own})` });
+          }));
         sharedPick.addEventListener("change", () => {
           const rule = rules[Number(sharedPick.value)];
           sharedPick.value = "";
           if (!rule) return;
-          const [a, b] = cz.splitByShares(total, [ratio, 1 - ratio]);
+          const share = ruleRatio(rule, ratio);
+          const [a, b] = cz.splitByShares(total, [share, 1 - share]);
           use([
             { categoryId: rule.person1Id, amount: a, memo: "", label: state.personName(1) },
             { categoryId: rule.person2Id, amount: b, memo: "", label: state.personName(2) },

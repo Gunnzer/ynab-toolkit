@@ -315,6 +315,16 @@ describe("shared expenses", () => {
     assert.equal(result.skippedAlreadySplit, 1);
   });
 
+  test("a mapping with its own split overrides the usual one", () => {
+    const own = { ...rule, ratio: 0.5 };
+    const [planned] = shared.scan(transactions(), [own], "2025-01-01", "2030-12-31", 0.35).planned;
+    assert.deepEqual([planned.person1Amount, planned.person2Amount], [-50000, -50000]);
+    const [usual] = shared.scan(transactions(), [rule], "2025-01-01", "2030-12-31", 0.35).planned;
+    assert.deepEqual([usual.person1Amount, usual.person2Amount], [-35000, -65000]);
+    assert.equal(shared.ruleRatio({ ratio: 1.5 }, 0.35), 0.35, "an impossible split falls back to the usual one");
+    assert.equal(shared.ruleRatio({ ratio: 0 }, 0.35), 0, "0% is a real choice");
+  });
+
   test("scan reports exactly which transactions it skipped, and why", () => {
     const items = transactions();
     items[0].transfer_account_id = "acct";

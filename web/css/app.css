@@ -2012,6 +2012,14 @@ td .btn-small { min-height: 28px; padding: 0 9px; font-size: 12.5px; }
 .bank-setup > * + * { margin-top: 14px; }
 .bank-setup > summary + * { margin-top: 0; }
 
+.split-line-own { margin-left: 12px; font-size: 13px; }
+
+/* Settings' tab switches, grouped under a switch for each space. */
+.tools-group { display: flex; flex-direction: column; gap: 6px; }
+.tools-space .section-title { margin: 0; }
+.tools-tabs { display: flex; flex-direction: column; gap: 2px; padding-left: 26px; }
+.tools-tabs .hint { margin: 0 0 6px 26px; }
+
 /* "Choose one..." reads as a placeholder, not a choice. */
 select.is-empty { color: var(--faint); }
 select.is-empty option { color: var(--text); }

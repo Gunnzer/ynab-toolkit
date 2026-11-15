@@ -20,6 +20,16 @@ export function withinEndDate(date, endDate) {
   return !endDate || date <= endDate;
 }
 
+/**
+ * Person 1's share for one mapping: its own split when it has one (at
+ * explicit user request: "a custom split for a specific category, maybe an
+ * override in the mapping"), else the usual split from Settings.
+ */
+export function ruleRatio(rule, usual) {
+  const own = rule?.ratio;
+  return typeof own === "number" && Number.isFinite(own) && own >= 0 && own <= 1 ? own : usual;
+}
+
 export function splitAmounts(total, person1Ratio) {
   return splitMilliunits(total, person1Ratio);
 }
@@ -88,7 +98,7 @@ export function scan(transactions, rules, startDate, endDate, ratio) {
       continue;
     }
 
-    const [person1Amount, person2Amount] = splitAmounts(transaction.amount, ratio);
+    const [person1Amount, person2Amount] = splitAmounts(transaction.amount, ruleRatio(rule, ratio));
     result.planned.push({ transaction, rule, person1Amount, person2Amount });
   }
 

@@ -33,7 +33,10 @@ import { cardTiersPage } from "./pages/cardtiers.js";
 //
 // `group`/`groupLabel` name a page's space; Setup's tool on/off list reads
 // them too, so a page only ever changes space here.
-// `key` is the flag under tools.enabled; pages without one are always shown.
+// `key` is the flag under tools.enabled. Every tab has one (at explicit user
+// request: "make it so all tabs can be enabled or disabled"): a page's own,
+// or for Reports' tabs their own, so each of the five can be switched off
+// on its own. A space with every tab off is not shown anywhere.
 export const SPACES = [
   { id: "home", title: "Home", icon: "home", tabs: [{ page: "home" }] },
   {
@@ -55,11 +58,26 @@ export const SPACES = [
     // Reports' own five tabs are listed here directly (`tab`), so there is
     // only ever one row of tabs, never a second row inside the page.
     id: "reports", title: "Reports", icon: "trend", tabs: [
-      { page: "reports", tab: "spending", label: "Spending" },
-      { page: "reports", tab: "budget", label: "Budget vs actual" },
-      { page: "reports", tab: "trends", label: "Trends" },
-      { page: "reports", tab: "recurring", label: "Recurring" },
-      { page: "reports", tab: "cashflow", label: "Cash flow" },
+      {
+        page: "reports", tab: "spending", label: "Spending", key: "reports",
+        blurb: "Spending and saving by month, category group, category and payee, with filters you can save.",
+      },
+      {
+        page: "reports", tab: "budget", label: "Budget vs actual", key: "reportBudget",
+        blurb: "Each category's usual assigned amount against what it really spends, and whether this month is on pace.",
+      },
+      {
+        page: "reports", tab: "trends", label: "Trends", key: "reportTrends",
+        blurb: "Twelve months per category, and the ones that have moved the most lately.",
+      },
+      {
+        page: "reports", tab: "recurring", label: "Recurring", key: "reportRecurring",
+        blurb: "Subscriptions and regular bills found in your history, with price rises and new ones.",
+      },
+      {
+        page: "reports", tab: "cashflow", label: "Cash flow", key: "reportCashflow",
+        blurb: "Income against spending each month, and your savings rate.",
+      },
       { page: "upcoming", label: "Upcoming bills" },
       { page: "spendingexport", label: "Export" },
     ],
@@ -89,7 +107,9 @@ export const DEFAULT_BAR = ["home", "budget", "transactions", "cards"];
 
 export const PAGES = [
   {
-    id: "home", title: "Home", icon: "home", build: homePage,
+    id: "home", title: "Home", icon: "home", key: "home", build: homePage,
+    blurb: "Your dashboard: the widgets you pick, sized and ordered your way.",
+    group: "home", groupLabel: "Home",
   },
   {
     id: "budget", title: "YNAB Budget", icon: "chart", key: "budgetOverview",
@@ -304,17 +324,28 @@ class App {
     return enabled[key] !== false;
   }
 
+  /** Tool pages that are on, for Home's Tool links (Home itself is not a link). */
   enabledToolPages() {
-    return TOGGLEABLE.filter((page) => this.toolEnabled(page.key));
+    return this.toolPages().filter((page) => this.pageVisible(page.id));
   }
 
   /** Every tool page, switched on or not. */
   toolPages() {
-    return TOGGLEABLE;
+    return TOGGLEABLE.filter((page) => page.id !== "home");
   }
 
   visiblePages() {
-    return PAGES.filter((page) => !page.key || this.toolEnabled(page.key));
+    return PAGES.filter((page) => this.pageVisible(page.id));
+  }
+
+  /** A tab's on/off flag: its own, else its page's. */
+  tabKey(tab) {
+    return tab.key || this.pageById(tab.page)?.key || null;
+  }
+
+  tabEnabled(tab) {
+    const key = this.tabKey(tab);
+    return !key || this.toolEnabled(key);
   }
 
   // ---------- navigation ----------
@@ -332,14 +363,18 @@ class App {
     return [...PAGES, SETUP_PAGE].find((page) => page.id === id) || null;
   }
 
+  /** A page is shown while any of its tabs is on (Reports has five). */
   pageVisible(id) {
     const page = this.pageById(id);
-    return Boolean(page) && (!page.key || this.toolEnabled(page.key));
+    if (!page) return false;
+    const tabs = SPACES.flatMap((space) => space.tabs).filter((tab) => tab.page === id);
+    if (tabs.length) return tabs.some((tab) => this.tabEnabled(tab));
+    return !page.key || this.toolEnabled(page.key);
   }
 
-  /** A space's tabs whose tool is switched on. */
+  /** A space's tabs that are switched on. */
   spaceTabsFor(space) {
-    return space.tabs.filter((tab) => this.pageVisible(tab.page));
+    return space.tabs.filter((tab) => this.tabEnabled(tab));
   }
 
   /** Spaces with at least one tool switched on, in order. */
@@ -489,8 +524,11 @@ class App {
   }
 
   defaultPage() {
-    // Home when there is something to come home to, Settings otherwise.
-    return this.state.token && this.state.budgetId ? "home" : "setup";
+    // Home when there is something to come home to (or the first space still
+    // switched on, if Home is off), Settings otherwise.
+    if (!(this.state.token && this.state.budgetId)) return "setup";
+    if (this.pageVisible("home")) return "home";
+    return this.visibleSpaces()[0]?.tabs.find((tab) => this.tabEnabled(tab))?.page || "setup";
   }
 
   go(id) {
@@ -502,8 +540,18 @@ class App {
     const page = this.pageById(id);
     if (!page) return this.show(this.defaultPage());
 
-    // A tool switched off while open falls back to Home.
-    if (page.key && !this.toolEnabled(page.key)) return this.go("home");
+    // A tool switched off while open falls back to the start page.
+    if (id !== SETUP_PAGE.id && !this.pageVisible(id)) {
+      const fallback = this.defaultPage();
+      return fallback === id ? this.go(SETUP_PAGE.id) : this.go(fallback);
+    }
+    // Reports opens on a tab that is still switched on.
+    if (id === "reports") {
+      const tabs = SPACES.flatMap((space) => space.tabs).filter((tab) => tab.page === "reports");
+      const current = this.state.store.get("reports.reportTab", "spending") || "spending";
+      const on = tabs.filter((tab) => this.tabEnabled(tab));
+      if (on.length && !on.some((tab) => tab.tab === current)) this.state.store.set("reports.reportTab", on[0].tab);
+    }
 
     this.current = id;
     // A space with several tabs is titled by the space; the tab row says
