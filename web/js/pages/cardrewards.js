@@ -4,9 +4,10 @@
 // at least 90% sure. Standalone: reads nothing from YNAB. The card details
 // are checked for on this site each time the page opens (tools/card_feed.js).
 
-import { CARDS, CATALOGUE_CHECKED, OFFERS, PURCHASES } from "../tools/card_catalogue.js";
+import { CARDS, OFFERS, PURCHASES } from "../tools/card_catalogue.js";
 import { browserFetchJson, loadCatalogue } from "../tools/card_feed.js";
 import { merchantByName, normalise, searchMerchants } from "../tools/merchants.js";
+import { OPEN_OFFER_KEY } from "../tools/my_cards.js";
 import {
   TARGET_CONFIDENCE, UNSURE, centsPerPoint, explain,
   formatEarned, formatRate, formatValue, formatWorth, groupName, groupUnit,
@@ -249,14 +250,13 @@ export function cardRewardsPage(app) {
     hint("Add the credit cards you carry on My cards, and the best one for each purchase shows up here."),
     el("div", { class: "card-row" }, button("Go to My cards", { accent: true, onClick: goToMyCards })));
   const walletNote = el("p", { class: "hint reward-wallet-note" });
-  // Special events and offers from the card details, below the results
-  // (at explicit user request), with an "Offer" tag on what they are about.
-  const offersHost = el("div");
+  // Offers and events are listed on My cards (at explicit user request);
+  // here they are only an "Offer" tag on what they are about.
   let offers = [];
   // Cards you do not have, ranked for the same purchase (at explicit user
   // request: "a toggle or something to show best card not owned").
   const othersHost = el("div", { class: "reward-others" });
-  root.append(resultsHost, othersHost, offersHost, walletNote);
+  root.append(resultsHost, othersHost, walletNote);
 
   let feed = null;
 
@@ -299,7 +299,6 @@ export function cardRewardsPage(app) {
     renderAsk();
     renderResults();
     renderOthers();
-    renderOffers();
   }
 
   const OTHERS_SHOWN = 5;
@@ -360,49 +359,16 @@ export function cardRewardsPage(app) {
       : asPreferred(walletCards(settings.wallet), settings.preferred);
   }
 
-  function renderOffers() {
-    clear(offersHost);
-    if (!settings.wallet.length) return;
-    const names = Object.fromEntries(offerCards().map((c) => [c.id, shortName(c)]));
-    offersHost.append(card(
-      sectionTitle("Offers and events"),
-      offers.length
-        ? offers.map(({ offer, status, cardIds }) => el("div", {
-          class: "reward-offer",
-          id: `reward-offer-${offer.id}`,
-        },
-        el("div", { class: "reward-offer-head" },
-          el("span", { class: "reward-offer-title", text: offer.title }),
-          pill(status === "now" ? `Until ${shortDate(offer.ends)}` : `Starts ${shortDate(offer.starts)}`,
-            status === "now" ? "ok" : "info")),
-        offer.detail ? el("p", { class: "reward-offer-detail", text: offer.detail }) : "",
-        el("p", {
-          class: "hint",
-          text: [
-            cardIds.length ? `For your ${cardIds.map((id) => names[id]).join(", ")}` : "",
-            offer.shops?.length ? `At ${offer.shops.join(", ")}` : "",
-            `Source: ${offer.source}`,
-          ].filter(Boolean).join(". ") + ".",
-        })))
-        : hint("No special events or offers for your cards were found when card " +
-          `details were last checked${CATALOGUE_CHECKED ? ` (${shortDate(CATALOGUE_CHECKED)})` : ""}. ` +
-          "They are looked for every week along with the card details.")));
-  }
-
-  /** A small tag that jumps down to the offer it is about. */
+  /** A small tag that opens the offer it is about on My cards. */
   function offerTag(offer, text = "Offer") {
     return el("button", {
       type: "button",
       class: "reward-offer-tag",
       title: offer.title,
-      text: `${text} \u2193`,
+      text: `${text} \u2192`,
       onClick: () => {
-        const target = document.getElementById(`reward-offer-${offer.id}`);
-        if (!target) return;
-        target.scrollIntoView({ behavior: "smooth", block: "center" });
-        target.classList.remove("is-flash");
-        void target.offsetWidth;
-        target.classList.add("is-flash");
+        try { sessionStorage.setItem(OPEN_OFFER_KEY, offer.id); } catch { /* My cards still opens */ }
+        location.hash = "#/mycards";
       },
     });
   }

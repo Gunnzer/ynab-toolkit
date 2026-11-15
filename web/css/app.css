@@ -2030,6 +2030,22 @@ select.is-empty option { color: var(--text); }
 .reward-offer-title { font-weight: 600; }
 .reward-offer-detail { margin: 4px 0; }
 .reward-offer .hint { margin: 0; }
+.mycards-offers { gap: 6px; }
+.mycards-offer { margin: 0 -10px; padding: 4px 10px; }
+.mycards-offer > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  list-style: none;
+  cursor: pointer;
+}
+.mycards-offer > summary::-webkit-details-marker { display: none; }
+.mycards-offer > summary::before { content: "\25B8"; flex: none; font-size: 11px; color: var(--muted); transition: transform .15s; }
+.mycards-offer[open] > summary::before { transform: rotate(90deg); }
+.mycards-offer > summary .reward-offer-title { flex: 1; min-width: 0; font-size: 14px; }
+.mycards-offer > summary .pill { flex: none; }
+.mycards-offer > p { margin-left: 17px; }
 
 .reward-groups { display: flex; flex-direction: column; gap: 14px; }
 .reward-group-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 6px; }

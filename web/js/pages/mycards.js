@@ -5,12 +5,14 @@
 // The one place cards are added, set up and removed; Best card, Welcome
 // bonuses and the Tier list all read the same cardRewards.wallet.
 
-import { CARDS, CATALOGUE_CHECKED, NETWORKS, POINT_TYPES, PURCHASES } from "../tools/card_catalogue.js";
+import { CARDS, CATALOGUE_CHECKED, NETWORKS, OFFERS, POINT_TYPES, PURCHASES } from "../tools/card_catalogue.js";
 import { browserFetchJson, loadCatalogue } from "../tools/card_feed.js";
 import {
-  centsPerPoint, daysSince, groupName, groupUnit, pickLabel, shortName, transferRatio, walletCards,
+  asPreferred, centsPerPoint, daysSince, groupName, groupUnit, offersFor, pickLabel, shortName, transferRatio, walletCards,
 } from "../tools/card_rewards.js";
-import { FACES, LIGHT_FACES, cardFace, earnLines, feeInfo, perkGroups, walletFees } from "../tools/my_cards.js";
+import {
+  FACES, LIGHT_FACES, OPEN_OFFER_KEY, cardFace, earnLines, feeInfo, perkGroups, walletFees,
+} from "../tools/my_cards.js";
 import {
   button, card, checkbox, clear, confirmDialog, customDialog, dateLabel, el, field, hint,
   pageHeading, pill, sectionTitle, select, textInput, todayIso,
@@ -63,6 +65,13 @@ export function myCardsPage(app) {
       el("button", { type: "button", class: "reward-quiet", text: "Add one by hand", onClick: () => editCustom(null) }),
       el("span", { class: "mycards-feed" }, feedStatus, updateButton)));
 
+  // Offers and events, near the top and short (at explicit user request:
+  // "move the offers and events to the my cards page near the top. Keep the
+  // text short"): one line each, the details fold away.
+  const offersHost = el("div");
+  // Which offers are unfolded, kept across redraws (the page redraws once
+  // the card details load).
+  const openOffers = new Set();
   const summary = el("div");
   const grid = el("div", { class: "mycards-grid" });
 
@@ -84,7 +93,7 @@ export function myCardsPage(app) {
 
   // Add a card always stays at the top, above your cards (reported live:
   // "the add card moves to the bottom when it shouldn't").
-  root.append(addCard, summary, grid, pointsCard);
+  root.append(addCard, offersHost, summary, grid, pointsCard);
 
   let feed = null;
 
@@ -128,10 +137,66 @@ export function myCardsPage(app) {
   function renderAll() {
     const cards = walletCards(settings.wallet);
     pointsCard.hidden = !settings.wallet.length;
+    renderOffers(cards);
     renderSummary(cards);
     renderGrid(cards);
     renderAddList();
     renderPreferred(cards);
+  }
+
+  function shortDate(iso) {
+    const [y, m, d] = iso.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+  }
+
+  function renderOffers(cards) {
+    clear(offersHost);
+    const held = asPreferred(cards, settings.preferred);
+    const offers = offersFor(OFFERS, held, localToday());
+    if (!offers.length) return;
+    const names = Object.fromEntries(held.map((c) => [c.id, shortName(c)]));
+    offersHost.append(el("div", { class: "card mycards-offers" },
+      sectionTitle("Offers and events"),
+      offers.map(({ offer, status, cardIds }) => el("details", {
+        class: "reward-offer mycards-offer",
+        id: `reward-offer-${offer.id}`,
+        open: openOffers.has(offer.id),
+        onToggle: (event) => {
+          if (event.target.open) openOffers.add(offer.id); else openOffers.delete(offer.id);
+        },
+      },
+      el("summary", {},
+        el("span", { class: "reward-offer-title", text: offer.title }),
+        pill(status === "now" ? `Until ${shortDate(offer.ends)}` : `Starts ${shortDate(offer.starts)}`,
+          status === "now" ? "ok" : "info")),
+      offer.detail ? el("p", { class: "reward-offer-detail", text: offer.detail }) : "",
+      el("p", {
+        class: "hint",
+        text: [
+          cardIds.length ? `For your ${cardIds.map((id) => names[id]).join(", ")}` : "",
+          offer.shops?.length ? `At ${offer.shops.join(", ")}` : "",
+          `Source: ${offer.source}`,
+        ].filter(Boolean).join(". ") + ".",
+      })))));
+    openRequestedOffer();
+  }
+
+  // Arrived from an "Offer" tag on Which card to use: open that one.
+  function openRequestedOffer() {
+    let id = null;
+    try { id = sessionStorage.getItem(OPEN_OFFER_KEY); } catch { return; }
+    const target = id && offersHost.querySelector(`[id="reward-offer-${CSS.escape(id)}"]`);
+    if (!target) return;
+    try { sessionStorage.removeItem(OPEN_OFFER_KEY); } catch { /* opened once anyway */ }
+    openOffers.add(id);
+    target.open = true;
+    // Looked up again after a frame: the page may have redrawn by then.
+    setTimeout(() => {
+      const shown = offersHost.querySelector(`[id="reward-offer-${CSS.escape(id)}"]`);
+      if (!shown) return;
+      shown.scrollIntoView({ behavior: "smooth", block: "center" });
+      shown.classList.add("is-flash");
+    }, 300);
   }
 
   function renderSummary(cards) {

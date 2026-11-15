@@ -7,6 +7,10 @@
 
 import { PERK_KINDS, centsPerPoint, describeEarn } from "./card_rewards.js";
 
+// An "Offer" tag on Which card to use opens My cards at that offer; the id
+// rides along in sessionStorage under this key.
+export const OPEN_OFFER_KEY = "ynab-toolkit.openOffer";
+
 // Colour of the drawn card. Each name is a gradient in app.css
 // (`.card-face[data-face=...]`); a plain colour family, not an issuer's
 // artwork. Cards not listed take their issuer's, then their network's.

@@ -9,6 +9,13 @@ Maintained going forward: add a new dated entry for each push, in this same
 style (feature/fix name and files, then bullets on what changed and why),
 before or as part of the push itself.
 
+## 2026-11-15
+
+**Card Rewards: offers and events moved to My cards** (`pages/mycards.js`, `pages/cardrewards.js`, `tools/my_cards.js`, `css/app.css`, `data/cards.json`, `CLAUDE.md`)
+* Offers and events now sit near the top of My cards, under Add a card, one short line each with its dates; tap one for the details.
+* Which card to use no longer lists them at the bottom; its "Offer" tag on a card now opens that offer on My cards.
+* The Avion to Avios offer's text is shorter.
+
 ## 2026-11-11
 
 **Sign-up bonuses: deadlines on every offer** (`pages/welcomebonuses.js`, `tools/welcome_bonuses.js`, `ui.js`, `css/app.css`, `data/cards.json`, tests, `CLAUDE.md`)
