@@ -1990,6 +1990,28 @@ td .btn-small { min-height: 28px; padding: 0 9px; font-size: 12.5px; }
 .reward-answers > summary::before { content: "\25B8"; font-size: 11px; transition: transform .15s; }
 .reward-answers[open] > summary::before { transform: rotate(90deg); }
 .reward-answers .reward-asked { margin-top: 4px; padding-top: 0; border-top: 0; }
+/* Bank Import: the setup folds away under Convert (at explicit user request). */
+.bank-setup { border-top: 1px solid var(--border); padding-top: 4px; }
+.bank-setup > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  min-height: 36px;
+  padding-top: 8px;
+  list-style: none;
+  cursor: pointer;
+}
+.bank-setup > summary::-webkit-details-marker { display: none; }
+.bank-setup > summary::before { content: "\25B8"; font-size: 11px; color: var(--muted); transition: transform .15s; }
+.bank-setup[open] > summary::before { transform: rotate(90deg); }
+.bank-setup-title { font-weight: 600; }
+.bank-setup-summary { color: var(--muted); font-size: 13px; }
+.bank-setup-summary.is-warn { color: var(--warn); font-weight: 600; }
+.bank-setup[open] > summary { margin-bottom: 12px; }
+.bank-setup > * + * { margin-top: 14px; }
+.bank-setup > summary + * { margin-top: 0; }
+
 /* "Choose one..." reads as a placeholder, not a choice. */
 select.is-empty { color: var(--faint); }
 select.is-empty option { color: var(--text); }

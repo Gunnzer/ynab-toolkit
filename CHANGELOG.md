@@ -11,6 +11,11 @@ before or as part of the push itself.
 
 ## 2026-11-15
 
+**Import: setup folded away** (`pages/bank.js`, `css/app.css`, `CLAUDE.md`)
+* Convert and Save sit at the top of the card, always in view; the column mapping and payee rules fold away under "Columns and payee rules".
+* The folded heading shows the mapping in one line ("Date: Date · Payee: Description · Amount: Amount · 2 payee rules"), so you can check it without opening it.
+* It opens by itself when a file's columns could not be matched, and Convert says which column still needs picking.
+
 **To review: easier to read** (`pages/categorize.js`, `css/app.css`, `CLAUDE.md`)
 * Each transaction is now one clean row: payee and amount, then the date and card in small grey text, then the category with one short line saying why ("Your usual for restaurants (A&W) · 3 of 3").
 * Rows you have ticked are highlighted, so you can see at a glance what Approve will save.

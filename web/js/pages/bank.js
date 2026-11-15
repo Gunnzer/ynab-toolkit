@@ -154,6 +154,7 @@ export function bankImportPage(app) {
           settings[key] = value;
           store.save();
           paintExample(value);
+          paintSetupSummary();
         });
         node.disabled = !headers.length;
         paintExample(current);
@@ -177,6 +178,7 @@ export function bankImportPage(app) {
           (checked) => { settings.invertAmount = checked; store.save(); }),
         hint("Turn this on only if your bank writes spending as a positive " +
           "number. YNAB expects money leaving an account to be negative.")));
+    paintSetupSummary();
   }
 
   // ---------- payee rules ----------
@@ -193,8 +195,17 @@ export function bankImportPage(app) {
   // count - the same rules() array backs both, there is only ever one list.
   let dialogRefresh = null;
 
-  const mappingCard = card(
-    sectionTitle("Conversion setup"),
+  // The setup is folded away by default (at explicit user request: "the
+  // conversion setup is a lot to see, it should be minimized by default"),
+  // with a one-line summary of the mapping on its heading so it can be
+  // checked without opening it. It opens by itself when a file's columns
+  // need a look (missingColumns()). Convert and Save sit above it, always
+  // visible.
+  const setupSummary = el("span", { class: "bank-setup-summary" });
+  const setupDetails = el("details", { class: "bank-setup" },
+    el("summary", {},
+      el("span", { class: "bank-setup-title", text: "Columns and payee rules" }),
+      setupSummary),
     el("div", { class: "section-head" },
       sectionTitle("Payee rules"),
       el("span", { class: "spacer" }),
@@ -210,7 +221,42 @@ export function bankImportPage(app) {
     mapHost,
     optionalMapHost,
     optionsHost);
+  const mappingCard = card(setupDetails);
   root.append(mappingCard);
+
+  /** Required columns not set for the loaded file: Date, Payee, and Amount or Outflow/Inflow. */
+  function missingColumns() {
+    const headers = parsed?.headers || [];
+    const has = (key) => headers.includes(settings[key]);
+    const missing = [];
+    if (!has("dateColumn")) missing.push("Date");
+    if (!has("payeeColumn")) missing.push("Payee");
+    if (!has("amountColumn") && !has("outflowColumn") && !has("inflowColumn")) missing.push("Amount");
+    return missing;
+  }
+
+  function paintSetupSummary() {
+    const ruleCount = rules().length;
+    const ruleText = `${ruleCount} payee rule${ruleCount === 1 ? "" : "s"}`;
+    if (!parsed) {
+      setupSummary.textContent = ruleText;
+      setupSummary.classList.remove("is-warn");
+      return;
+    }
+    const headers = parsed.headers;
+    const col = (key) => (headers.includes(settings[key]) ? settings[key] : "");
+    const parts = [
+      `Date: ${col("dateColumn") || "not set"}`,
+      `Payee: ${col("payeeColumn") || "not set"}`,
+    ];
+    if (col("amountColumn")) parts.push(`Amount: ${col("amountColumn")}`);
+    else if (col("outflowColumn") || col("inflowColumn")) {
+      parts.push(`Out/In: ${col("outflowColumn") || "-"} / ${col("inflowColumn") || "-"}`);
+    } else parts.push("Amount: not set");
+    parts.push(ruleText);
+    setupSummary.textContent = parts.join(" \u00b7 ");
+    setupSummary.classList.toggle("is-warn", missingColumns().length > 0);
+  }
 
   function rules() {
     return settings.payeeRules || (settings.payeeRules = []);
@@ -220,6 +266,7 @@ export function bankImportPage(app) {
     const count = rules().length;
     rulesButton.textContent = `Rules (${count})`;
     if (dialogRefresh) dialogRefresh();
+    paintSetupSummary();
   }
 
   // Edit and Remove each open their own dialog (a form, or a confirm), but
@@ -526,19 +573,18 @@ export function bankImportPage(app) {
   // it's wanted again rather than deleting the feature underneath it.
   const SHOW_PUSH_TO_YNAB = false;
 
-  // Used to be its own sticky pageActions() bar floating below the setup
-  // card, which read as disconnected from the settings it acts on once
-  // Payee rules and Columns were merged into one card. Appended to the
-  // bottom of that same card instead, at explicit user request - a plain
-  // card-row, not pageActions(), since pageActions() gives itself its own
-  // sticky card chrome that would look like a card nested inside a card here.
-  mappingCard.append(el("div", { class: "card-row" },
-    convertButton, saveButton, el("div", { class: "narrow" }, saveFormatSelect), summary));
-  if (SHOW_PUSH_TO_YNAB) {
-    mappingCard.append(el("div", { class: "card-row" },
+  // In the same card as the setup it acts on (at explicit user request), a
+  // plain card-row rather than pageActions(), whose own sticky card chrome
+  // would look like a card inside a card. On top, above the folded setup,
+  // so it is always in view.
+  const pushRow = SHOW_PUSH_TO_YNAB ? el("div", { class: "card-row" }) : null;
+  mappingCard.prepend(el("div", { class: "card-row" },
+    convertButton, saveButton, el("div", { class: "narrow" }, saveFormatSelect), summary), pushRow || "");
+  if (pushRow) {
+    pushRow.append(
       el("span", { class: "field-label", text: "Push to" }),
       el("div", { class: "narrow" }, accountSelect),
-      pushButton, undoButton, undoLabel));
+      pushButton, undoButton, undoLabel);
   }
 
   function lastPushes() {
@@ -717,11 +763,18 @@ export function bankImportPage(app) {
         const guess = bank.guessColumns(parsed.headers);
         Object.assign(settings, guess);
         store.save();
-        log.write("Guessed the column mapping from the header row. Check it below.", "warn");
+        log.write("Guessed the columns from the header row. They are shown next to " +
+          "Columns and payee rules; open it to change them.", "warn");
       }
     }
 
     renderMapping();
+    const missing = missingColumns();
+    if (missing.length) {
+      setupDetails.open = true;
+      log.write(`Pick the ${missing.join(", ")} column${missing.length === 1 ? "" : "s"} under ` +
+        "Columns and payee rules, then press Convert.", "warn");
+    }
     converted = null;
     emptyRow(preview, "Press Convert to see the result.");
     summary.textContent = "";
@@ -731,6 +784,11 @@ export function bankImportPage(app) {
 
   function runConvert() {
     if (!parsed) return log.write("Choose a file first.", "warn");
+    const missing = missingColumns();
+    if (missing.length) {
+      setupDetails.open = true;
+      return log.write(`Pick the ${missing.join(", ")} column${missing.length === 1 ? "" : "s"} first.`, "warn");
+    }
 
     let result;
     try {
