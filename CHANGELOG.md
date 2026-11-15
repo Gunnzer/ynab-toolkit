@@ -14,7 +14,8 @@ before or as part of the push itself.
 **To review: new shops, notes and splits** (`pages/categorize.js`, `tools/categorize.js`, `tools/merchants.js`, `css/app.css`, tests, `CLAUDE.md`)
 * A shop you have never categorized now gets a category from what you use for that kind of shop: a new restaurant gets your usual restaurant category, a new gas station your gas one. It is ticked when you use that category for 80% of those shops (at least 3 times). Your history with the payee itself still comes first.
 * Every row has a note box; a note is saved with the rest and undone with it.
-* Split any transaction from the list: pick categories and amounts (with two parts, typing one fills the other), or use "Like last time" (Costco split 70/30 last time), "Half and half", or your shared split from Shared Expenses. A split can't be undone here; change it in YNAB if needed.
+* Split any transaction from the list: pick categories and amounts (with two parts, typing one fills the other), or use "Like last time" (Costco split 70/30 last time), "Half and half", or the shared split. A split can't be undone here; change it in YNAB if needed.
+* The shared split comes straight from Settings (your two people and their share), with a "Shared split 65/35" link on every row: each person's part goes to their own version of the category (the same name in their group, or your Shared Expenses mapping when there is one).
 
 **Less space under the title and tabs** (`css/app.css`, `CLAUDE.md`)
 * Pages start about 60px higher on a computer: the title row is shorter when a row of tabs sits under it, the tabs are tighter, and the 30px gap left under the old page description (now behind Help) is gone.

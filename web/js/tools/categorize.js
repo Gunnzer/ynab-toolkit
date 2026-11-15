@@ -224,6 +224,38 @@ export function splitByShares(total, shares) {
   return amounts;
 }
 
+/**
+ * Each person's own version of a category, for a shared split taken from
+ * Settings (at explicit user request: "can't it take the split from the
+ * settings?"): the category with the same name in a group that person
+ * owns, the way a budget split by person is usually built ("Alex: Groceries"
+ * and "Sam: Groceries"). A category that is already one person's stays
+ * theirs. The people's own names are ignored when comparing, so "Groceries
+ * (Alex)" and "Groceries (Sam)" match too. null where nothing matches.
+ *   categories: [{ id, name, owner: "p1" | "p2" | "shared" }]
+ */
+export function personCategories(categoryId, categories, { names = [] } = {}) {
+  const drop = names.map((name) => plainName(name)).filter(Boolean);
+  const base = (name) => {
+    let text = ` ${plainName(name)} `;
+    for (const word of drop) text = text.split(` ${word} `).join(" ");
+    return text.replace(/\s+/g, " ").trim();
+  };
+  const start = (categories || []).find((c) => c.id === categoryId);
+  if (!start) return { p1: null, p2: null };
+  const key = base(start.name);
+  const pick = (owner) => (start.owner === owner ? start.id
+    : (categories.find((c) => c.owner === owner && base(c.name) === key)?.id || null));
+  return { p1: pick("p1"), p2: pick("p2") };
+}
+
+function plainName(text) {
+  return String(text || "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/\p{Extended_Pictographic}|[\uFE0E\uFE0F\u200D]/gu, "")
+    .toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
 /** What is wrong with a split, or "" when it can be saved. */
 export function splitProblem(total, legs) {
   if (!legs || legs.length < 2) return "A split needs at least two parts.";

@@ -1690,6 +1690,7 @@ tr.group-row td:first-child { padding: 0; }
 .split-shortcuts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0 12px; }
 .split-shortcuts select { width: auto; }
 .split-rows { display: flex; flex-direction: column; gap: 8px; }
+.split-label { margin-bottom: -4px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
 .split-row { display: grid; grid-template-columns: minmax(0, 2fr) 110px minmax(0, 1.4fr) auto; gap: 8px; align-items: center; }
 .split-left { margin: 0; font-size: 13px; color: var(--muted); }
 .split-left.is-warn { color: var(--warn); font-weight: 600; }

@@ -7,6 +7,7 @@
 import { fmt, fromMilliunits, toMilliunits } from "../money.js";
 import * as cz from "../tools/categorize.js";
 import { isComplete } from "../tools/shared_expenses.js";
+import { ownerOf, sharedRatio } from "../tools/split_sheet.js";
 import {
   button, card, categoryPicker, checkbox, clear, confirmDialog, customDialog, dateLabel, el,
   emptyRow, hint, logPane, pageHeading, pill, sectionTitle, table,
@@ -29,6 +30,15 @@ function anyCategoryName(state, id) {
   for (const group of state.categoryGroups || []) {
     const found = (group.categories || []).find((c) => c.id === id);
     if (found) return found.name;
+  }
+  return "a category not in this list";
+}
+
+// "Groceries · Sam - Spending": a split's parts often share a name.
+function categoryWithGroup(state, id) {
+  for (const group of state.categoryGroups || []) {
+    const found = (group.categories || []).find((c) => c.id === id);
+    if (found) return group.name === "Internal Master Category" ? found.name : `${found.name} · ${group.name}`;
   }
   return "a category not in this list";
 }
@@ -177,7 +187,7 @@ export function categorizePage(app) {
           el("div", { class: "categorize-split" },
             el("strong", { text: "Split" }),
             ...item.split.map((leg) => el("div", { class: "categorize-split-leg" },
-              el("span", { text: anyCategoryName(state, leg.categoryId) }),
+              el("span", { text: categoryWithGroup(state, leg.categoryId) }),
               el("span", { class: "num", text: fmt(Math.abs(leg.amount)) })))),
           el("div", { class: "categorize-actions" },
             linkButton("Change split", () => editSplit(item)),
@@ -199,6 +209,7 @@ export function categorizePage(app) {
           note ? el("div", { class: `hint ${note.warn ? "is-warn" : ""}`, text: note.text }) : null,
           el("div", { class: "categorize-actions" },
             item.lastSplit ? linkButton("Split like last time", () => editSplit(item, "last")) : null,
+            state.peopleNamed ? linkButton(`Shared split ${sharedSetup().short}`, () => editSplit(item, "shared")) : null,
             linkButton("Split", () => editSplit(item))));
       } else {
         categoryCell = el("td", { class: "hint", text: item.kind === "transfer"
@@ -286,18 +297,50 @@ export function categorizePage(app) {
     return (shared.rules || []).filter(isComplete);
   }
 
+  // The split share set once in Settings, and both people's names for it.
+  function sharedSetup() {
+    const people = state.withPeople({});
+    const ratio = sharedRatio(people);
+    const percent = Math.round(ratio * 100);
+    return {
+      ratio,
+      label: `${state.personName(1)} ${percent}%, ${state.personName(2)} ${100 - percent}%`,
+      short: `${percent}/${100 - percent}`,
+    };
+  }
+
+  // The shared split from Settings: each person's share at the Settings
+  // ratio, in their own version of the category (a Shared Expenses mapping
+  // for it first, else the same name in a group that person owns).
+  function sharedLegs(total, categoryId) {
+    const { ratio } = sharedSetup();
+    const people = state.withPeople({});
+    const rule = categoryId && sharedRules().find((r) =>
+      [r.sharedId, r.person1Id, r.person2Id].includes(categoryId));
+    const ids = rule ? { p1: rule.person1Id, p2: rule.person2Id }
+      : cz.personCategories(categoryId, state.flatCategories(true).map(({ group, category }) => ({
+        id: category.id, name: category.name, owner: ownerOf(group, "", people),
+      })), { names: [state.person(1).name, state.person(2).name] });
+    const [a, b] = cz.splitByShares(total, [ratio, 1 - ratio]);
+    return [
+      { categoryId: ids.p1, amount: a, memo: "", label: state.personName(1) },
+      { categoryId: ids.p2, amount: b, memo: "", label: state.personName(2) },
+    ];
+  }
+
   async function editSplit(item, start) {
     const t = item.transaction;
     const total = t.amount;
     const sign = total < 0 ? -1 : 1;
-    const ratio = Number(store.section("sharedExpenses").person1Ratio) || 0.5;
+    const ratio = sharedSetup().ratio;
     const fromShares = (legs) => {
       const amounts = cz.splitByShares(total, legs.map((leg) => leg.share));
       return legs.map((leg, i) => ({ categoryId: leg.categoryId, amount: amounts[i], memo: leg.memo || "" }));
     };
     let legs = item.split ? item.split.map((leg) => ({ ...leg }))
       : start === "last" && item.lastSplit ? fromShares(item.lastSplit.legs)
-        : [
+        : start === "shared" ? sharedLegs(total, item.categoryId)
+          : [
           { categoryId: item.categoryId, amount: total, memo: "" },
           { categoryId: null, amount: 0, memo: "" },
         ];
@@ -321,11 +364,17 @@ export function categorizePage(app) {
           ]);
         },
       }));
+      if (state.peopleNamed) {
+        shortcuts.append(button(`Shared (${sharedSetup().label})`, {
+          small: true,
+          onClick: () => use(sharedLegs(total, legs.find((leg) => leg.categoryId)?.categoryId || item.categoryId)),
+        }));
+      }
       const rules = sharedRules();
       if (rules.length) {
         const percent = Math.round(ratio * 100);
-        const sharedPick = el("select", { "aria-label": "Shared split" },
-          el("option", { value: "", text: `Shared split (${percent}/${100 - percent})...` }),
+        const sharedPick = el("select", { "aria-label": "Shared split by mapping" },
+          el("option", { value: "", text: `Shared mapping (${percent}/${100 - percent})...` }),
           ...rules.map((rule, i) => el("option", { value: String(i), text: rule.name || anyCategoryName(state, rule.sharedId) })));
         sharedPick.addEventListener("change", () => {
           const rule = rules[Number(sharedPick.value)];
@@ -333,8 +382,8 @@ export function categorizePage(app) {
           if (!rule) return;
           const [a, b] = cz.splitByShares(total, [ratio, 1 - ratio]);
           use([
-            { categoryId: rule.person1Id, amount: a, memo: "" },
-            { categoryId: rule.person2Id, amount: b, memo: "" },
+            { categoryId: rule.person1Id, amount: a, memo: "", label: state.personName(1) },
+            { categoryId: rule.person2Id, amount: b, memo: "", label: state.personName(2) },
           ]);
         });
         shortcuts.append(sharedPick);
@@ -389,6 +438,7 @@ export function categorizePage(app) {
           });
           remove.setAttribute("aria-label", "Remove this part");
           remove.disabled = legs.length <= 2;
+          if (leg.label) rowsHost.append(el("div", { class: "split-label", text: leg.label }));
           rowsHost.append(el("div", { class: "split-row" }, picker, amount, note, remove));
         });
         paintLeft();
@@ -412,7 +462,7 @@ export function categorizePage(app) {
           problem.textContent = cz.splitProblem(total, legs);
           return !problem.textContent;
         },
-        value: () => legs.map((leg) => ({ ...leg })),
+        value: () => legs.map(({ label, ...leg }) => leg),
       };
     }, { confirmText: "Use this split", wide: true });
 

@@ -176,6 +176,21 @@ describe("categorize: new shops, notes and splits", () => {
     assert.equal(amounts[0] + amounts[1], fresh.amount);
   });
 
+  test("a shared split finds each person's own version of the category", () => {
+    const categories = [
+      { id: "shared-groc", name: "Groceries", owner: "shared" },
+      { id: "a-groc", name: "Groceries", owner: "p1" },
+      { id: "s-groc", name: "\u{1F6D2} Groceries", owner: "p2" },
+      { id: "a-fun", name: "Fun money (Alex)", owner: "p1" },
+      { id: "s-fun", name: "Fun money (Sam)", owner: "p2" },
+      { id: "a-gym", name: "Gym", owner: "p1" },
+    ];
+    assert.deepEqual(cz.personCategories("shared-groc", categories), { p1: "a-groc", p2: "s-groc" });
+    assert.deepEqual(cz.personCategories("a-fun", categories, { names: ["Alex", "Sam"] }), { p1: "a-fun", p2: "s-fun" });
+    assert.deepEqual(cz.personCategories("a-gym", categories), { p1: "a-gym", p2: null }, "nothing to match: left to pick");
+    assert.deepEqual(cz.personCategories("missing", categories), { p1: null, p2: null });
+  });
+
   test("a split must add up and have a category on every part", () => {
     assert.match(cz.splitProblem(-10000, [{ categoryId: "a", amount: -10000 }]), /two parts/);
     assert.match(cz.splitProblem(-10000, [{ categoryId: "a", amount: -6000 }, { categoryId: null, amount: -4000 }]), /category/);
