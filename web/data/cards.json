@@ -2120,6 +2120,27 @@
         "avion"
       ],
       "source": "Milesopedia, AwardWallet"
+    },
+    {
+      "id": "loblaw-zwilling-stamps-2026-11",
+      "title": "Zwilling knife stamps at Loblaw stores",
+      "detail": "1 stamp per $20 spent before tax. 20 stamps get 60% to 85% off one Zwilling knife item. Opt in on the PC Optimum app for 8 bonus stamps.",
+      "starts": "2026-11-12",
+      "ends": "2026-11-25",
+      "everyone": true,
+      "shops": [
+        "Loblaws",
+        "No Frills",
+        "Real Canadian Superstore",
+        "Zehrs",
+        "Fortinos",
+        "Provigo",
+        "Maxi",
+        "Valu-mart",
+        "Your Independent Grocer",
+        "Atlantic Superstore"
+      ],
+      "source": "PC Optimum app, Loblaws and No Frills Collect and Save pages"
     }
   ],
   "tiers": {

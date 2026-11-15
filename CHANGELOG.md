@@ -16,6 +16,9 @@ before or as part of the push itself.
 * Which card to use no longer lists them at the bottom; its "Offer" tag on a card now opens that offer on My cards.
 * The Avion to Avios offer's text is shorter.
 
+**Card Rewards: Loblaw stamps event** (`data/cards.json`)
+* Added the Zwilling knife Collect and Save stamps promo (Nov 12 to 25, PC Optimum app) as an event anyone can join, tagged "Offer here" at Loblaw grocery stores. The twice-weekly check now also looks for PC Optimum app promotions at Loblaw stores.
+
 ## 2026-11-11
 
 **Sign-up bonuses: deadlines on every offer** (`pages/welcomebonuses.js`, `tools/welcome_bonuses.js`, `ui.js`, `css/app.css`, `data/cards.json`, tests, `CLAUDE.md`)
