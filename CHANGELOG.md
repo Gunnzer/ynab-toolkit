@@ -22,6 +22,7 @@ before or as part of the push itself.
 * Card statements: purchases are money out; payments, refunds and anything marked CR or with a minus are money in. Foreign currency notes, reference numbers and totals are left out.
 * Bank statements: the Withdrawals and Deposits columns decide the sign, a date printed once per day carries down, and every row is checked against the running balance.
 * Years come from the statement period, so December purchases on a January statement land in the right year.
+* Fixed on a real Scotiabank chequing statement: column headings that wrap over two lines are read properly (the balances had come out as the amounts), and a transaction's second line is kept, so the shop becomes the payee and "Point of sale purchase" goes in the memo.
 * The log gives the totals in and out to compare with the statement. A locked PDF asks you to Print > Save as PDF first; a scanned one cannot be read.
 
 **Import: setup folded away** (`pages/bank.js`, `css/app.css`, `CLAUDE.md`)

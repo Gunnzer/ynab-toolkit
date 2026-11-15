@@ -189,6 +189,13 @@ const CARD_WORDS = /credit limit|minimum payment|payment due|available credit|li
 
 const SUMMARY = /^(previous|new|opening|closing|starting|ending)\s+(statement\s+)?balance|^balance\s+(forward|brought|carried)|^(sub)?total\b|^minimum payment|^payment due|^credit limit|^available credit|^annual interest|^interest rate|^solde|^total\b/i;
 
+// Page headers and footers that can sit right under a table's last row.
+const PAGE_FURNITURE = /continued|^page\b|\bpage \d|\bsuite\b|\u00e0 suivre|see reverse|^\d+\s*(of|\/|de)\s*\d+$/i;
+
+// A description that only says what kind of transaction it was; the shop or
+// person is then on the line below.
+const TYPE_ONLY = /^(?:(?:contactless\s+)?(?:interac\s+)?(?:point of sale|pos|debit card|retail|interac)\s+purchase|(?:interac\s+)?e-?transfer(?:\s+(?:sent|received|deposit|autodeposit))?|pre-?authori[sz]ed\s+(?:debit|payment|pmt)|bill\s+payment|online\s+(?:banking\s+)?(?:payment|transfer|bill payment)|mb-?\s*(?:bill payment|transfer|credit card\/loc pay\.?)|(?:payroll|direct|mobile|abm|atm|branch)?\s*deposit|(?:abm|atm|branch)?\s*withdrawal|(?:customer\s+)?transfer(?:\s+(?:to|from))?|service\s+charge|misc(?:ellaneous)?\.?\s+payment|insurance|mortgage\s+payment|loan\s+payment|cheque|refund|purchase|payment|fee)(?:[\s\-#*:]*[\dA-Z]{0,12})?$/i;
+
 const COLUMN_WORDS = {
   out: /^(withdrawals?|debits?|cheques|paid out|money out|retraits?|withdrawn|amounts? withdrawn|amounts? deducted|cheques\/debits)/i,
   in: /^(deposits?|credits?|paid in|money in|d[e\u00e9]p[o\u00f4]ts?|amounts? deposited|amounts? added)/i,
@@ -197,24 +204,54 @@ const COLUMN_WORDS = {
   date: /^(date|transaction date)\b/i,
 };
 
-// A table heading: where its Withdrawals, Deposits, Balance and Date columns
-// sit. Words inside one run of text (columns printed close together) are
-// placed by their share of the run.
-function headerColumns(line) {
+// Column words on one line, and where each sits. Words are tried alone and
+// with the next word ("Amounts withdrawn", "Paid out"), never letting a pair
+// swallow a heading of its own: Scotiabank prints "Transactions" right
+// before "withdrawn ($)", which read as one heading and lost the column.
+function columnWords(line) {
   const { text, span, cell } = charPositions(line);
   const columns = {};
-  const words = /[A-Za-z\u00c0-\u00ff$()/]+(?:\s(?:out|in|withdrawn|deposited|deducted|added|forward|\(\$\)))?/g;
-  let match;
-  while ((match = words.exec(text))) {
+  const words = [...text.matchAll(/[A-Za-zÀ-ÿ$()/]+/g)];
+  words.forEach((word, i) => {
+    const next = words[i + 1];
+    const pair = next && text.slice(word.index + word[0].length, next.index) === " " ? `${word[0]} ${next[0]}` : null;
     for (const [kind, re] of Object.entries(COLUMN_WORDS)) {
-      if (!columns[kind] && re.test(match[0])) columns[kind] = cell(match.index) || span(match.index, match[0].length);
+      if (columns[kind]) continue;
+      const found = pair && re.test(pair) ? pair : re.test(word[0]) ? word[0] : null;
+      if (found) columns[kind] = cell(word.index) || span(word.index, found.length);
     }
-  }
+  });
+  return columns;
+}
+
+// A table heading: where its Withdrawals, Deposits, Balance and Date columns
+// sit. Words inside one run of text (columns printed close together) are
+// placed by their share of the run. Headings that wrap ("Amounts" over
+// "withdrawn ($)") can leave Balance or Date on a line just above, so
+// `above` (the heading lines right above it, with no amounts) fills those in.
+function headerColumns(line, above = []) {
+  const columns = columnWords(line);
   // Withdrawals and Deposits, or (Tangerine and others) one signed Amount
   // column beside a running Balance.
-  if (columns.out && columns.in) return columns;
-  if (columns.amount && columns.balance) return { ...columns, single: true };
-  return null;
+  if (columns.out && columns.in) delete columns.amount;
+  else if (!(columns.amount && columns.balance)) return null;
+  for (const other of above) {
+    const more = columnWords(other);
+    for (const kind of ["balance", "date"]) if (!columns[kind] && more[kind]) columns[kind] = more[kind];
+  }
+  return columns.out && columns.in ? columns : { ...columns, single: true };
+}
+
+// Up to two lines right above line i on the same page with no amounts in
+// them: the rest of a heading that wraps.
+function headingAbove(lines, i) {
+  const above = [];
+  for (let j = i - 1; j >= 0 && above.length < 2; j -= 1) {
+    if (lines[j + 1].pageStart || Math.abs(lines[j].y - lines[i].y) > 30) break;
+    if (findAmounts(lines[j].text).length) break;
+    above.push(lines[j]);
+  }
+  return above;
 }
 
 function nearestColumn(columns, box) {
@@ -282,13 +319,26 @@ function readBank(lines, period, options) {
   let balanceChecked = 0;
   let balanceOff = 0;
   let guessedSigns = 0;
+  // The row(s) the last line with money made, where its description starts,
+  // and how many more lines of description it has picked up.
+  let lastRows = [];
+  let descX = null;
+  let extraLines = 0;
+  let prevY = null;
 
-  for (const line of lines) {
-    if (line.pageStart) pendingPayee = "";
-    const header = headerColumns(line);
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    const gap = prevY === null || line.pageStart ? Infinity : Math.abs(prevY - line.y);
+    prevY = line.y;
+    if (line.pageStart) {
+      pendingPayee = "";
+      lastRows = [];
+    }
+    const header = headerColumns(line, headingAbove(lines, i));
     if (header) {
       columns = header;
       pendingPayee = "";
+      lastRows = [];
       continue;
     }
     const { text, span } = charPositions(line);
@@ -316,14 +366,39 @@ function readBank(lines, period, options) {
     const description = cleanPayee(removeSpans(text, [...dates, ...amounts]));
 
     if (!money.length) {
-      if (balance !== null) lastBalance = balance;
-      else if (description && !SUMMARY.test(description) && columns) pendingPayee = description;
+      if (balance !== null) {
+        lastBalance = balance;
+        lastRows = [];
+      } else if (description && !SUMMARY.test(description) && columns) {
+        // A second line of description under the last row (Scotiabank and
+        // RBC print the kind of transaction, then the shop on the next line).
+        const startX = span(text.search(/\S/), 1).x;
+        if (!date && lastRows.length && extraLines < 2 && gap <= 24 && descX !== null &&
+            Math.abs(startX - descX) <= 12 && !PAGE_FURNITURE.test(description)) {
+          for (const row of lastRows) row.extra.push(description);
+          extraLines += 1;
+        } else {
+          lastRows = [];
+        }
+        pendingPayee = description;
+      }
       continue;
     }
     if (SUMMARY.test(description) || !currentDate) {
       if (balance !== null) lastBalance = balance;
+      lastRows = [];
       continue;
     }
+    // Where this row's description starts, to know its next lines by.
+    let masked = text;
+    for (const s of [...dates, ...amounts]) masked = masked.slice(0, s.index) + " ".repeat(s.length) + masked.slice(s.index + s.length);
+    const descStart = masked.search(/[A-Za-z]/);
+    // A line of description with no money, then this line with money and no
+    // description of its own: that line was this row's, not the last one's.
+    if (!description && pendingPayee && lastRows.length) {
+      for (const row of lastRows) if (row.extra[row.extra.length - 1] === pendingPayee) row.extra.pop();
+    }
+    const made = [];
 
     for (const item of money) {
       let signed;
@@ -342,16 +417,34 @@ function readBank(lines, period, options) {
         }
       }
       const payee = description || pendingPayee;
-      rows.push({ date: currentDate, payee, memo: "", amount: Math.round(signed * 100) / 100 });
+      const row = { date: currentDate, payee, memo: "", amount: Math.round(signed * 100) / 100, extra: [] };
+      rows.push(row);
+      made.push(row);
       if (lastBalance !== null) lastBalance = Math.round((lastBalance + signed) * 100) / 100;
     }
     pendingPayee = "";
+    lastRows = made;
+    extraLines = 0;
+    descX = descStart >= 0 ? span(descStart, 1).x : null;
     if (balance !== null) {
       if (lastBalance !== null) {
         balanceChecked += 1;
         if (Math.abs(lastBalance - balance) > 0.005) balanceOff += 1;
       }
       lastBalance = balance;
+    }
+  }
+  for (const row of rows) {
+    const extra = row.extra.join(" ");
+    delete row.extra;
+    if (!extra) continue;
+    // "Point of sale purchase" then "LOBLAWS 1234": the shop is the payee and
+    // the kind of transaction goes in the memo.
+    if (!row.payee || TYPE_ONLY.test(row.payee)) {
+      row.memo = row.payee;
+      row.payee = extra;
+    } else {
+      row.payee = `${row.payee} ${extra}`;
     }
   }
   return { rows, balanceChecked, balanceOff, guessedSigns };
@@ -371,7 +464,7 @@ export function readStatement(pages, { dateOrder = "mdy", today = new Date(), ki
   // a bank one if its running balances actually add up.
   let isBank = kind === "bank";
   let result = null;
-  if (kind === "auto" && lines.some((line) => headerColumns(line))) {
+  if (kind === "auto" && lines.some((line, i) => headerColumns(line, headingAbove(lines, i)))) {
     const bank = readBank(lines, period, options);
     const cardWords = lines.some((line) => CARD_WORDS.test(line.text));
     const balancesWork = bank.balanceChecked >= 2 && bank.balanceOff === 0;

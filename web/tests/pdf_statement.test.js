@@ -253,6 +253,35 @@ describe("reading a statement", () => {
     assert.deepEqual(result.warnings, []);
   });
 
+  test("headings over two lines, and a second line of description (Scotiabank chequing)", () => {
+    // Reported live: "Transactions" right before "withdrawn ($)" read as one
+    // heading, so no table was found and the balances came out as amounts.
+    const at = (y, l) => ({ ...l, y });
+    const result = readStatement([page(
+      at(746, line([50, 237, "Statement period Aug 18, 2026 to Sep 17, 2026"])),
+      at(710, line([351, 383, "Amounts"], [436, 468, "Amounts"])),
+      at(705, line([50, 68, "Date"], [110, 164, "Transactions"], [512, 559, "Balance ($)"])),
+      at(700, line([332, 388, "withdrawn ($)"], [419, 475, "deposited ($)"])),
+      at(680, line([50, 75, "Aug 18"], [110, 176, "Opening Balance"], [525, 561, "4,126.32"])),
+      at(664, line([50, 75, "Aug 24"], [110, 205, "Point of sale purchase"], [361, 390, "76.84"], [525, 561, "4,049.48"])),
+      at(653, line([110, 220, "LOBLAWS 1234 TORONTO ON"])),
+      at(637, line([50, 70, "Sep 2"], [110, 180, "Payroll deposit"], [442, 475, "600.00"], [525, 561, "4,649.48"])),
+      at(626, line([110, 160, "ACME CORP"])),
+      at(610, line([50, 70, "Sep 9"], [110, 170, "AMAZON.CA*AB12CD"], [357, 390, "10.00"], [525, 561, "4,639.48"])),
+      at(599, line([110, 170, "AMZN.CA/BILL ON"])),
+      at(583, line([50, 75, "Sep 17"], [110, 176, "Closing Balance"], [520, 561, "$4,639.48"])),
+      at(567, line([110, 200, "continued on next page"])),
+    )]);
+    assert.equal(result.kind, "bank");
+    assert.deepEqual(result.rows.map((r) => [r.date, r.payee, r.memo, r.amount]), [
+      ["2026-08-24", "LOBLAWS 1234 TORONTO ON", "Point of sale purchase", -76.84],
+      ["2026-09-02", "ACME CORP", "Payroll deposit", 600],
+      ["2026-09-09", "AMAZON.CA*AB12CD AMZN.CA/BILL ON", "", -10],
+    ]);
+    assert.equal(result.balanceChecked, 3);
+    assert.deepEqual(result.warnings, []);
+  });
+
   test("a balance that does not add up is flagged", () => {
     const result = readStatement([page(
       line([50, 300, "From October 1, 2026 to October 31, 2026"]),
