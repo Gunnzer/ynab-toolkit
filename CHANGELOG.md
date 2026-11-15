@@ -23,6 +23,7 @@ before or as part of the push itself.
 * Bank statements: the Withdrawals and Deposits columns decide the sign, a date printed once per day carries down, and every row is checked against the running balance.
 * Years come from the statement period, so December purchases on a January statement land in the right year.
 * Fixed on a real Scotiabank chequing statement: column headings that wrap over two lines are read properly (the balances had come out as the amounts), and a transaction's second line is kept, so the shop becomes the payee and "Point of sale purchase" goes in the memo.
+* Fixed: reading a PDF no longer changes the columns saved for your CSV files. It had saved a "Memo" column, so CSVs without one (EQ Bank) failed with "Not found: Memo". A saved column the file does not have is now simply not used.
 * The log gives the totals in and out to compare with the statement. A locked PDF asks you to Print > Save as PDF first; a scanned one cannot be read.
 
 **Import: setup folded away** (`pages/bank.js`, `css/app.css`, `CLAUDE.md`)

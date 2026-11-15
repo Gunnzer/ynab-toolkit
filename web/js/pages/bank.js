@@ -132,6 +132,20 @@ export function bankImportPage(app) {
     ["outflowColumn", "Outflow (optional)", false],
     ["inflowColumn", "Inflow (optional)", false],
   ];
+  const COLUMN_KEYS = [...COLUMN_FIELDS, ...OPTIONAL_COLUMN_FIELDS].map(([key]) => key);
+
+  // A PDF's own columns. Never saved over the CSV mapping: reported live, a
+  // PDF once left "Memo" saved as the memo column and every CSV after it
+  // failed with "Not found: Memo".
+  const PDF_MAPPING = {
+    dateColumn: "Date", payeeColumn: "Payee", memoColumn: "Memo",
+    amountColumn: "Amount", outflowColumn: "", inflowColumn: "",
+  };
+
+  /** The mapping for the loaded file: the PDF's own, else the saved one. */
+  function mapping() {
+    return parsed?.fromPdf ? { ...settings, ...PDF_MAPPING } : settings;
+  }
 
   // Row 3 (the third actual transaction, not the header) if there are that
   // many, otherwise whatever the last row is - enough rows in to have moved
@@ -155,7 +169,7 @@ export function bankImportPage(app) {
 
     for (const [host, fields] of [[mapHost, COLUMN_FIELDS], [optionalMapHost, OPTIONAL_COLUMN_FIELDS]]) {
       for (const [key, label] of fields) {
-        const current = headers.includes(settings[key]) ? settings[key] : "";
+        const current = headers.includes(mapping()[key]) ? mapping()[key] : "";
         const example = hint("");
 
         function paintExample(column) {
@@ -168,7 +182,7 @@ export function bankImportPage(app) {
           paintExample(value);
           paintSetupSummary();
         });
-        node.disabled = !headers.length;
+        node.disabled = !headers.length || Boolean(parsed?.fromPdf);
         paintExample(current);
         host.append(el("div", {},
           el("label", { class: "field-label", text: label }), node, example));
@@ -246,7 +260,7 @@ export function bankImportPage(app) {
   /** Required columns not set for the loaded file: Date, Payee, and Amount or Outflow/Inflow. */
   function missingColumns() {
     const headers = parsed?.headers || [];
-    const has = (key) => headers.includes(settings[key]);
+    const has = (key) => headers.includes(mapping()[key]);
     const missing = [];
     if (!has("dateColumn")) missing.push("Date");
     if (!has("payeeColumn")) missing.push("Payee");
@@ -784,6 +798,12 @@ export function bankImportPage(app) {
       log.write("Read as a QFX/OFX file - columns are already known.");
     } else {
       log.write(`Columns found: ${parsed.headers.join(", ")}`);
+      // A saved column this file does not have (left by another bank's file,
+      // or a QFX) would stop Convert; it is simply not used for this file.
+      for (const key of COLUMN_KEYS) {
+        if (settings[key] && !parsed.headers.includes(settings[key])) settings[key] = "";
+      }
+      store.save();
       // Only guess when the saved mapping does not fit this file, so a
       // returning user keeps the mapping they set up last time.
       const fits = parsed.headers.includes(settings.dateColumn) &&
@@ -870,11 +890,6 @@ export function bankImportPage(app) {
       rows: statement.rows.map((row) => ({ Date: row.date, Payee: row.payee, Memo: row.memo, Amount: row.amount.toFixed(2) })),
       fromPdf: statement.kind,
     };
-    Object.assign(settings, {
-      dateColumn: "Date", payeeColumn: "Payee", memoColumn: "Memo",
-      amountColumn: "Amount", outflowColumn: "", inflowColumn: "",
-    });
-    store.save();
     renderMapping();
     const out = statement.rows.filter((r) => r.amount < 0).reduce((sum, r) => sum - r.amount, 0);
     const into = statement.rows.filter((r) => r.amount > 0).reduce((sum, r) => sum + r.amount, 0);
@@ -905,7 +920,7 @@ export function bankImportPage(app) {
     try {
       // A PDF's amounts already carry YNAB's sign, so "flip the sign" (meant
       // for a bank's CSV) does not apply to them.
-      result = bank.convert(parsed, parsed.fromPdf ? { ...settings, invertAmount: false } : settings);
+      result = bank.convert(parsed, parsed.fromPdf ? { ...mapping(), invertAmount: false } : settings);
     } catch (error) {
       converted = null;
       saveButton.disabled = true;
