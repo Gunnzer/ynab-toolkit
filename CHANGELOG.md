@@ -11,6 +11,14 @@ before or as part of the push itself.
 
 ## 2026-11-15
 
+**Import: PDF statements** (`pages/bank.js`, new `tools/pdf_text.js` and `tools/pdf_statement.js`, `tests/pdf_statement.test.js`, `CLAUDE.md`)
+* Drop a PDF statement (credit card, chequing or savings) on Import and its transactions are read out, converted and shown in the preview, ready to save for YNAB. Everything happens in the page; nothing is uploaded.
+* A small PDF reader written for the app (no outside code) pulls the text and its position on the page, so columns can be told apart.
+* Card statements: purchases are money out; payments, refunds and anything marked CR or with a minus are money in. Foreign currency notes, reference numbers and totals are left out.
+* Bank statements: the Withdrawals and Deposits columns decide the sign, a date printed once per day carries down, and every row is checked against the running balance.
+* Years come from the statement period, so December purchases on a January statement land in the right year.
+* The log gives the totals in and out to compare with the statement. A locked PDF asks you to Print > Save as PDF first; a scanned one cannot be read.
+
 **Import: setup folded away** (`pages/bank.js`, `css/app.css`, `CLAUDE.md`)
 * Convert and Save sit at the top of the card, always in view; the column mapping and payee rules fold away under "Columns and payee rules".
 * The folded heading shows the mapping in one line ("Date: Date · Payee: Description · Amount: Amount · 2 payee rules"), so you can check it without opening it.

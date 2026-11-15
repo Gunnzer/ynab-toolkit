@@ -4,8 +4,10 @@
 // uploaded anywhere.
 
 import * as bank from "../tools/bank_convert.js";
+import { extractPdfText } from "../tools/pdf_text.js";
+import { readStatement } from "../tools/pdf_statement.js";
 import {
-  button, card, checkbox, clear, confirmDialog, customDialog, download, el,
+  button, card, checkbox, clear, confirmDialog, customDialog, dateLabel, download, el,
   emptyRow, field, hint, logPane, pageHeading, pickFile,
   sectionTitle, select, table, textInput,
 } from "../ui.js";
@@ -42,11 +44,15 @@ export function bankImportPage(app) {
   let parsed = null;       // { headers, rows }
   let converted = null;    // result of bank.convert
   let sourceName = "";
+  let pdfPages = null;     // a PDF statement's text, kept to re-read as another kind
 
   root.append(pageHeading(
     "Bank Import",
-    "Reads a CSV, TSV, semicolon, QFX or OFX export from your bank and " +
-    "writes the four columns YNAB wants, tidying up payee names on the way."));
+    "Reads a CSV, TSV, semicolon, QFX or OFX export from your bank, or a PDF " +
+    "statement (credit card or bank account), and writes the four columns YNAB " +
+    "wants, tidying up payee names on the way. A PDF is read in this page too: " +
+    "nothing is uploaded. Check what it found against the statement before " +
+    "importing; a scanned or locked PDF cannot be read."));
 
   // ---------- file ----------
 
@@ -110,6 +116,12 @@ export function bankImportPage(app) {
   const optionalMapHost = el("div", { class: "card-grid map-grid-3" });
   const optionsHost = el("div", { class: "stack" });
 
+  const PDF_KINDS = [
+    { value: "auto", label: "Worked out from the PDF" },
+    { value: "card", label: "Credit card statements" },
+    { value: "bank", label: "Bank account statements" },
+  ];
+
   const COLUMN_FIELDS = [
     ["dateColumn", "Date", true],
     ["payeeColumn", "Payee", true],
@@ -169,10 +181,17 @@ export function bankImportPage(app) {
     const order = select(DATE_ORDERS, settings.dateOrder || bank.MONTH_FIRST,
       (value) => { settings.dateOrder = value; store.save(); });
 
+    const pdfKind = select(PDF_KINDS, settings.pdfKind || "auto", (value) => {
+      settings.pdfKind = value;
+      store.save();
+      if (pdfPages) applyPdf();
+    });
+
     optionsHost.append(
       el("div", { class: "card-grid" },
         field("Read 03/05/2025 as", order),
-        field("Date format to write", format)),
+        field("Date format to write", format),
+        field("PDF statements are", pdfKind)),
       el("div", { class: "stack", style: "gap:4px" },
         checkbox("Flip the sign of every amount", settings.invertAmount,
           (checked) => { settings.invertAmount = checked; store.save(); }),
@@ -240,6 +259,11 @@ export function bankImportPage(app) {
     const ruleText = `${ruleCount} payee rule${ruleCount === 1 ? "" : "s"}`;
     if (!parsed) {
       setupSummary.textContent = ruleText;
+      setupSummary.classList.remove("is-warn");
+      return;
+    }
+    if (parsed.fromPdf) {
+      setupSummary.textContent = `Read from a PDF ${parsed.fromPdf === "bank" ? "bank account" : "credit card"} statement \u00b7 ${ruleText}`;
       setupSummary.classList.remove("is-warn");
       return;
     }
@@ -714,7 +738,7 @@ export function bankImportPage(app) {
 
   async function chooseFile() {
     const file = await pickFile(
-      ".csv,.txt,.tsv,.qfx,.ofx,text/csv,text/plain");
+      ".csv,.txt,.tsv,.qfx,.ofx,.pdf,text/csv,text/plain,application/pdf");
     if (file) readFile(file);
   }
 
@@ -722,12 +746,17 @@ export function bankImportPage(app) {
     log.clearLog();
     log.write(`Reading ${file.name} ...`, "head");
 
-    let text;
+    let bytes;
     try {
-      text = await file.text();
+      bytes = new Uint8Array(await file.arrayBuffer());
     } catch (error) {
       return log.write(`ERROR: could not read that file. ${error.message}`, "error");
     }
+    if (/\.pdf$/i.test(file.name) || new TextDecoder().decode(bytes.subarray(0, 5)) === "%PDF-") {
+      return readPdf(file, bytes);
+    }
+    pdfPages = null;
+    const text = new TextDecoder().decode(bytes);
 
     const isOfx = /\.(qfx|ofx)$/i.test(file.name) || bank.looksLikeOfx(text);
 
@@ -782,6 +811,88 @@ export function bankImportPage(app) {
     pushButton.disabled = true;
   }
 
+  // ---------- PDF statements ----------
+
+  async function readPdf(file, bytes) {
+    let pdf;
+    try {
+      pdf = await extractPdfText(bytes);
+    } catch (error) {
+      return failPdf(file, `could not read this PDF. ${error.message}`);
+    }
+    if (pdf.encrypted) {
+      return failPdf(file, "this PDF is locked, and this page cannot unlock it. Open it, " +
+        "choose Print, then Save as PDF (or Microsoft Print to PDF), and load that copy instead.");
+    }
+    if (!pdf.pages.some((page) => page.lines.length)) {
+      return failPdf(file, "there is no text in this PDF. It is probably a scanned image, " +
+        "which cannot be read here. Download the statement again from your bank's website.");
+    }
+    sourceName = file.name;
+    pdfPages = pdf.pages;
+    applyPdf();
+  }
+
+  function failPdf(file, message) {
+    parsed = null;
+    pdfPages = null;
+    converted = null;
+    fileLabel.textContent = `${file.name}: nothing read.`;
+    renderMapping();
+    emptyRow(preview, "Choose a file and press Convert.");
+    saveButton.disabled = true;
+    return log.write(`ERROR: ${message}`, "error");
+  }
+
+  // Turns the PDF's text into rows, then converts straight away: there are no
+  // columns to set up, and the preview is what needs checking.
+  function applyPdf() {
+    const statement = readStatement(pdfPages, {
+      dateOrder: settings.dateOrder === bank.DAY_FIRST ? "dmy" : "mdy",
+      kind: settings.pdfKind || "auto",
+    });
+    log.clearLog();
+    if (!statement.rows.length) {
+      parsed = null;
+      converted = null;
+      fileLabel.textContent = `${sourceName}: no transactions found.`;
+      renderMapping();
+      emptyRow(preview, "No transactions found in this PDF.");
+      saveButton.disabled = true;
+      log.write("No transactions were found in this PDF. If it is a credit card statement, " +
+        "try setting \"PDF statements are\" under Columns and payee rules. These are the " +
+        "first lines it read, to compare with the statement:", "error");
+      for (const line of pdfPages.flatMap((page) => page.lines).slice(0, 15)) log.write(`  ${line.text}`, "muted");
+      return;
+    }
+    parsed = {
+      headers: ["Date", "Payee", "Memo", "Amount"],
+      rows: statement.rows.map((row) => ({ Date: row.date, Payee: row.payee, Memo: row.memo, Amount: row.amount.toFixed(2) })),
+      fromPdf: statement.kind,
+    };
+    Object.assign(settings, {
+      dateColumn: "Date", payeeColumn: "Payee", memoColumn: "Memo",
+      amountColumn: "Amount", outflowColumn: "", inflowColumn: "",
+    });
+    store.save();
+    renderMapping();
+    const out = statement.rows.filter((r) => r.amount < 0).reduce((sum, r) => sum - r.amount, 0);
+    const into = statement.rows.filter((r) => r.amount > 0).reduce((sum, r) => sum + r.amount, 0);
+    const money = (n) => `$${n.toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const { start, end, guessed } = statement.period;
+    const period = guessed ? ""
+      : start && start !== end ? ` (${dateLabel(start)} to ${dateLabel(end)})` : ` (ending ${dateLabel(end)})`;
+    fileLabel.textContent = `${sourceName}: ${statement.rows.length} transaction(s) found.`;
+    log.write(`Read as a ${statement.kind === "bank" ? "bank account" : "credit card"} statement${period}: ` +
+      `${statement.rows.length} transaction(s), ${money(out)} out, ${money(into)} in.`, "head");
+    if (statement.balanceChecked && !statement.balanceOff) {
+      log.write(`All ${statement.balanceChecked} running balances add up.`, "ok");
+    }
+    for (const warning of statement.warnings) log.write(warning, "warn");
+    log.write("Compare these totals with the statement before importing.");
+    runConvert();
+  }
+
   function runConvert() {
     if (!parsed) return log.write("Choose a file first.", "warn");
     const missing = missingColumns();
@@ -792,7 +903,9 @@ export function bankImportPage(app) {
 
     let result;
     try {
-      result = bank.convert(parsed, settings);
+      // A PDF's amounts already carry YNAB's sign, so "flip the sign" (meant
+      // for a bank's CSV) does not apply to them.
+      result = bank.convert(parsed, parsed.fromPdf ? { ...settings, invertAmount: false } : settings);
     } catch (error) {
       converted = null;
       saveButton.disabled = true;
