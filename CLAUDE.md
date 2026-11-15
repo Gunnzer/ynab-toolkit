@@ -433,6 +433,13 @@ on every push to `main`, gated on the test suite (including the privacy
 sweep) passing first. No separate build/bundle step - what's in `web/` is
 what ships.
 
+**Only push when the user says to (at explicit user request, 2026-11-15:
+"only push when I tell you").** Make the change, test it, commit it locally
+on the working branch, and say it is ready; push (branch and `main`) only
+once the user asks. Several finished changes can wait and go out together.
+The one standing exception is the scheduled "Card Rewards check", which the
+user set up to publish `web/data/cards.json` by itself.
+
 ## Changelog
 
 `CHANGELOG.md` (repo root) is a human-readable, feature-grouped log of what
