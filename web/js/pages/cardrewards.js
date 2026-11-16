@@ -284,6 +284,8 @@ export function cardRewardsPage(app) {
       grouped: false,
       values: settings.values,
       preferred: settings.preferred,
+      offers: OFFERS,
+      today: localToday(),
     }) : null;
     paint();
   }
@@ -318,6 +320,8 @@ export function cardRewardsPage(app) {
     const ranked = rankOthers(CARDS.filter((c) => !held.has(c.id)), settings.purchase, allAnswers(), {
       values: settings.values,
       preferred: settings.preferred,
+      offers: OFFERS,
+      today: localToday(),
     }).filter((stat) => stat.accepted).slice(0, OTHERS_SHOWN);
     const mine = last?.groups?.[0]?.cards?.find((stat) => stat.accepted);
     const spend = amount();
@@ -640,6 +644,7 @@ export function cardRewardsPage(app) {
       ? `${formatRate(c.points, stat.rate)} ${typeName.toLowerCase()} = ${perDollar}\u00a2 per $1`
       : `${formatRate(c.points, stat.rate)} ${typeName} \u00d7 ${cents(c.points)} = ${perDollar}\u00a2 per $1`);
     if (c.convertedFrom) parts.push(movedNote(c));
+    if (stat.offer) parts.push(`Limited-time offer: ${stat.offer.title}, until ${shortDate(stat.offer.ends)}`);
     if (spend) {
       parts.push(cash
         ? `${formatWorth(c.points, stat.rate, spend, settings.values)} cash back`

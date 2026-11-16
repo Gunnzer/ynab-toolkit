@@ -46,6 +46,18 @@
 //   to everyone, and so is one with everyone: true (anyone can take part
 //   without the card, like a Shoppers PC Optimum event; the cards and
 //   points it names are still tagged). source: named, never linked.
+//   earn (optional): a boosted rate the offer gives while it runs, so Card
+//     Rewards ranks with it (at explicit user request). Rules in the same
+//     shape as a card's (on, when, rate; no cap or pick), for the cards in
+//     `cards` or that earn the points in `points` - one of those is required.
+//     rate is what the card itself earns per $1 during the offer, beyond what
+//     anyone without the card gets at the same time (the same rule as a
+//     card's own rates: loyalty points every member earns are not counted).
+//     Shoppers "25x with a PC Financial card" while members without the card
+//     get 20x: (25 - 20) x 15 = 75 per $1, on drugstore with pharmacy
+//     shoppers. When people without the card get only the usual 15:
+//     25 x 15 - 15 = 360. It is used only where it beats the card's normal
+//     rate (withOffers in card_rewards.js).
 //
 // A card:
 //   id, name, issuer, network ("amex" | "visa" | "mastercard"),

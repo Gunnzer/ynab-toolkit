@@ -280,8 +280,57 @@ export function validateCatalogue(data) {
       if (offer?.[key] !== undefined && !Array.isArray(offer[key])) problems.push(`Offer ${name}: ${key} is not a list.`);
     }
     if (offer?.everyone !== undefined && typeof offer.everyone !== "boolean") problems.push(`Offer ${name}: everyone is not true or false.`);
+    if (offer?.earn !== undefined) {
+      if (!Array.isArray(offer.earn) || !offer.earn.length) {
+        problems.push(`Offer ${name}: earn is not a list of rules.`);
+      } else if (!offer.cards?.length && !offer.points?.length) {
+        // A boosted rate needs to say whose cards earn it.
+        problems.push(`Offer ${name}: earn needs cards or points to say which cards earn it.`);
+      } else {
+        for (const rule of offer.earn) {
+          if (!(rule?.rate > 0) || !Array.isArray(rule?.on) || !rule.on.length) {
+            problems.push(`Offer ${name} has an earn rule with no rate or no purchases.`);
+            continue;
+          }
+          for (const on of rule.on) if (on !== "*" && !purchases.has(on)) problems.push(`Offer ${name}: unknown purchase ${on}.`);
+          if (rule.cap || rule.pick !== undefined) problems.push(`Offer ${name}: an earn rule cannot have a cap or a pick.`);
+          for (const [key, allowed] of Object.entries(rule.when || {})) {
+            const question = QUESTIONS.find((q) => q.id === key);
+            if (!question || !Array.isArray(allowed)) {
+              problems.push(`Offer ${name}: unknown question ${key}.`);
+              continue;
+            }
+            for (const value of allowed) {
+              if (!question.options.some((o) => o.id === value)) problems.push(`Offer ${name}: ${key} has no answer ${value}.`);
+            }
+          }
+        }
+      }
+    }
   }
   return problems;
+}
+
+/**
+ * Cards with any boosted rate an offer gives them today (at explicit user
+ * request, after a Shoppers "25x the points with your PC Financial card"
+ * weekend was missed: "let card rewards take it"). An offer's `earn` rules
+ * apply to the cards it names (`cards`) or that earn the points it names
+ * (`points`), from `starts` to `ends` inclusive, and nowhere else. Each is
+ * marked with the offer, and earnFor() only uses one where it beats the
+ * card's normal rate, so a muddled offer can never make a card look worse.
+ */
+export function withOffers(cards, offers, today) {
+  if (!today) return cards;
+  const live = (offers || []).filter((o) => Array.isArray(o?.earn) && o.earn.length &&
+    o.ends >= today && (!o.starts || o.starts <= today));
+  if (!live.length) return cards;
+  return cards.map((card) => {
+    const extra = live
+      .filter((o) => o.cards?.includes(card.id) || o.points?.includes(card.points))
+      .flatMap((o) => o.earn.map((rule) => ({ ...rule, offer: { id: o.id, title: o.title, ends: o.ends } })));
+    return extra.length ? { ...card, earn: [...extra, ...card.earn] } : card;
+  });
 }
 
 /** How far ahead an offer that has not started yet is still worth showing. */
@@ -500,14 +549,23 @@ export function earnFor(card, purchase, answers, questions = QUESTIONS) {
   }
   if (!accepted) return { accepted: false, rate: 0, rule: null };
 
+  let offer = null;
+  let normal = null;
   for (const rule of card.earn) {
     if (!ruleCovers(rule, card, category)) continue;
     if (rule.pick && !card.chosen?.includes(rule.pick)) continue;
     if (!conditionsHold(rule.when, card, answers)) continue;
+    if (rule.offer) {
+      if (!offer || rule.rate > offer.rate) offer = rule;
+      continue;
+    }
     if (rule.cap && answers[capQuestionId(card, rule.cap)] === "over") continue;
-    return { accepted: true, rate: rule.rate, rule };
+    normal = rule;
+    break;
   }
-  return { accepted: true, rate: card.base, rule: null };
+  const usual = normal ? normal.rate : card.base;
+  if (offer && offer.rate > usual) return { accepted: true, rate: offer.rate, rule: offer };
+  return { accepted: true, rate: usual, rule: normal };
 }
 
 function conditionsHold(when, card, answers) {
@@ -617,10 +675,12 @@ function evaluate(cards, purchase, answers, questions, view) {
     let pAccepted = 0;
     let expected = 0;
     const rates = new Map();
+    const offerAt = new Map();
     const uncapped = new Set();
     for (const o of outcomes) {
       const e = o.earn[i];
       if (!e.accepted) continue;
+      if (e.rule?.offer) offerAt.set(e.rate, e.rule.offer);
       pAccepted += o.p;
       expected += o.p * e.rate * factor[i];
       rates.set(e.rate, (rates.get(e.rate) || 0) + o.p);
@@ -642,6 +702,8 @@ function evaluate(cards, purchase, answers, questions, view) {
       pAccepted,
       expected,
       rate: shownRate,
+      // The offer behind the rate shown, if one is: { id, title, ends }.
+      offer: offerAt.get(shownRate) || null,
       score: shownRate * factor[i],
       min: values.length ? Math.min(...values) : 0,
       max: values.length ? Math.max(...values) : 0,
@@ -695,7 +757,9 @@ function evaluate(cards, purchase, answers, questions, view) {
  * TARGET_CONFIDENCE sure, or when no question left could change anything.
  * Once sure enough, the question that would still help is `optional`.
  *
- * view: { measure: "value" | "points", grouped, values, preferred }
+ * view: { measure: "value" | "points", grouped, values, preferred, offers, today }
+ *   offers/today: the catalogue's offers and today's date ("YYYY-MM-DD"),
+ *   so an offer's boosted rate counts while it runs (withOffers).
  *   value ranks by what the points are worth (centsPerPoint), points by the
  *   raw number. grouped keeps one list per point type; ungrouped is one
  *   list. How sure always means "the top of each list shown is right".
@@ -709,7 +773,7 @@ export function recommend(cards, purchase, answers = {}, view = {}) {
     values: view.values || {},
     preferred: view.preferred && POINT_TYPES[view.preferred] ? view.preferred : "",
   };
-  cards = asPreferred(cards, settings.preferred);
+  cards = asPreferred(withOffers(cards, view.offers, view.today), settings.preferred);
   const questions = questionsFor(purchase, cards);
   const now = evaluate(cards, purchase, answers, questions, settings);
 
@@ -764,7 +828,7 @@ export function rankOthers(cards, purchase, answers = {}, view = {}) {
     values: view.values || {},
     preferred: view.preferred && POINT_TYPES[view.preferred] ? view.preferred : "",
   };
-  const list = asPreferred(cards || [], settings.preferred);
+  const list = asPreferred(withOffers(cards || [], view.offers, view.today), settings.preferred);
   if (!list.length) return [];
   const questions = questionsFor(purchase, list);
   const fresh = { ...answers };

@@ -566,3 +566,51 @@ describe("the newer categories", () => {
     assert.equal(optionApplies(airCanada, "travel"), true);
   });
 });
+
+describe("offers that boost what a card earns", () => {
+  const SHOPPERS = {
+    id: "sdm-25x", title: "25x at Shoppers with a PC card", source: "PC Financial email",
+    starts: "2026-11-13", ends: "2026-11-15", points: ["pc"],
+    earn: [{ on: ["drugstore"], when: { pharmacy: ["shoppers"] }, rate: 360 }],
+  };
+
+  test("an offer's rate counts only on its dates, only for the cards it names, only where it beats the usual", async () => {
+    const { withOffers } = await import("../js/tools/card_rewards.js");
+    const [pc, cobalt] = walletCards([{ id: "pc-world-elite" }, { id: "amex-cobalt" }]);
+    const at = (day) => withOffers([pc, cobalt], [SHOPPERS], day);
+    const rate = (cards, answers) => earnFor(cards[0], "drugstore", answers, QUESTIONS);
+    assert.equal(rate(at("2026-11-14"), { pharmacy: "shoppers" }).rate, 360);
+    assert.equal(rate(at("2026-11-14"), { pharmacy: "shoppers" }).rule.offer.id, "sdm-25x");
+    assert.equal(rate(at("2026-11-12"), { pharmacy: "shoppers" }).rate, 30, "not started yet");
+    assert.equal(rate(at("2026-11-16"), { pharmacy: "shoppers" }).rate, 30, "over");
+    assert.equal(rate(at("2026-11-14"), { pharmacy: "other-pharmacy" }).rate, 10, "another pharmacy: the base");
+    assert.equal(at("2026-11-14")[1], cobalt, "a card the offer does not name is untouched");
+    const low = { ...SHOPPERS, earn: [{ on: ["drugstore"], when: { pharmacy: ["shoppers"] }, rate: 5 }] };
+    assert.equal(earnFor(withOffers([pc], [low], "2026-11-14")[0], "drugstore", { pharmacy: "shoppers" }, QUESTIONS).rate, 30,
+      "an offer worse than the usual rate never lowers it");
+  });
+
+  test("the ranking uses it and says which offer", () => {
+    const cards = walletCards([{ id: "pc-world-elite" }, { id: "amex-cobalt" }]);
+    const view = { measure: "value", grouped: false, offers: [SHOPPERS] };
+    const during = recommend(cards, "drugstore", { pharmacy: "shoppers", currency: "cad" }, { ...view, today: "2026-11-14" });
+    const top = during.groups[0].cards[0];
+    assert.equal(top.card.id, "pc-world-elite");
+    assert.equal(top.rate, 360);
+    assert.equal(top.offer.title, "25x at Shoppers with a PC card");
+    const after = recommend(cards, "drugstore", { pharmacy: "shoppers", currency: "cad" }, { ...view, today: "2026-11-20" });
+    assert.equal(after.groups[0].cards.find((s) => s.card.id === "pc-world-elite").offer, null);
+  });
+
+  test("the data file's offers with earn rules are checked", () => {
+    const bad = (offer) => validateCatalogue({ ...SHIPPED, offers: [offer] });
+    assert.deepEqual(bad(SHOPPERS), []);
+    assert.ok(bad({ ...SHOPPERS, points: undefined }).some((p) => p.includes("cards or points")));
+    assert.ok(bad({ ...SHOPPERS, earn: [{ on: ["drugstore"], rate: 0 }] }).some((p) => p.includes("no rate")));
+    assert.ok(bad({ ...SHOPPERS, earn: [{ on: ["nonsense"], rate: 9 }] }).some((p) => p.includes("unknown purchase")));
+    assert.ok(bad({ ...SHOPPERS, earn: [{ on: ["drugstore"], when: { pharmacy: ["nowhere"] }, rate: 9 }] })
+      .some((p) => p.includes("no answer")));
+    assert.ok(bad({ ...SHOPPERS, earn: [{ on: ["drugstore"], rate: 9, cap: { key: "x", spend: 1, per: "month", label: "x" } }] })
+      .some((p) => p.includes("cap")));
+  });
+});
