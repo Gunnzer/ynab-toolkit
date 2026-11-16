@@ -84,6 +84,15 @@ describe("card catalogue", () => {
 describe("what a card earns", () => {
   const [cobalt, tdAeroplan] = walletCards([{ id: "amex-cobalt" }, { id: "td-aeroplan-vi" }]);
 
+  test("a fee waived for the holder counts as no fee, keeping the listed one to show", () => {
+    const [waived, plain] = walletCards([{ id: "td-aeroplan-vi", feeWaived: true }, { id: "td-aeroplan-vi" }]);
+    assert.equal(waived.annualFee, 0);
+    assert.equal(waived.listedFee, plain.annualFee);
+    assert.ok(plain.annualFee > 0 && !plain.feeWaived);
+    const [free] = walletCards([{ id: "tangerine-mc", feeWaived: true }]);
+    assert.ok(!free.feeWaived, "nothing to waive on a card with no fee");
+  });
+
   test("grocery rates only at a store that codes as groceries", () => {
     assert.equal(earnFor(cobalt, "groceries", { store: "sobeys", currency: "cad" }).rate, 5);
     assert.equal(earnFor(tdAeroplan, "groceries", { store: "loblaw" }).rate, 1.5);

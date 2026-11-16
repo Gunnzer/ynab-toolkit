@@ -256,7 +256,9 @@ export function myCardsPage(app) {
     } else if (result.spend <= 0) {
       parts.push(hint("No spending on this account in the last 12 months."));
     } else {
-      const verdict = !result.fee
+      const verdict = resolved.feeWaived
+        ? pill(`Fee waived: ${dollars(result.earned)} back`, "ok")
+        : !result.fee
         ? pill("No annual fee", "muted")
         : result.net >= 0
           ? pill(`Worth it: ${dollars(result.net)} ahead`, "ok")
@@ -475,9 +477,22 @@ export function myCardsPage(app) {
       el("span", { class: `card-face-network is-${c.network}`, text: NETWORK_MARK[c.network] || "" })));
   }
 
-  function feeFacts(c) {
+  function feeFacts(c, entry) {
     const { fee, change } = feeInfo(c, localToday());
-    const facts = [fact("Annual fee", fee ? `${money(fee)} a year` : "No annual fee")];
+    const facts = [fact("Annual fee", c.feeWaived
+      ? `Waived for you (usually ${money(c.listedFee)})`
+      : fee ? `${money(fee)} a year` : "No annual fee")];
+    if (c.feeWaived || fee) {
+      // At explicit user request: some bank accounts rebate a card's fee
+      // (TD's All-Inclusive plan does for its Aeroplan card).
+      facts.push(el("div", { class: "mycard-waive" }, checkbox(
+        "Fee waived for me (for example through my bank account)", Boolean(entry.feeWaived), (on) => {
+          if (on) entry.feeWaived = true;
+          else delete entry.feeWaived;
+          store.save();
+          renderAll();
+        })));
+    }
     if (change) {
       const when = change.upcoming ? `from ${dateLabel(change.from)}` : `since ${dateLabel(change.from)}`;
       facts.push(el("div", { class: "mycard-fee-change" },
@@ -559,7 +574,7 @@ export function myCardsPage(app) {
         el("div", { class: "mycard-actions" },
           resolved.custom ? button("Edit", { small: true, onClick: () => editCustom(entry) }) : null,
           button("Remove", { small: true, onClick: () => remove(resolved.name, index) }))),
-      el("div", { class: "mycard-facts" }, feeFacts(resolved)),
+      el("div", { class: "mycard-facts" }, feeFacts(resolved, entry)),
       yearBlock(entry, resolved),
       sectionLabel("Rewards"),
       rewardList(resolved),

@@ -417,6 +417,12 @@ export function walletCards(wallet = []) {
       ...base,
       chosen: (entry.picks || []).slice(0, base.picks?.count ?? 0),
       flagsOn: { ...(entry.flags || {}) },
+      // The holder pays no fee for this card (at explicit user request: a
+      // bank account such as TD's All-Inclusive plan rebates it), so every
+      // sum uses $0; the listed fee is kept to show.
+      ...(entry.feeWaived && Number(base.annualFee) > 0
+        ? { annualFee: 0, listedFee: Number(base.annualFee), feeWaived: true, feeChange: undefined }
+        : {}),
     });
   }
   return cards;
