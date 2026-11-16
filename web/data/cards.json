@@ -2143,11 +2143,11 @@
       "source": "PC Optimum app, Loblaws and No Frills Collect and Save pages"
     },
     {
-      "id": "sdm-25x-pc-2026-11",
-      "title": "25x points at Shoppers with a PC card",
-      "detail": "20x the PC Optimum points for everyone, 25x when you pay with a PC Financial card. Check the PC Optimum app for the offer and any minimum spend.",
-      "starts": "2026-11-13",
-      "ends": "2026-11-15",
+      "id": "sdm-20k-points-2026-11",
+      "title": "20,000 bonus points at Shoppers",
+      "detail": "Load the offer in the PC Optimum app and spend the amount it names in one visit. Check the app for the minimum spend.",
+      "starts": "2026-11-18",
+      "ends": "2026-11-19",
       "everyone": true,
       "points": [
         "pc"
@@ -2155,20 +2155,7 @@
       "shops": [
         "Shoppers Drug Mart"
       ],
-      "earn": [
-        {
-          "on": [
-            "drugstore"
-          ],
-          "when": {
-            "pharmacy": [
-              "shoppers"
-            ]
-          },
-          "rate": 75
-        }
-      ],
-      "source": "PC Financial email, SmartCanucks"
+      "source": "SmartCanucks, Shoppers Drug Mart flyer"
     }
   ],
   "tiers": {
