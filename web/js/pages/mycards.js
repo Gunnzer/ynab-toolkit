@@ -663,10 +663,11 @@ export function myCardsPage(app) {
       .filter((points) => !held.includes(points) && groupUnit(points) !== "percent");
     const result = await customDialog("Point values", (body) => {
       body.append(hint("What one point is worth to you, in cents. Leave a box " +
-        "blank for the cautious value: the low end of published estimates " +
-        "for a normal redemption, such as Aeroplan on an economy flight. " +
-        "Business-class flights can be worth about twice as much; gift cards " +
-        "and merchandise less. Cash back is always worth what it says."));
+        "blank for the standard value: what a normal redemption gives, such as " +
+        "10,000 PC Optimum points for $10 or Aeroplan on an economy flight. " +
+        "Put more if you do better (Shoppers bonus events, business-class " +
+        "flights) or less if you use gift cards and merchandise. Cash back is " +
+        "always worth what it says."));
       const inputs = {};
       const list = el("div", { class: "reward-values" });
       const addRow = (points) => {
@@ -683,7 +684,7 @@ export function myCardsPage(app) {
               class: "hint",
               text: settings.preferred && points !== settings.preferred && transferRatio(points, settings.preferred) > 0
                 ? `Counted as ${groupName(settings.preferred)} while that is preferred`
-                : `Cautious value ${typical}¢`,
+                : `Standard value ${typical}¢`,
             })),
           el("span", { class: "reward-value-input" }, input, el("span", { class: "hint", text: "¢" }))));
       };

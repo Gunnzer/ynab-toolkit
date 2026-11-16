@@ -11,6 +11,10 @@ before or as part of the push itself.
 
 ## 2026-11-16
 
+**Card Rewards: points valued at a standard redemption** (`data/cards.json`, `pages/mycards.js`, `pages/cardrewards.js`, `pages/welcomebonuses.js`, `tools/welcome_bonuses.js`, tests, `CLAUDE.md`)
+* Each kind of points now starts at what a normal redemption gives instead of the low end of estimates: Aeroplan 1.5 cents (a typical economy booking), Amex Membership Rewards 1 cent (1,000 points for $10), PC Optimum 0.1 cent (10,000 points for $10), Marriott Bonvoy 0.8 cent; Scene+, Avion, MBNA, TD and BMO are unchanged.
+* Type your own under Point values on My cards if you do better (Shoppers bonus events, business-class flights) or worse.
+
 **My cards: when the card list last changed, and a quieter update button** (`pages/mycards.js`, `tools/card_catalogue.js`, `tools/card_rewards.js`, `ui.js`, `css/app.css`, `data/cards.json`, `tests/card_feed.test.js`, `CLAUDE.md`)
 * The line next to the update button now says when anything in the card list last changed ("Updated Nov 16"), not only the last full check of every card, which moves to its tooltip. Offers are checked daily, so the old date looked stale.
 * Check for updates is a small refresh icon that spins while it checks and shows a green tick when done, instead of a text button that changed its words.

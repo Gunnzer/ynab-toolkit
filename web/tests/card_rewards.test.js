@@ -32,16 +32,17 @@ describe("card catalogue", () => {
     assert.ok(CARDS.length >= 10);
   });
 
-  test("point values are cautious: the low end of published estimates", () => {
-    // Chosen on purpose (economy-flight values, not business class); a
-    // monthly data update must not quietly raise them.
-    assert.ok(SHIPPED.pointTypes.aeroplan.cents <= 1.2);
-    assert.ok(SHIPPED.pointTypes.mr.cents <= 1.2);
-    assert.ok(SHIPPED.pointTypes.scene.cents <= 1);
-    assert.ok(SHIPPED.pointTypes.avion.cents <= 1);
-    // PC Optimum assumes points are saved for a Shoppers bonus redemption
-    // event (at explicit user request), still below the best event tiers.
-    assert.ok(SHIPPED.pointTypes.pc.cents <= 0.15);
+  test("point values are a standard redemption, not a best case", () => {
+    // At explicit user request (2026-11-16, "instead of cautious value let's
+    // make it the standard redemption"): a fixed-value program at its fixed
+    // value, Aeroplan at a normal economy booking, never a business-class or
+    // bonus-event value (anyone who does better types their own).
+    assert.equal(SHIPPED.pointTypes.pc.cents, 0.1, "10,000 points = $10");
+    assert.equal(SHIPPED.pointTypes.mr.cents, 1, "1,000 points = $10");
+    assert.equal(SHIPPED.pointTypes.scene.cents, 1);
+    assert.equal(SHIPPED.pointTypes.avion.cents, 1);
+    assert.ok(SHIPPED.pointTypes.aeroplan.cents >= 1.1 && SHIPPED.pointTypes.aeroplan.cents <= 1.6);
+    assert.ok(SHIPPED.pointTypes.bonvoy.cents <= 0.9);
   });
 
   test("the user's own cards are in it", () => {
@@ -284,19 +285,19 @@ describe("value or points, grouped or one list", () => {
     assert.equal(value.groups.length, 1);
     assert.deepEqual(value.groups[0].cards.map((c) => c.card.id),
       ["amex-cobalt", "td-aeroplan-vi", "pc-world-elite"]);
-    // 5x at the cautious Aeroplan-level 1.1c.
-    assert.ok(Math.abs(value.groups[0].cards[0].score - 5.5) < 1e-9);
+    // 5x at Membership Rewards' standard 1c.
+    assert.ok(Math.abs(value.groups[0].cards[0].score - 5) < 1e-9);
     const points = recommend(wallet, "groceries", atGrocer, { measure: "points", grouped: false });
     assert.equal(points.groups[0].cards[0].card.id, "pc-world-elite");
   });
 
-  test("at Loblaw the Cobalt is out, and PC (30 x 0.14c) beats TD Aeroplan (1.5 x 1.1c)", () => {
+  test("at Loblaw the Cobalt is out, and PC (30 x 0.1c) beats TD Aeroplan (1.5 x 1.5c)", () => {
     const atLoblaw = { store: "loblaw", currency: "cad", "cap:td-aeroplan-vi:accel": "under" };
     const result = recommend(wallet, "groceries", atLoblaw, { grouped: false });
     const [first, second, last] = result.groups[0].cards;
     assert.equal(first.card.id, "pc-world-elite");
-    assert.ok(Math.abs(first.score - 4.2) < 1e-9);
-    assert.ok(Math.abs(second.score - 1.65) < 1e-9);
+    assert.ok(Math.abs(first.score - 3) < 1e-9);
+    assert.ok(Math.abs(second.score - 2.25) < 1e-9);
     assert.equal(last.card.id, "amex-cobalt");
     assert.equal(last.accepted, false);
   });
@@ -318,17 +319,17 @@ describe("value or points, grouped or one list", () => {
     assert.equal(result.next.id, "store");
   });
 
-  test("point values: yours, then the cautious default, cash always 1 cent per percent", () => {
-    assert.equal(centsPerPoint("aeroplan"), 1.1);
-    assert.equal(centsPerPoint("mr"), 1.1);
+  test("point values: yours, then the standard default, cash always 1 cent per percent", () => {
+    assert.equal(centsPerPoint("aeroplan"), 1.5);
+    assert.equal(centsPerPoint("mr"), 1);
     assert.equal(centsPerPoint("aeroplan", { aeroplan: 1.6 }), 1.6);
-    assert.equal(centsPerPoint("aeroplan", { aeroplan: "" }), 1.1);
+    assert.equal(centsPerPoint("aeroplan", { aeroplan: "" }), 1.5);
     assert.equal(centsPerPoint("cash", { cash: 5 }), 1);
     assert.equal(centsPerPoint("custom:Air Miles"), 1);
-    assert.equal(formatValue("mr", 5), "5.5%");
-    assert.equal(formatValue("pc", 30), "4.2%");
+    assert.equal(formatValue("mr", 5), "5%");
+    assert.equal(formatValue("pc", 30), "3%");
     assert.equal(formatValue("td", 1.5), "0.75%");
-    assert.equal(formatWorth("aeroplan", 1.5, 100), "$1.65");
+    assert.equal(formatWorth("aeroplan", 1.5, 100), "$2.25");
   });
 
   test("validation rejects an odd point value", () => {

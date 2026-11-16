@@ -83,7 +83,7 @@ export function cardRewardsPage(app) {
     "Which card to use",
     "Search for the shop (or pick what you are buying) and see which of your " +
     "cards gives you the most back for it. Points are turned into money " +
-    "at a cautious value per point (the low end of published estimates, " +
+    "at a standard value per point (what a normal redemption gives, " +
     "such as Aeroplan on an economy flight), which you can change under " +
     "Point values on My cards, so every card is compared as a percent back, best first. " +
     "Where the answer depends on something it does not know yet (which " +
@@ -653,7 +653,7 @@ export function cardRewardsPage(app) {
         el("div", { class: "reward-group-head" },
           el("h3", { class: "section-title", text: shop ? `Your cards at ${shop.name}` : `Your cards for ${what}` }),
           shopOffer ? offerTag(shopOffer, "Offer here") : "",
-          el("span", { class: "hint", text: "Best first, by what you get back, using cautious point values" })),
+          el("span", { class: "hint", text: "Best first, by what you get back, at your point values" })),
         group.cards.some((stat) => stat.accepted)
           ? ""
           : el("p", { class: "reward-answer-none", text: "None of your cards are accepted here." }),

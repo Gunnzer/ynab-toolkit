@@ -47,7 +47,7 @@ export function welcomeBonusesPage(app) {
   root.append(pageHeading(
     "Sign-up bonuses",
     "Which card's sign-up bonus is worth the most in its first year: the bonus " +
-    "at the same cautious point values as Which card to use, less the first year's " +
+    "at the same point values as Which card to use, less the first year's " +
     "fee. Track a bonus you are working towards to see how much is left to " +
     "spend and by when. Offers are re-checked twice a week with the card details."));
 
@@ -81,7 +81,7 @@ export function welcomeBonusesPage(app) {
     offersHost.append(card(
       el("div", { class: "reward-group-head" },
         el("h3", { class: "section-title", text: "Offers" }),
-        el("span", { class: "hint", text: "Best first year first: the bonus at cautious point values, less the first year's fee" })),
+        el("span", { class: "hint", text: "Best first year first: the bonus at your point values, less the first year's fee" })),
       all.length ? filterBar(all) : "",
       all.some((o) => o.held) ? toggle : "",
       shown.length

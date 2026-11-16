@@ -19,9 +19,9 @@ const card = (id, points, welcome, annualFee = 120) =>
   ({ id, name: id, points, annualFee, welcome: welcome && offer(welcome) });
 
 describe("welcome offers", () => {
-  test("worth the points at the cautious value plus any cash, less the first year's fee", () => {
+  test("worth the points at the standard value plus any cash, less the first year's fee", () => {
     const aeroplan = card("a", "aeroplan", { points: 20000 });
-    assert.equal(bonusValue(aeroplan), 220);
+    assert.equal(bonusValue(aeroplan), 300);
     assert.equal(bonusValue(aeroplan, { aeroplan: 2 }), 400);
     assert.equal(bonusValue(card("c", "cash", { points: 0, cash: 150 })), 150);
     assert.equal(firstYearFee(aeroplan), 120);
@@ -35,7 +35,7 @@ describe("welcome offers", () => {
       card("over", "aeroplan", { points: 90000, ends: "2026-11-01" }),
       card("none", "aeroplan", null),
     ], { held: ["waived"], today: "2026-11-05" });
-    assert.deepEqual(list.map((o) => [o.card.id, o.net, o.held]), [["waived", 220, true], ["big", 210, false]]);
+    assert.deepEqual(list.map((o) => [o.card.id, o.net, o.held]), [["big", 330, false], ["waived", 300, true]]);
   });
 
   test("the data file's offers are checked", () => {

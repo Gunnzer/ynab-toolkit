@@ -5,7 +5,7 @@
 // The offers are data, in each card's `welcome` in web/data/cards.json
 // (format at the top of card_catalogue.js), re-checked every week with the
 // rest of the card details. Points are turned into dollars with the same
-// cautious values as Card Rewards (centsPerPoint), so the two tools agree.
+// point values as Card Rewards (centsPerPoint), so the two tools agree.
 
 import { centsPerPoint } from "./card_rewards.js";
 

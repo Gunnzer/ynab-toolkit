@@ -31,7 +31,7 @@ describe("my cards", () => {
   test("earn lines best first by value, everything else last", () => {
     const lines = earnLines(byId("amex-cobalt"));
     assert.equal(lines.at(-1).what, "Everything else");
-    assert.equal(lines[0].back, 5.5);
+    assert.equal(lines[0].back, 5);
     assert.ok(lines.slice(0, -1).every((l, i, a) => i === 0 || a[i - 1].back >= l.back));
     assert.equal(earnLines(byId("amex-cobalt"), { mr: 2 })[0].back, 10);
     const sc = earnLines(byId("amex-simplycash-preferred"));
