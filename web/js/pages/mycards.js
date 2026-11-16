@@ -271,9 +271,14 @@ export function myCardsPage(app) {
         }),
         el("details", { class: "mycard-notes" },
           el("summary", { text: "Where it earned" }),
-          el("ul", {}, result.byPurchase.slice(0, 8).map((r) => el("li", {
-            text: `${purchaseLabel(r.purchase)}: ${dollars(r.spend)} spent, ${dollars(r.earned)} back`,
-          }))),
+          el("ul", {}, result.byPurchase.slice(0, 8).map((r) => el("li", {},
+            `${purchaseLabel(r.purchase)}: ${dollars(r.spend)} spent, ${dollars(r.earned)} back`,
+            r.purchase === "other" && r.topPayees.length
+              ? el("div", {
+                class: "hint mycard-top-payees",
+                text: `Biggest: ${r.topPayees.map((p) => `${p.payee} ${dollars(p.spend)}`).join(", ")}`,
+              })
+              : ""))),
           result.refunds ? hint(`Spent is purchases less ${dollars(result.refunds)} of refunds, which take back what they earned.`) : "",
           result.capsHit.length ? hint(`Went past its cap on ${result.capsHit.join(", ")} at least once.`) : "",
           hint("An estimate at your point values: shops are sorted by name and YNAB category. " +

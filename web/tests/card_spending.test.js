@@ -47,6 +47,15 @@ describe("sorting spending into card categories", () => {
     assert.equal(purchaseOf({ payee: "CHEXY", category: "Rent" }).purchase, "bills", "rent through Chexy is a bill payment");
   });
 
+  test("past charges count as Canadian dollars, except travel and hotels", () => {
+    const items = spendItems([
+      tx("2026-01-02", "SOME BISTRO", 40, { category_id: "d" }),
+      tx("2026-01-03", "AIR TRANSAT", 500, { category_id: "t" }),
+    ], { categoryName: (id) => ({ d: "Dining", t: "Travel" })[id] || "" });
+    assert.equal(items[0].answers.currency, "cad");
+    assert.equal(items[1].answers.currency, undefined);
+  });
+
   test("the card's own fees, interest and reward payouts are not spending", () => {
     const items = spendItems([
       tx("2026-01-02", "ANNUAL FEE", 120),
@@ -96,6 +105,15 @@ describe("what a card earned", () => {
     assert.deepEqual(result.capsHit, ["groceries"]);
     assert.equal(cardEarnings(plain, [...items, { date: "2026-04-03", amount: -100, purchase: "dining", answers: C }]).refunds, 100);
     assert.equal(result.byPurchase[0].purchase, "groceries");
+    const named = cardEarnings(plain, [
+      { date: "2026-05-01", amount: 300, purchase: "other", answers: C, payee: "AMAZON.CA*AB12CD" },
+      { date: "2026-05-02", amount: 200, purchase: "other", answers: C, payee: "Amazon.ca*ZZ99" },
+      { date: "2026-05-03", amount: 100, purchase: "other", answers: C, payee: "BEST BUY #123" },
+    ]);
+    assert.deepEqual(named.byPurchase[0].topPayees, [
+      { payee: "AMAZON.CA", spend: 500 },
+      { payee: "BEST BUY", spend: 100 },
+    ], "one shop's charges are grouped, store numbers dropped");
   });
 
   test("a card used somewhere it supposedly is not accepted still earns its base rate", () => {

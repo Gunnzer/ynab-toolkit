@@ -96,11 +96,27 @@ export function spendItems(transactions, {
         accountId: t.account_id,
         amount: -leg.amount / 1000,
         payee,
-        ...purchaseOf({ payee, category: categoryName(leg.category_id) }),
+        ...inCad(purchaseOf({ payee, category: categoryName(leg.category_id) })),
       });
     }
   }
   return items;
+}
+
+// Past charges are taken as Canadian dollars (at explicit user request:
+// "it's generally all in CAD"): YNAB has only the dollar amount, and leaving
+// the currency open spread a share of every purchase onto foreign-currency
+// rates (Cobalt's 5x showed as about 5.2%). Travel and hotels stay open,
+// since those really are often charged in another currency.
+function inCad(found) {
+  if (found.answers.currency || ["travel", "hotels"].includes(found.purchase)) return found;
+  return { ...found, answers: { ...found.answers, currency: "cad" } };
+}
+
+/** A payee's name without store numbers and processor tails, to group by. */
+export function payeeLabel(payee) {
+  const text = String(payee || "").replace(/\s*[#*].*$/, "").replace(/\s+\d{2,}.*$/, "").trim();
+  return text || String(payee || "").trim() || "Unknown";
 }
 
 /** Spending summed per purchase type, biggest first. */
@@ -184,9 +200,14 @@ export function cardEarnings(card, items, { values = {}, preferred = "" } = {}) 
     }
     spend += item.amount;
     earned += gain;
-    const row = byPurchase.get(item.purchase) || { purchase: item.purchase, spend: 0, earned: 0 };
+    const row = byPurchase.get(item.purchase) || { purchase: item.purchase, spend: 0, earned: 0, payees: new Map() };
     row.spend += item.amount;
     row.earned += gain;
+    const name = payeeLabel(item.payee);
+    const key = name.toLowerCase();
+    const payee = row.payees.get(key) || { payee: name, spend: 0 };
+    payee.spend += item.amount;
+    row.payees.set(key, payee);
     byPurchase.set(item.purchase, row);
   }
   const fee = Number(card.annualFee) || 0;
@@ -199,7 +220,18 @@ export function cardEarnings(card, items, { values = {}, preferred = "" } = {}) 
     back: spend > 0 ? earned / spend * 100 : 0,
     capsHit: [...capsHit],
     byPurchase: [...byPurchase.values()]
-      .map((r) => ({ ...r, spend: round2(r.spend), earned: round2(r.earned) }))
+      .map((r) => ({
+        purchase: r.purchase,
+        spend: round2(r.spend),
+        earned: round2(r.earned),
+        // The biggest payees in each, so a misfiled one can be spotted (at
+        // explicit user request: "top everything else payee is interesting").
+        topPayees: [...r.payees.values()]
+          .map((p) => ({ payee: p.payee, spend: round2(p.spend) }))
+          .filter((p) => p.spend > 0)
+          .sort((a, b) => b.spend - a.spend)
+          .slice(0, 5),
+      }))
       .filter((r) => r.spend > 0)
       .sort((a, b) => b.earned - a.earned),
   };

@@ -20,6 +20,8 @@ before or as part of the push itself.
 * New For your spending tab: your yearly card spending by category, what your cards earn on it if each purchase goes on the best one, and which other cards would add the most a year after their fee.
 * Which card to use no longer asks whether a linked card's cap is used up: it adds up this month's or year's spending from YNAB and shows it ("Cobalt: $625 of $2,500 this month").
 * My cards works out what your points are worth: type in each balance and see its value at your point values, and in your preferred points.
+* Past spending counts as charged in Canadian dollars (travel and hotels aside), so a card's CAD-only rate is no longer shaved for possible foreign charges (Cobalt's 5x showed as about 5.2%).
+* "Where it earned" lists the biggest payees in "Everything else", to spot anything that belongs in a bonus category.
 * A card's fee can be marked as waived for you (for example through a TD All-Inclusive bank account): it then counts as $0 in the yearly fees total, "worth it" and For your spending.
 * Fixed: a card's own annual fee, interest and cash back payouts no longer count as spending. A yearly cash back payout had been read as a refund, which pushed a Scotia Momentum to 4.14% back, above its top rate. "Where it earned" now also says how much refunds took off.
 * Fixed: rent paid through Chexy counts as a recurring bill payment (4% on a Scotia Momentum), not "everything else" at 1%.
