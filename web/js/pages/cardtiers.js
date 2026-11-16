@@ -20,7 +20,7 @@ export function cardTiersPage(app) {
 
   const root = el("div", { class: "page-body" });
   root.append(pageHeading(
-    "Card rankings",
+    "Rankings",
     "The best Canadian credit cards, ranked from top picks down, with a line " +
     "on what each is good for. The ranking comes from long-running Reddit " +
     "advice (r/PersonalFinanceCanada and r/churningcanada), checked against " +

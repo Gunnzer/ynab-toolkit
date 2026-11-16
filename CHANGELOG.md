@@ -11,6 +11,11 @@ before or as part of the push itself.
 
 ## 2026-11-16
 
+**Card Rewards: a Points tab, and shorter tab names** (new `pages/cardpoints.js`, `pages/point_values.js`, `tools/points_calc.js`, `tests/points_calc.test.js`, `pages/mycards.js`, `main.js`, `store.js`, the card pages' wording, `css/app.css`, `CLAUDE.md`)
+* New Points tab: your balances and what they are worth; "Is this a good use of points?" for a flight, hotel night or anything with a cash price (cents per point after taxes and fees, against your point value, and fairly counting what paying cash would earn); where Amex points are best sent (Aeroplan, Marriott Bonvoy or a statement credit); and PC Optimum bonus redemption tiers against your balance.
+* Wallet keeps a one-line total with a link to Points.
+* The card tabs are now Wallet, Best card, Spending, Points, Bonuses and Rankings.
+
 **Card Rewards: points valued at a standard redemption** (`data/cards.json`, `pages/mycards.js`, `pages/cardrewards.js`, `pages/welcomebonuses.js`, `tools/welcome_bonuses.js`, tests, `CLAUDE.md`)
 * Each kind of points now starts at what a normal redemption gives instead of the low end of estimates: Aeroplan 1.5 cents (a typical economy booking), Amex Membership Rewards 1 cent (1,000 points for $10), PC Optimum 0.1 cent (10,000 points for $10), Marriott Bonvoy 0.8 cent; Scene+, Avion, MBNA, TD and BMO are unchanged.
 * Type your own under Point values on My cards if you do better (Shoppers bonus events, business-class flights) or worse.

@@ -84,6 +84,7 @@ export const DEFAULTS = {
       myCards: true,
       cardRewards: true,
       cardSpending: true,
+      cardPoints: true,
       welcomeBonuses: true,
       cardTiers: true,
     },

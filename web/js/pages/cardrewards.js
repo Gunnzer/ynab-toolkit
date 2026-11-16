@@ -80,15 +80,15 @@ export function cardRewardsPage(app) {
 
   const root = el("div", { class: "page-body" });
   root.append(pageHeading(
-    "Which card to use",
+    "Best card",
     "Search for the shop (or pick what you are buying) and see which of your " +
     "cards gives you the most back for it. Points are turned into money " +
     "at a standard value per point (what a normal redemption gives, " +
     "such as Aeroplan on an economy flight), which you can change under " +
-    "Point values on My cards, so every card is compared as a percent back, best first. " +
+    "Point values on Wallet or Points, so every card is compared as a percent back, best first. " +
     "Where the answer depends on something it does not know yet (which " +
     "store, whether a cap is used up), it asks, until it is at least 90% " +
-    "sure. Your cards are set up on My cards. Card details are re-checked twice a week, and this page fetches " +
+    "sure. Your cards are set up on Wallet. Card details are re-checked daily, and this page fetches " +
     "the latest each time it opens, like exchange rates. Nothing here reads or changes your " +
     "budget."));
 
@@ -249,8 +249,8 @@ export function cardRewardsPage(app) {
   const goToMyCards = () => { location.hash = "#/mycards"; };
   const noCards = card(
     sectionTitle("Add your cards first"),
-    hint("Add the credit cards you carry on My cards, and the best one for each purchase shows up here."),
-    el("div", { class: "card-row" }, button("Go to My cards", { accent: true, onClick: goToMyCards })));
+    hint("Add the credit cards you carry on Wallet, and the best one for each purchase shows up here."),
+    el("div", { class: "card-row" }, button("Go to Wallet", { accent: true, onClick: goToMyCards })));
   const walletNote = el("p", { class: "hint reward-wallet-note" });
   // Offers and events are listed on My cards (at explicit user request);
   // here they are only an "Offer" tag on what they are about.
@@ -636,7 +636,7 @@ export function cardRewardsPage(app) {
       resultsHost.append(card(hint(!CARDS.length && !feed
         ? "Getting the latest card details..."
         : !settings.wallet.length
-          ? "Add the cards you carry on My cards, and the best one for each " +
+          ? "Add the cards you carry on Wallet, and the best one for each " +
             "purchase shows up here."
           : "Pick a shop or a category, and your cards show up here, best first.")));
       return;
@@ -748,7 +748,7 @@ export function cardRewardsPage(app) {
     const n = settings.wallet.length;
     if (!n) return;
     walletNote.append(
-      `Comparing your ${n} card${n === 1 ? "" : "s"} from My cards. `,
+      `Comparing your ${n} card${n === 1 ? "" : "s"} from Wallet. `,
       el("button", { type: "button", class: "reward-quiet", text: "Change them", onClick: goToMyCards }));
     if (feed && !feed.ok && !CARDS.length) walletNote.append(` ${feed.error}`);
   }

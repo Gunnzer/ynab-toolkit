@@ -45,9 +45,9 @@ export function welcomeBonusesPage(app) {
 
   const root = el("div", { class: "page-body" });
   root.append(pageHeading(
-    "Sign-up bonuses",
+    "Bonuses",
     "Which card's sign-up bonus is worth the most in its first year: the bonus " +
-    "at the same point values as Which card to use, less the first year's " +
+    "at the same point values as Best card, less the first year's " +
     "fee. Track a bonus you are working towards to see how much is left to " +
     "spend and by when. Offers are re-checked twice a week with the card details."));
 

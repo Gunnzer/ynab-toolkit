@@ -872,7 +872,7 @@ async function bestCardWidget(body, size, ctx, app, config) {
   const settings = cardSettings(app);
   const cards = walletCards(settings.wallet || []);
   if (!cards.length) {
-    body.append(hint("Add the cards you carry on My cards, and the best one for each kind of purchase shows here."));
+    body.append(hint("Add the cards you carry on Wallet, and the best one for each kind of purchase shows here."));
     return;
   }
   const purchases = (Array.isArray(config.purchases) && config.purchases.length ? config.purchases : BEST_CARD_DEFAULT)
@@ -1011,7 +1011,7 @@ export const WIDGETS = [
   },
   {
     id: "cardOffers", title: "Card offers", icon: "wallet", tool: "myCards", go: "mycards",
-    blurb: "Card and points offers and events running now or starting soon, from My cards.",
+    blurb: "Card and points offers and events running now or starting soon, from Wallet.",
     sizes: ["s", "m", "l"], defaultSize: "m", byDefault: false, needsBudget: false, render: cardOffersWidget,
   },
   {

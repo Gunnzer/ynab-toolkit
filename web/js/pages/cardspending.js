@@ -24,7 +24,7 @@ export function cardSpendingPage(app) {
 
   const root = el("div", { class: "page-body" });
   root.append(pageHeading(
-    "For your spending",
+    "Spending",
     "Your last 12 months of spending from YNAB, sorted into the card categories, then what " +
     "your own cards earn on it if each purchase goes on the best one, and which other cards " +
     "would add the most a year after their annual fee. Estimates at your point values."));
@@ -93,8 +93,8 @@ export function cardSpendingPage(app) {
     const view = { values: settings.values || {}, preferred: settings.preferred || "" };
     host.append(spendingCard(groups, held, view), yoursCard(groups, held, view, total), addCard(groups, held, view),
       hint("Estimates: shops are sorted by name and YNAB category, and unknown ones use the same " +
-        "odds as Which card to use. Sign-up bonuses, first-year fee waivers and credits are not " +
-        "counted; see Sign-up bonuses for those."));
+        "odds as Best card. Sign-up bonuses, first-year fee waivers and credits are not " +
+        "counted; see Bonuses for those."));
   }
 
   // Each category's spending, and which of your cards does best on it.
@@ -129,8 +129,8 @@ export function cardSpendingPage(app) {
   function yoursCard(groups, held, view, total) {
     if (!held.length) {
       return card(sectionTitle("Your cards"),
-        hint("Add the cards you carry on My cards to see what they earn on this."),
-        button("Go to My cards", { small: true, onClick: () => app.go("mycards") }));
+        hint("Add the cards you carry on Wallet to see what they earn on this."),
+        button("Go to Wallet", { small: true, onClick: () => app.go("mycards") }));
     }
     const result = bestOfSet(held, groups, view);
     return el("div", { class: "card" },

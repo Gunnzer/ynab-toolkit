@@ -14,7 +14,9 @@ import {
   transferRatio, walletCards,
 } from "../tools/card_rewards.js";
 import { cardEarnings, spendItems } from "../tools/card_spending.js";
+import { balancesWorth } from "../tools/points_calc.js";
 import { readyToAssignCategoryIds } from "../tools/rta_tracker.js";
+import { editPointValues } from "./point_values.js";
 import {
   FACES, LIGHT_FACES, OPEN_OFFER_KEY, cardFace, earnLines, feeInfo, perkGroups, walletFees,
 } from "../tools/my_cards.js";
@@ -38,10 +40,10 @@ export function myCardsPage(app) {
 
   const root = el("div", { class: "page-body" });
   root.append(pageHeading(
-    "My cards",
+    "Wallet",
     "The credit cards you carry: add them here once, set up the ones with " +
     "choices (like Tangerine's categories), and see what each costs and " +
-    "earns. Which card to use, Sign-up bonuses and Card rankings all use this list."));
+    "earns. Best card, Spending, Points, Bonuses and Rankings all use this list."));
 
   // ---------- adding ----------
   const addSelect = el("select", { "aria-label": "Card to add" });
@@ -178,7 +180,7 @@ export function myCardsPage(app) {
     renderGrid(cards);
     renderAddList();
     renderPreferred(cards);
-    renderBalances(cards);
+    renderBalances();
   }
 
   // ---------- what each card really earned ----------
@@ -289,61 +291,17 @@ export function myCardsPage(app) {
   }
 
   // ---------- what your points are worth ----------
-  function renderBalances(cards) {
+  // One line here; the calculator is the Points tab (at explicit user
+  // request: "one line total plus link").
+  function renderBalances() {
     clear(balancesHost);
-    if (!settings.balances || typeof settings.balances !== "object") settings.balances = {};
-    const isPoints = (p) => POINT_TYPES[p] && groupUnit(p) !== "percent";
-    const held = [...new Set(cards.map((c) => c.points))].filter(isPoints);
-    const types = [...new Set([...held, ...Object.keys(settings.balances).filter(isPoints)])];
-    const totalNode = el("strong");
-    const worth = (points) => (Number(settings.balances[points]) || 0) * centsPerPoint(points, settings.values) / 100;
+    const { rows, total } = balancesWorth(settings.balances || {}, settings.values);
     const cash = (n) => `$${n.toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    const paintTotal = () => { totalNode.textContent = cash(types.reduce((n, p) => n + worth(p), 0)); };
-    const list = el("div", { class: "mycards-balance-list" });
-    for (const points of types) {
-      const input = textInput(settings.balances[points] ?? "", { type: "number", placeholder: "0" });
-      input.min = "0";
-      input.step = "1";
-      input.setAttribute("inputmode", "numeric");
-      input.setAttribute("enterkeyhint", "done");
-      input.setAttribute("aria-label", `${groupName(points)} balance`);
-      const out = el("span", { class: "mycards-balance-worth" });
-      const paint = () => {
-        const n = Number(settings.balances[points]) || 0;
-        const ratio = settings.preferred && points !== settings.preferred ? transferRatio(points, settings.preferred) : 0;
-        out.textContent = `${cash(worth(points))} at ${centsPerPoint(points, settings.values)}¢` +
-          (ratio && n ? `, or ${Math.round(n * ratio).toLocaleString("en-CA")} ${groupName(settings.preferred)} ` +
-            `worth ${cash(n * ratio * centsPerPoint(settings.preferred, settings.values) / 100)}` : "");
-      };
-      input.addEventListener("input", () => {
-        const n = Number(input.value);
-        if (input.value.trim() === "" || !(n >= 0)) delete settings.balances[points];
-        else settings.balances[points] = n;
-        store.save();
-        paint();
-        paintTotal();
-      });
-      paint();
-      list.append(el("label", { class: "mycards-balance-row" },
-        el("span", { class: "mycards-balance-name", text: groupName(points) }), input, out));
-    }
-    const others = Object.keys(POINT_TYPES).filter((p) => isPoints(p) && !types.includes(p));
-    const addSelect = el("select", { "aria-label": "Add another kind of points" },
-      el("option", { value: "", text: "Add other points..." }),
-      others.map((p) => el("option", { value: p, text: groupName(p) })));
-    addSelect.addEventListener("change", () => {
-      if (!addSelect.value) return;
-      settings.balances[addSelect.value] = settings.balances[addSelect.value] ?? 0;
-      store.save();
-      renderBalances(walletCards(settings.wallet));
-    });
-    paintTotal();
-    balancesHost.append(
-      el("div", { class: "mycards-points-label", text: "What your points are worth" }),
-      list,
-      el("div", { class: "mycards-balance-foot" },
-        el("span", { class: "hint" }, "About ", totalNode, " in all, at your point values."),
-        others.length ? addSelect : ""));
+    balancesHost.append(el("div", { class: "mycards-balance-foot" },
+      el("span", { class: "hint", text: rows.length
+        ? `Your points are worth about ${cash(total)} at your point values.`
+        : "Track your points balances and check what a redemption is worth on Points." }),
+      el("button", { type: "button", class: "reward-quiet", text: "Points \u2192", onClick: () => app.go("cardpoints") })));
   }
 
   function shortDate(iso) {
@@ -616,7 +574,7 @@ export function myCardsPage(app) {
       el("div", { class: "mycard-head" },
         el("div", { class: "reward-name" }, el("span", { class: "reward-title", text: entry.id })),
         el("div", { class: "mycard-actions" }, button("Remove", { small: true, onClick: () => remove(entry.id, index) }))),
-      hint("No longer in the card list, so it is left out of Which card to use."));
+      hint("No longer in the card list, so it is left out of Best card."));
   }
 
   async function remove(name, index) {
@@ -657,53 +615,7 @@ export function myCardsPage(app) {
   }
 
   async function editValues() {
-    const held = [...new Set(walletCards(settings.wallet).map((c) => c.points))]
-      .filter((points) => groupUnit(points) !== "percent");
-    const others = Object.keys(POINT_TYPES)
-      .filter((points) => !held.includes(points) && groupUnit(points) !== "percent");
-    const result = await customDialog("Point values", (body) => {
-      body.append(hint("What one point is worth to you, in cents. Leave a box " +
-        "blank for the standard value: what a normal redemption gives, such as " +
-        "10,000 PC Optimum points for $10 or Aeroplan on an economy flight. " +
-        "Put more if you do better (Shoppers bonus events, business-class " +
-        "flights) or less if you use gift cards and merchandise. Cash back is " +
-        "always worth what it says."));
-      const inputs = {};
-      const list = el("div", { class: "reward-values" });
-      const addRow = (points) => {
-        const typical = centsPerPoint(points, {});
-        const input = textInput(settings.values[points] ?? "", { type: "number", placeholder: `${typical}` });
-        input.min = "0";
-        input.step = "0.01";
-        input.setAttribute("inputmode", "decimal");
-        inputs[points] = input;
-        list.append(el("label", { class: "reward-value-row" },
-          el("span", { class: "reward-value-name" },
-            el("span", { text: groupName(points) }),
-            el("span", {
-              class: "hint",
-              text: settings.preferred && points !== settings.preferred && transferRatio(points, settings.preferred) > 0
-                ? `Counted as ${groupName(settings.preferred)} while that is preferred`
-                : `Standard value ${typical}¢`,
-            })),
-          el("span", { class: "reward-value-input" }, input, el("span", { class: "hint", text: "¢" }))));
-      };
-      held.forEach(addRow);
-      if (others.length) {
-        list.append(el("div", { class: "field-label reward-values-more", text: "Other kinds of points" }));
-        others.forEach(addRow);
-      }
-      body.append(list);
-      return {
-        value: () => Object.fromEntries(Object.entries(inputs)
-          .filter(([, input]) => input.value !== "" && Number(input.value) >= 0)
-          .map(([points, input]) => [points, Number(input.value)])),
-      };
-    }, { confirmText: "Save" });
-    if (!result) return;
-    settings.values = result;
-    store.save();
-    renderAll();
+    if (await editPointValues(store)) renderAll();
   }
 
   // ---------- a card typed in by hand ----------

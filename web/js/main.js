@@ -23,6 +23,7 @@ import { myCardsPage } from "./pages/mycards.js";
 import { welcomeBonusesPage } from "./pages/welcomebonuses.js";
 import { cardTiersPage } from "./pages/cardtiers.js";
 import { cardSpendingPage } from "./pages/cardspending.js";
+import { cardPointsPage } from "./pages/cardpoints.js";
 
 // The app is organised into a few spaces, each holding related tools as
 // tabs (at explicit user request: 14 separate menu entries were
@@ -94,11 +95,14 @@ export const SPACES = [
     // Always opens on My cards (at explicit user request: "make it the
     // default page when you go to cards"), not on the tab last used.
     id: "cards", title: "Card Rewards", short: "Cards", icon: "wallet", alwaysFirst: true, tabs: [
-      { page: "mycards", label: "My cards" },
-      { page: "cardrewards", label: "Which card to use" },
-      { page: "cardspending", label: "For your spending" },
-      { page: "welcomebonuses", label: "Sign-up bonuses" },
-      { page: "cardtiers", label: "Card rankings" },
+      // One word each where one is clear (at explicit user request: "make
+      // the tabs more self explanatory and prioritize 1 word").
+      { page: "mycards", label: "Wallet" },
+      { page: "cardrewards", label: "Best card" },
+      { page: "cardspending", label: "Spending" },
+      { page: "cardpoints", label: "Points" },
+      { page: "welcomebonuses", label: "Bonuses" },
+      { page: "cardtiers", label: "Rankings" },
     ],
   },
 ];
@@ -199,35 +203,42 @@ export const PAGES = [
     group: "together", groupLabel: "Together",
   },
   {
-    id: "mycards", title: "My cards", icon: "wallet", key: "myCards",
+    id: "mycards", title: "Wallet", icon: "wallet", key: "myCards",
     build: myCardsPage,
     blurb: "The credit cards you carry, with what each costs and earns, " +
       "and any fee changes coming.",
     group: "cards", groupLabel: "Card Rewards",
   },
   {
-    id: "cardrewards", title: "Which card to use", icon: "wallet", key: "cardRewards",
+    id: "cardrewards", title: "Best card", icon: "wallet", key: "cardRewards",
     build: cardRewardsPage,
     blurb: "Search for a shop and see which of your credit cards gives you " +
       "the most back there.",
     group: "cards", groupLabel: "Card Rewards",
   },
   {
-    id: "cardspending", title: "For your spending", icon: "wallet", key: "cardSpending",
+    id: "cardspending", title: "Spending", icon: "wallet", key: "cardSpending",
     build: cardSpendingPage,
     blurb: "What your cards earn on your real spending from YNAB, and which " +
       "other cards would add the most after their fee.",
     group: "cards", groupLabel: "Card Rewards",
   },
   {
-    id: "welcomebonuses", title: "Sign-up bonuses", icon: "wallet", key: "welcomeBonuses",
+    id: "cardpoints", title: "Points", icon: "wallet", key: "cardPoints",
+    build: cardPointsPage,
+    blurb: "Your points balances, whether a redemption is a good use of points, " +
+      "and where points that move are best sent.",
+    group: "cards", groupLabel: "Card Rewards",
+  },
+  {
+    id: "welcomebonuses", title: "Bonuses", icon: "wallet", key: "welcomeBonuses",
     build: welcomeBonusesPage,
     blurb: "Which new card's sign-up bonus is worth the most in its first " +
       "year, and how a bonus you are working towards is going.",
     group: "cards", groupLabel: "Card Rewards",
   },
   {
-    id: "cardtiers", title: "Card rankings", icon: "wallet", key: "cardTiers",
+    id: "cardtiers", title: "Rankings", icon: "wallet", key: "cardTiers",
     build: cardTiersPage,
     blurb: "The best Canadian credit cards ranked from top picks down, which " +
       "you can rearrange.",
