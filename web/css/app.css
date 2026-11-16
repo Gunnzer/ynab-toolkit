@@ -2571,6 +2571,39 @@ select.is-empty option { color: var(--text); }
 .mycards-points-row .reward-quiet { padding: 0; }
 .mycards-points { gap: 8px; }
 .mycards-points .hint { margin: 0; }
+
+/* For your spending. */
+.spend-controls { gap: 8px; }
+.spend-from { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.spend-from .field-label { margin: 0; }
+.spend-from select { flex: 0 1 280px; min-width: 0; }
+.spend-results { display: flex; flex-direction: column; gap: 16px; }
+.spend-headline { margin: 0; font-size: 15px; }
+.spend-list, .spend-add { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.spend-list li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 12px; }
+.spend-name { font-weight: 600; }
+.spend-add li { padding: 8px 0; border-top: 1px solid var(--border); }
+.spend-add li:first-child { border-top: 0; padding-top: 0; }
+.spend-add-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.spend-add .hint { margin: 2px 0 0; }
+
+/* A card's last 12 months from YNAB, and what your points are worth. */
+.mycard-year { display: flex; flex-direction: column; gap: 6px; }
+.mycard-link { display: flex; align-items: center; gap: 10px; }
+.mycard-link select { flex: 1 1 auto; min-width: 0; }
+.mycard-year-verdict { display: flex; }
+.mycard-year-line { margin: 0; font-size: 14px; }
+.mycard-year .hint { margin: 0; }
+.mycards-balances { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--border); padding-top: 10px; }
+.mycards-balance-list { display: flex; flex-direction: column; gap: 6px; }
+.mycards-balance-row { display: grid; grid-template-columns: minmax(120px, 200px) 130px 1fr; align-items: center; gap: 10px; }
+.mycards-balance-name { font-size: 14px; }
+.mycards-balance-worth { font-size: 13px; color: var(--muted); }
+.mycards-balance-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+@media (max-width: 560px) {
+  .mycards-balance-row { grid-template-columns: 1fr 120px; }
+  .mycards-balance-worth { grid-column: 1 / -1; }
+}
 .reward-pick-card { gap: 10px; }
 .reward-pick-card .reward-shop-search { margin-bottom: 0; }
 .reward-pick-card .reward-ask:empty { display: none; }

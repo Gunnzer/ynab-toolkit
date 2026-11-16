@@ -83,6 +83,7 @@ export const DEFAULTS = {
       categorize: true,
       myCards: true,
       cardRewards: true,
+      cardSpending: true,
       welcomeBonuses: true,
       cardTiers: true,
     },

@@ -22,6 +22,7 @@ import { cardRewardsPage } from "./pages/cardrewards.js";
 import { myCardsPage } from "./pages/mycards.js";
 import { welcomeBonusesPage } from "./pages/welcomebonuses.js";
 import { cardTiersPage } from "./pages/cardtiers.js";
+import { cardSpendingPage } from "./pages/cardspending.js";
 
 // The app is organised into a few spaces, each holding related tools as
 // tabs (at explicit user request: 14 separate menu entries were
@@ -95,6 +96,7 @@ export const SPACES = [
     id: "cards", title: "Card Rewards", short: "Cards", icon: "wallet", alwaysFirst: true, tabs: [
       { page: "mycards", label: "My cards" },
       { page: "cardrewards", label: "Which card to use" },
+      { page: "cardspending", label: "For your spending" },
       { page: "welcomebonuses", label: "Sign-up bonuses" },
       { page: "cardtiers", label: "Card rankings" },
     ],
@@ -208,6 +210,13 @@ export const PAGES = [
     build: cardRewardsPage,
     blurb: "Search for a shop and see which of your credit cards gives you " +
       "the most back there.",
+    group: "cards", groupLabel: "Card Rewards",
+  },
+  {
+    id: "cardspending", title: "For your spending", icon: "wallet", key: "cardSpending",
+    build: cardSpendingPage,
+    blurb: "What your cards earn on your real spending from YNAB, and which " +
+      "other cards would add the most after their fee.",
     group: "cards", groupLabel: "Card Rewards",
   },
   {

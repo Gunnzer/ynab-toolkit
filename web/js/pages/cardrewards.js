@@ -6,7 +6,9 @@
 
 import { CARDS, OFFERS, PURCHASES } from "../tools/card_catalogue.js";
 import { browserFetchJson, loadCatalogue, useSavedCatalogue } from "../tools/card_feed.js";
+import { capUsage, spendItems } from "../tools/card_spending.js";
 import { merchantByName, normalise, searchMerchants } from "../tools/merchants.js";
+import { readyToAssignCategoryIds } from "../tools/rta_tracker.js";
 import { OPEN_OFFER_KEY } from "../tools/my_cards.js";
 import {
   TARGET_CONFIDENCE, UNSURE, centsPerPoint, explain,
@@ -457,7 +459,9 @@ export function cardRewardsPage(app) {
     // With no shop picked, Amex is left open rather than asked (see
     // allAnswers()), so it is nobody's answer and gets no chip.
     const assumed = ({ question }) => question.id === "amex" && answers.amex === undefined;
-    const yours = last.asked.filter((entry) => !fromShop(entry) && !assumed(entry));
+    const fromYnab = ({ question }) => ynabCaps[question.id] && answers[question.id] === undefined;
+    const yours = last.asked.filter((entry) => !fromShop(entry) && !assumed(entry) && !fromYnab(entry));
+    const counted = last.asked.filter(fromYnab);
     const known = last.asked.filter((entry) => fromShop(entry) && ["currency", "amex"].includes(entry.question.id));
     // Answers fold away behind one line (at explicit user request: "the
     // your answers section is getting long"), open only when asked for.
@@ -470,6 +474,19 @@ export function cardRewardsPage(app) {
           title: "Filled in from the shop.",
           text: question.id === "currency" ? `Charged in ${text}` : text,
         }))));
+    }
+    if (counted.length) {
+      const money0 = (n) => `$${Math.round(n).toLocaleString("en-CA")}`;
+      answerRows.push(el("div", { class: "reward-asked reward-known" },
+        el("span", { class: "hint", text: "From YNAB:" }),
+        counted.map(({ question }) => {
+          const u = ynabCaps[question.id];
+          return el("span", {
+            class: "reward-chip is-fixed",
+            title: `Spending on the linked account this ${u.per}, counted toward the ${u.label} cap.`,
+            text: `${u.card}: ${money0(u.used)} of ${money0(u.spend)} this ${u.per}${u.value === "over" ? ", cap reached" : ""}`,
+          });
+        })));
     }
     const savedUntil = (id) => (answers[id] === undefined ? settings.capAnswers[id]?.until : null);
     if (yours.length) {
@@ -519,7 +536,7 @@ export function cardRewardsPage(app) {
         })));
     }
     if (answerRows.length) {
-      const count = known.length + yours.length;
+      const count = known.length + yours.length + counted.length;
       const fold = el("details", { class: "reward-answers" },
         el("summary", { text: `Answers (${count})` }),
         ...answerRows);
@@ -555,12 +572,50 @@ export function cardRewardsPage(app) {
     render();
   }
 
+  // Caps filled in from YNAB (at explicit user request, 2026-11-16): a card
+  // linked to its account on My cards is never asked whether its cap is
+  // used up this month or year; its own spending says. These beat a saved
+  // answer (a guess from earlier) but never one given for this purchase.
+  let ynabCaps = {};
+
+  async function loadCapUsage() {
+    const state = app.state;
+    const linked = settings.wallet.filter((e) => e.accountId);
+    if (!linked.length || !state.token || !state.budgetId || !state.hasBudgetData) return;
+    const today = localToday();
+    const since = `${today.slice(0, 4)}-01-01`;
+    try {
+      const { list } = await state.transactions(since);
+      const names = new Map(state.flatCategories(true).map((i) => [i.category.id, i.category.name]));
+      const items = spendItems(list, {
+        accountIds: new Set(linked.map((e) => e.accountId)), since, until: today,
+        categoryName: (id) => names.get(id) || "",
+        exclude: readyToAssignCategoryIds(state.categoryGroups),
+      });
+      const found = {};
+      for (const entry of linked) {
+        const [cardNow] = walletCards([entry]);
+        if (!cardNow) continue;
+        const usage = capUsage(cardNow, items.filter((i) => i.accountId === entry.accountId), today, { values: settings.values });
+        for (const [id, u] of Object.entries(usage)) found[id] = { ...u, card: shortName(cardNow) };
+      }
+      ynabCaps = found;
+    } catch {
+      ynabCaps = {};
+    }
+    render();
+  }
+
+  function ynabAnswers() {
+    return Object.fromEntries(Object.entries(ynabCaps).map(([id, u]) => [id, u.value]));
+  }
+
   function allAnswers() {
     // Without a shop there is nobody to ask "does it take Amex?" about (at
     // explicit user request: "if I don't have a place listed don't ask"),
     // so it is left as not sure: never asked, still counted in how sure.
     const open = !shop && answers.amex === undefined ? { amex: UNSURE } : {};
-    return { ...savedCapAnswers(settings.capAnswers, localToday()), ...open, ...answers };
+    return { ...savedCapAnswers(settings.capAnswers, localToday()), ...ynabAnswers(), ...open, ...answers };
   }
 
   /** Today as a local "YYYY-MM-DD" (toISOString would give the UTC date). */
@@ -755,6 +810,6 @@ export function cardRewardsPage(app) {
   // most every FEED_MAX_AGE_MS, so hopping between the card tabs is free).
   try { useSavedCatalogue(window.localStorage); } catch { /* no storage */ }
   render();
-  refreshCatalogue();
+  refreshCatalogue().then(loadCapUsage);
   return root;
 }

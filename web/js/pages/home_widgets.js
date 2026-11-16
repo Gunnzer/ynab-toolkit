@@ -9,6 +9,11 @@
 import { fmt } from "../money.js";
 import { fullMonthsBefore, pace, shiftMonth, spendingByMonth, spentThroughDay } from "../tools/budget_actual.js";
 import { cashFlow } from "../tools/cash_flow.js";
+import { OFFERS, PURCHASES } from "../tools/card_catalogue.js";
+import { browserFetchJson, loadCatalogue, useSavedCatalogue } from "../tools/card_feed.js";
+import {
+  UNSURE, formatValue, offersFor, purchaseLabel, recommend, savedCapAnswers, shortName, walletCards,
+} from "../tools/card_rewards.js";
 import { dailyBalances, selectionName, spendingSeries } from "../tools/chart_data.js";
 import { buildAlerts } from "../tools/dashboard.js";
 import * as duplicates from "../tools/duplicates.js";
@@ -821,6 +826,84 @@ function toolLinksWidget(body, size, ctx, app, config) {
 }
 
 /** Settings: a tick per tool, in sidebar order. */
+// ---------- Card Rewards on Home (at explicit user request, 2026-11-16) ----------
+
+// The card details, loaded the same way the card tabs load them: the saved
+// copy at once, the latest at most every few minutes. Shared by both card
+// widgets so a Home with both downloads once.
+let cardFeed = null;
+let cardFeedAt = 0;
+function cardCatalogue() {
+  if (!cardFeed || Date.now() - cardFeedAt > 5 * 60 * 1000) {
+    let storage = null;
+    try { storage = window.localStorage; } catch { storage = null; }
+    useSavedCatalogue(storage);
+    cardFeedAt = Date.now();
+    cardFeed = loadCatalogue({ fetchJson: browserFetchJson, storage }).catch(() => null);
+  }
+  return cardFeed;
+}
+
+function cardSettings(app) {
+  return app.state.store.get("cardRewards", {}) || {};
+}
+
+async function cardOffersWidget(body, size, ctx, app) {
+  await cardCatalogue();
+  const today = localToday();
+  const list = offersFor(OFFERS, walletCards(cardSettings(app).wallet || []), today);
+  const running = list.filter((o) => o.status === "now").length;
+  body.append(big(String(list.length), list.length
+    ? `card offer${list.length === 1 ? "" : "s"} and events${running < list.length ? `, ${list.length - running} starting soon` : ""}`
+    : "card offers or events right now"));
+  if (size === "s" || !list.length) return;
+  const shown = list.slice(0, LIMIT[size]);
+  body.append(rows(shown.map(({ offer, status }) => ({
+    label: offer.title,
+    sub: status === "soon" ? `Starts ${shortDate(offer.starts)}` : `Until ${shortDate(offer.ends)}`,
+    pill: status === "soon" ? ["Soon", "info"] : null,
+  }))), more(list.length - shown.length));
+}
+
+const BEST_CARD_DEFAULT = ["groceries", "dining", "gas", "drugstore", "other"];
+
+async function bestCardWidget(body, size, ctx, app, config) {
+  await cardCatalogue();
+  const settings = cardSettings(app);
+  const cards = walletCards(settings.wallet || []);
+  if (!cards.length) {
+    body.append(hint("Add the cards you carry on My cards, and the best one for each kind of purchase shows here."));
+    return;
+  }
+  const purchases = (Array.isArray(config.purchases) && config.purchases.length ? config.purchases : BEST_CARD_DEFAULT)
+    .filter((id) => PURCHASES.some((p) => p.id === id));
+  const today = localToday();
+  const view = { measure: "value", grouped: false, values: settings.values || {}, preferred: settings.preferred || "", offers: OFFERS, today };
+  // No shop is known here, so Amex is left open, as on Which card to use.
+  const answers = { ...savedCapAnswers(settings.capAnswers || {}, today), amex: UNSURE };
+  const shown = purchases.slice(0, size === "l" ? purchases.length : LIMIT[size] + 1);
+  body.append(rows(shown.map((purchase) => {
+    const top = recommend(cards, purchase, answers, view).groups[0]?.cards[0];
+    return {
+      label: purchaseLabel(purchase),
+      sub: top?.accepted ? shortName(top.card) : "None of your cards is likely accepted",
+      value: top?.accepted ? formatValue(top.card.points, top.rate, settings.values || {}) : "",
+    };
+  })), more(purchases.length - shown.length));
+}
+
+function bestCardFields(body, config) {
+  const chosen = new Set(Array.isArray(config.purchases) && config.purchases.length ? config.purchases : BEST_CARD_DEFAULT);
+  const boxes = PURCHASES.map((p) => {
+    const box = el("input", { type: "checkbox" });
+    box.checked = chosen.has(p.id);
+    return [p.id, box, el("label", { class: "checkbox" }, box, el("span", { text: p.label }))];
+  });
+  body.append(el("label", { class: "field-label", text: "Kinds of purchase" }),
+    el("div", { class: "settings-checks" }, ...boxes.map(([, , label]) => label)));
+  return { value: () => ({ purchases: boxes.filter(([, box]) => box.checked).map(([id]) => id) }) };
+}
+
 function toolLinksFields(body, config, app) {
   const chosen = Array.isArray(config.pages) ? new Set(config.pages) : null;
   const boxes = app.toolPages().map((page) => {
@@ -925,6 +1008,17 @@ export const WIDGETS = [
     id: "settle", title: "Settle up", icon: "split", tool: "splitSheet", go: "splitsheet",
     blurb: "Whether each Bill Splitting cycle has been paid.",
     sizes: ["s", "m", "l"], defaultSize: "m", byDefault: true, needsBudget: true, render: settleWidget,
+  },
+  {
+    id: "cardOffers", title: "Card offers", icon: "wallet", tool: "myCards", go: "mycards",
+    blurb: "Card and points offers and events running now or starting soon, from My cards.",
+    sizes: ["s", "m", "l"], defaultSize: "m", byDefault: false, needsBudget: false, render: cardOffersWidget,
+  },
+  {
+    id: "bestCard", title: "Best card", icon: "wallet", tool: "cardRewards", go: "cardrewards",
+    blurb: "Which of your cards gives the most back for each kind of purchase you choose.",
+    sizes: ["m", "l"], defaultSize: "m", byDefault: false, needsBudget: false, render: bestCardWidget,
+    fields: bestCardFields, wideSettings: true,
   },
   {
     id: "toolLinks", title: "Tool links", icon: "layout", tool: null, go: null,

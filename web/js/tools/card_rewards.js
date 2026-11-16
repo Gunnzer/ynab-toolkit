@@ -463,7 +463,7 @@ export function groupUnit(points) {
   return POINT_TYPES[points]?.unit || "points";
 }
 
-function capQuestionId(card, cap) {
+export function capQuestionId(card, cap) {
   return `cap:${card.id}:${cap.key}`;
 }
 
@@ -581,6 +581,10 @@ function conditionsHold(when, card, answers) {
 }
 
 /** Every combination of the answers still open, with its probability. */
+export function answerScenarios(questions, purchase, answers) {
+  return scenarios(questions, purchase, answers);
+}
+
 function scenarios(questions, purchase, answers) {
   let list = [{ answers: { ...answers }, p: 1 }];
   for (const q of questions) {

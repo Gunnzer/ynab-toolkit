@@ -8,8 +8,11 @@
 import { CARDS, CATALOGUE_CHECKED, NETWORKS, OFFERS, POINT_TYPES, PURCHASES, TIERS } from "../tools/card_catalogue.js";
 import { browserFetchJson, loadCatalogue, useSavedCatalogue } from "../tools/card_feed.js";
 import {
-  asPreferred, centsPerPoint, daysSince, groupName, groupUnit, offersFor, pickLabel, shortName, transferRatio, walletCards,
+  asPreferred, centsPerPoint, daysSince, groupName, groupUnit, offersFor, pickLabel, purchaseLabel, shortName,
+  transferRatio, walletCards,
 } from "../tools/card_rewards.js";
+import { cardEarnings, spendItems } from "../tools/card_spending.js";
+import { readyToAssignCategoryIds } from "../tools/rta_tracker.js";
 import {
   FACES, LIGHT_FACES, OPEN_OFFER_KEY, cardFace, earnLines, feeInfo, perkGroups, walletFees,
 } from "../tools/my_cards.js";
@@ -83,13 +86,17 @@ export function myCardsPage(app) {
     renderAll();
   });
   const preferredHint = el("p", { class: "hint" });
+  // What your points are worth (at explicit user request: "points value
+  // calculator would be a good tool").
+  const balancesHost = el("div", { class: "mycards-balances" });
   // One compact row (at explicit user request): the picker, then Point values.
   const pointsCard = el("div", { class: "card mycards-points" },
     el("div", { class: "mycards-points-row" },
       el("label", { class: "mycards-points-label", text: "Preferred points" }),
       preferredSelect,
       el("button", { type: "button", class: "reward-quiet", text: "Point values", onClick: () => editValues() })),
-    preferredHint);
+    preferredHint,
+    balancesHost);
 
   // Add a card always stays at the top, above your cards (reported live:
   // "the add card moves to the bottom when it shouldn't").
@@ -158,6 +165,163 @@ export function myCardsPage(app) {
     renderGrid(cards);
     renderAddList();
     renderPreferred(cards);
+    renderBalances(cards);
+  }
+
+  // ---------- what each card really earned ----------
+  // At explicit user request (2026-11-16, "is each card worth its fee?"):
+  // a card linked to its YNAB account shows the last 12 months of its own
+  // spending valued at its rates and your point values, against its fee.
+  const state = app.state;
+  let spending = null;
+  const connected = () => Boolean(state.token && state.budgetId && state.hasBudgetData);
+  const cardAccounts = () => (state.accounts || [])
+    .filter((a) => !a.deleted && !a.closed && (a.type === "creditCard" || a.type === "lineOfCredit"));
+
+  function isoDate(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+
+  async function loadSpending() {
+    const linked = new Set(settings.wallet.map((e) => e.accountId).filter(Boolean));
+    if (!connected() || !linked.size) return;
+    const start = new Date();
+    start.setFullYear(start.getFullYear() - 1);
+    start.setDate(start.getDate() + 1);
+    const since = isoDate(start);
+    try {
+      const { list } = await state.transactions(since);
+      const names = new Map(state.flatCategories(true).map((i) => [i.category.id, i.category.name]));
+      const items = spendItems(list, {
+        accountIds: linked, since, until: localToday(),
+        categoryName: (id) => names.get(id) || "",
+        exclude: readyToAssignCategoryIds(state.categoryGroups),
+      });
+      const byAccount = new Map();
+      for (const item of items) {
+        if (!byAccount.has(item.accountId)) byAccount.set(item.accountId, []);
+        byAccount.get(item.accountId).push(item);
+      }
+      spending = { byAccount };
+    } catch {
+      // Offline or signed out: the tiles just say to link or try later.
+      spending = null;
+    }
+    renderAll();
+  }
+
+  function earningsFor(entry, resolved) {
+    if (!entry.accountId || !spending) return null;
+    return cardEarnings(resolved, spending.byAccount.get(entry.accountId) || [],
+      { values: settings.values, preferred: settings.preferred });
+  }
+
+  const dollars = (n) => `${n < 0 ? "-" : ""}$${Math.round(Math.abs(n)).toLocaleString("en-CA")}`;
+
+  function yearBlock(entry, resolved) {
+    const accounts = cardAccounts();
+    if (!connected() || !accounts.length) return "";
+    const link = el("select", { "aria-label": `YNAB account for ${resolved.name}` },
+      el("option", { value: "", text: "Not linked" }),
+      accounts.map((a) => el("option", { value: a.id, text: a.name })));
+    link.value = accounts.some((a) => a.id === entry.accountId) ? entry.accountId : "";
+    link.addEventListener("change", () => {
+      if (link.value) entry.accountId = link.value;
+      else delete entry.accountId;
+      store.save();
+      spending = null;
+      renderAll();
+      loadSpending();
+    });
+    const parts = [el("label", { class: "mycard-link" },
+      el("span", { class: "mycard-fact-label", text: "YNAB account" }), link)];
+    const result = earningsFor(entry, resolved);
+    if (!entry.accountId) {
+      parts.push(hint("Link the card's account to see what it earned in the last 12 months against its fee."));
+    } else if (!result) {
+      parts.push(hint("Adding up the last 12 months..."));
+    } else if (result.spend <= 0) {
+      parts.push(hint("No spending on this account in the last 12 months."));
+    } else {
+      const verdict = !result.fee
+        ? pill("No annual fee", "muted")
+        : result.net >= 0
+          ? pill(`Worth it: ${dollars(result.net)} ahead`, "ok")
+          : pill(`Costs ${dollars(-result.net)} more than it earns`, "warn");
+      parts.push(el("div", { class: "mycard-year-verdict" }, verdict),
+        el("p", {
+          class: "mycard-year-line",
+          text: `${dollars(result.spend)} spent, about ${dollars(result.earned)} back (${pct(result.back)})` +
+            (result.fee ? `, against a ${dollars(result.fee)} fee.` : "."),
+        }),
+        el("details", { class: "mycard-notes" },
+          el("summary", { text: "Where it earned" }),
+          el("ul", {}, result.byPurchase.slice(0, 8).map((r) => el("li", {
+            text: `${purchaseLabel(r.purchase)}: ${dollars(r.spend)} spent, ${dollars(r.earned)} back`,
+          }))),
+          result.capsHit.length ? hint(`Went past its cap on ${result.capsHit.join(", ")} at least once.`) : "",
+          hint("An estimate at your point values: shops are sorted by name and YNAB category. " +
+            "Sign-up bonuses, credits and statement offers are not counted.")));
+    }
+    return el("div", { class: "mycard-year" }, sectionLabel("Last 12 months"), parts);
+  }
+
+  // ---------- what your points are worth ----------
+  function renderBalances(cards) {
+    clear(balancesHost);
+    if (!settings.balances || typeof settings.balances !== "object") settings.balances = {};
+    const isPoints = (p) => POINT_TYPES[p] && groupUnit(p) !== "percent";
+    const held = [...new Set(cards.map((c) => c.points))].filter(isPoints);
+    const types = [...new Set([...held, ...Object.keys(settings.balances).filter(isPoints)])];
+    const totalNode = el("strong");
+    const worth = (points) => (Number(settings.balances[points]) || 0) * centsPerPoint(points, settings.values) / 100;
+    const cash = (n) => `$${n.toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const paintTotal = () => { totalNode.textContent = cash(types.reduce((n, p) => n + worth(p), 0)); };
+    const list = el("div", { class: "mycards-balance-list" });
+    for (const points of types) {
+      const input = textInput(settings.balances[points] ?? "", { type: "number", placeholder: "0" });
+      input.min = "0";
+      input.step = "1";
+      input.setAttribute("inputmode", "numeric");
+      input.setAttribute("enterkeyhint", "done");
+      input.setAttribute("aria-label", `${groupName(points)} balance`);
+      const out = el("span", { class: "mycards-balance-worth" });
+      const paint = () => {
+        const n = Number(settings.balances[points]) || 0;
+        const ratio = settings.preferred && points !== settings.preferred ? transferRatio(points, settings.preferred) : 0;
+        out.textContent = `${cash(worth(points))} at ${centsPerPoint(points, settings.values)}¢` +
+          (ratio && n ? `, or ${Math.round(n * ratio).toLocaleString("en-CA")} ${groupName(settings.preferred)} ` +
+            `worth ${cash(n * ratio * centsPerPoint(settings.preferred, settings.values) / 100)}` : "");
+      };
+      input.addEventListener("input", () => {
+        const n = Number(input.value);
+        if (input.value.trim() === "" || !(n >= 0)) delete settings.balances[points];
+        else settings.balances[points] = n;
+        store.save();
+        paint();
+        paintTotal();
+      });
+      paint();
+      list.append(el("label", { class: "mycards-balance-row" },
+        el("span", { class: "mycards-balance-name", text: groupName(points) }), input, out));
+    }
+    const others = Object.keys(POINT_TYPES).filter((p) => isPoints(p) && !types.includes(p));
+    const addSelect = el("select", { "aria-label": "Add another kind of points" },
+      el("option", { value: "", text: "Add other points..." }),
+      others.map((p) => el("option", { value: p, text: groupName(p) })));
+    addSelect.addEventListener("change", () => {
+      if (!addSelect.value) return;
+      settings.balances[addSelect.value] = settings.balances[addSelect.value] ?? 0;
+      store.save();
+      renderBalances(walletCards(settings.wallet));
+    });
+    paintTotal();
+    balancesHost.append(
+      el("div", { class: "mycards-points-label", text: "What your points are worth" }),
+      list,
+      el("div", { class: "mycards-balance-foot" },
+        el("span", { class: "hint" }, "About ", totalNode, " in all, at your point values."),
+        others.length ? addSelect : ""));
   }
 
   function shortDate(iso) {
@@ -228,6 +392,16 @@ export function myCardsPage(app) {
     if (fees.changes.length) {
       lines.push(`Going up to ${money(fees.next)} a year: ` + fees.changes.map((c) =>
         `${shortName(c.card)} ${c.diff >= 0 ? "+" : ""}${money(c.diff)} from ${dateLabel(c.from)}`).join(", ") + ".");
+    }
+    const linked = settings.wallet.map((entry) => {
+      const resolved = cards.find((c) => c.id === entry.id);
+      return resolved ? earningsFor(entry, resolved) : null;
+    }).filter((r) => r && r.spend > 0);
+    if (linked.length) {
+      const earned = linked.reduce((n, r) => n + r.earned, 0);
+      const linkedFees = linked.reduce((n, r) => n + r.fee, 0);
+      lines.push(`Last 12 months, ${linked.length === cards.length ? "your cards" : `${linked.length} linked card${linked.length === 1 ? "" : "s"}`} ` +
+        `earned about ${dollars(earned)} against ${dollars(linkedFees)} in fees: ${dollars(earned - linkedFees)} ${earned >= linkedFees ? "ahead" : "behind"}.`);
     }
     summary.append(el("div", { class: "card mycards-summary" }, lines.map((t, i) => el("p", { class: i ? "hint" : "", text: t }))));
   }
@@ -371,6 +545,7 @@ export function myCardsPage(app) {
           resolved.custom ? button("Edit", { small: true, onClick: () => editCustom(entry) }) : null,
           button("Remove", { small: true, onClick: () => remove(resolved.name, index) }))),
       el("div", { class: "mycard-facts" }, feeFacts(resolved)),
+      yearBlock(entry, resolved),
       sectionLabel("Rewards"),
       rewardList(resolved),
       setup(entry, resolved),
@@ -587,6 +762,6 @@ export function myCardsPage(app) {
   // most every FEED_MAX_AGE_MS, so hopping between the card tabs is free).
   try { useSavedCatalogue(window.localStorage); } catch { /* no storage */ }
   renderAll();
-  refreshCatalogue();
+  refreshCatalogue().then(loadSpending);
   return root;
 }
