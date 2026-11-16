@@ -2621,7 +2621,8 @@ select.is-empty option { color: var(--text); }
 .spend-add .hint { margin: 2px 0 0; }
 
 /* A card's last 12 months from YNAB, and what your points are worth. */
-.mycard-waive .checkbox { font-size: 13px; color: var(--muted); }
+.mycard-waive { align-items: center; cursor: pointer; }
+.mycard-waive input { margin: 0; width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
 .mycard-year .mycard-top-payees { margin: 2px 0 0; font-size: 12px; }
 .mycard-year { display: flex; flex-direction: column; gap: 6px; }
 .mycard-link { display: flex; align-items: center; gap: 10px; }

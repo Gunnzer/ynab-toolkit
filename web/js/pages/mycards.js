@@ -453,13 +453,21 @@ export function myCardsPage(app) {
     if (c.feeWaived || fee) {
       // At explicit user request: some bank accounts rebate a card's fee
       // (TD's All-Inclusive plan does for its Aeroplan card).
-      facts.push(el("div", { class: "mycard-waive" }, checkbox(
-        "Fee waived for me (for example through my bank account)", Boolean(entry.feeWaived), (on) => {
-          if (on) entry.feeWaived = true;
-          else delete entry.feeWaived;
-          store.save();
-          renderAll();
-        })));
+      // A fact row like the others, the box where the values line up (at
+      // explicit user request: "just be fee waived and align it better").
+      const box = el("input", {
+        type: "checkbox",
+        title: "Your fee is waived or rebated, for example through your bank account",
+      });
+      box.checked = Boolean(entry.feeWaived);
+      box.addEventListener("change", () => {
+        if (box.checked) entry.feeWaived = true;
+        else delete entry.feeWaived;
+        store.save();
+        renderAll();
+      });
+      facts.push(el("label", { class: "mycard-fact mycard-waive" },
+        el("span", { class: "mycard-fact-label", text: "Fee waived" }), box));
     }
     if (change) {
       const when = change.upcoming ? `from ${dateLabel(change.from)}` : `since ${dateLabel(change.from)}`;
