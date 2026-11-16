@@ -36,6 +36,17 @@ const CATEGORY_WORDS = [
   ["furniture", ["furniture", "furnishings"]],
 ];
 
+// What a card company itself charges or credits: not purchases, so they
+// neither count as spending nor earn (reported live: a Scotia Momentum showed
+// 4.14% back, above its top rate, because its yearly cash back payout was
+// read as a 1% refund that took $1,000 or so off "spent").
+const NOT_SPENDING = /\b(annual|card|membership) fee\b|^interest\b|\b(purchase|cash advance)? ?interest (charges?|charged)\b|\bpurchase interest\b|\bcash ?back (rewards?|redemption|credit|payout|deposit)\b|\brewards? (redemption|credit)\b|\bpoints? (redemption|credit)\b|\bstatement credit\b|\bfee (rebate|refund|reversal)\b|\bbalance protection\b|\bover ?limit fee\b|\bnsf fee\b/i;
+
+/** Whether a payee is the card company's own charge or credit, not a purchase. */
+export function notSpending(payee) {
+  return NOT_SPENDING.test(String(payee || ""));
+}
+
 /** The purchase type a YNAB category's name points to, or "". */
 export function categoryPurchase(name) {
   const words = ` ${String(name || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()} `;
@@ -79,6 +90,7 @@ export function spendItems(transactions, {
     for (const leg of subs.length ? subs : [t]) {
       if (leg.transfer_account_id || exclude.has(leg.category_id)) continue;
       const payee = leg.payee_name || t.payee_name || "";
+      if (notSpending(payee) || notSpending(leg.memo) || notSpending(t.memo)) continue;
       items.push({
         date: t.date,
         accountId: t.account_id,
@@ -143,7 +155,9 @@ export function cardEarnings(card, items, { values = {}, preferred = "" } = {}) 
   const byPurchase = new Map();
   let spend = 0;
   let earned = 0;
+  let refunds = 0;
   for (const item of [...items].sort((a, b) => a.date.localeCompare(b.date))) {
+    if (item.amount < 0) refunds -= item.amount;
     const rows = table(priced, item.purchase, item.answers).filter((r) => r.accepted);
     const pAccepted = rows.reduce((n, r) => n + r.p, 0);
     let value;
@@ -178,6 +192,7 @@ export function cardEarnings(card, items, { values = {}, preferred = "" } = {}) 
   const fee = Number(card.annualFee) || 0;
   return {
     spend: round2(spend),
+    refunds: round2(refunds),
     earned: round2(earned),
     fee,
     net: round2(earned - fee),

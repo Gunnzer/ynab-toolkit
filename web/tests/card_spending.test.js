@@ -47,6 +47,17 @@ describe("sorting spending into card categories", () => {
     assert.equal(purchaseOf({ payee: "CHEXY", category: "Rent" }).purchase, "bills", "rent through Chexy is a bill payment");
   });
 
+  test("the card's own fees, interest and reward payouts are not spending", () => {
+    const items = spendItems([
+      tx("2026-01-02", "ANNUAL FEE", 120),
+      tx("2026-01-03", "PURCHASE INTEREST", 14),
+      tx("2026-11-01", "CASH BACK REWARD", -950),
+      tx("2026-11-02", "Scotia", -950, { memo: "Cash back redemption" }),
+      tx("2026-11-03", "CHEXY", 2000),
+    ]);
+    assert.deepEqual(items.map((i) => i.payee), ["CHEXY"]);
+  });
+
   test("transfers and income are left out, split legs count on their own, refunds take away", () => {
     const items = spendItems([
       tx("2026-01-02", "PAYMENT THANK YOU", -500, { transfer_account_id: "chequing" }),
@@ -83,6 +94,7 @@ describe("what a card earned", () => {
     assert.equal(result.spend, 1700);
     assert.equal(result.net, 60 - 50);
     assert.deepEqual(result.capsHit, ["groceries"]);
+    assert.equal(cardEarnings(plain, [...items, { date: "2026-04-03", amount: -100, purchase: "dining", answers: C }]).refunds, 100);
     assert.equal(result.byPurchase[0].purchase, "groceries");
   });
 

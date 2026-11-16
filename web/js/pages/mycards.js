@@ -272,8 +272,10 @@ export function myCardsPage(app) {
           el("ul", {}, result.byPurchase.slice(0, 8).map((r) => el("li", {
             text: `${purchaseLabel(r.purchase)}: ${dollars(r.spend)} spent, ${dollars(r.earned)} back`,
           }))),
+          result.refunds ? hint(`Spent is purchases less ${dollars(result.refunds)} of refunds, which take back what they earned.`) : "",
           result.capsHit.length ? hint(`Went past its cap on ${result.capsHit.join(", ")} at least once.`) : "",
           hint("An estimate at your point values: shops are sorted by name and YNAB category. " +
+            "The card's own fees, interest and reward payouts are not spending. " +
             "Sign-up bonuses, credits and statement offers are not counted.")));
     }
     return el("div", { class: "mycard-year" }, sectionLabel("Last 12 months"), parts);
