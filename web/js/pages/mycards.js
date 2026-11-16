@@ -329,16 +329,21 @@ export function myCardsPage(app) {
         el("span", { class: "reward-offer-title", text: offer.title }),
         pill(status === "now" ? `Until ${shortDate(offer.ends)}` : `Starts ${shortDate(offer.starts)}`,
           status === "now" ? "ok" : "info")),
-      offer.detail ? el("p", { class: "reward-offer-detail", text: offer.detail }) : "",
-      el("p", {
-        class: "hint",
-        text: [
-          cardIds.length ? `For your ${cardIds.map((id) => names[id]).join(", ")}` : "",
-          offer.shops?.length ? `At ${offer.shops.join(", ")}` : "",
-          `Source: ${offer.source}`,
-        ].filter(Boolean).join(". ") + ".",
-      })))));
+      // Short lines, not a paragraph (reported live: "hard to read + too
+      // much to read"): one bullet per sentence, then where and for which
+      // card, then the source on its own small line.
+      offer.detail ? el("ul", { class: "mycards-offer-points" },
+        offer.detail.split(/(?<=\.)\s+/).filter(Boolean).map((t) => el("li", { text: t.replace(/\.$/, "") }))) : "",
+      el("div", { class: "mycards-offer-meta" },
+        cardIds.length ? el("span", { text: `Your ${cardIds.map((id) => names[id]).join(", ")}` }) : "",
+        offer.shops?.length ? el("span", { title: offer.shops.join(", "), text: shopsLine(offer.shops) }) : "",
+        el("span", { class: "mycards-offer-source", text: `Source: ${offer.source}` }))))));
     openRequestedOffer();
+  }
+
+  /** "At Loblaws, No Frills and 8 more" (the full list is the tooltip). */
+  function shopsLine(shops) {
+    return shops.length <= 3 ? `At ${shops.join(", ")}` : `At ${shops.slice(0, 2).join(", ")} and ${shops.length - 2} more`;
   }
 
   // Arrived from an "Offer" tag on Which card to use: open that one.

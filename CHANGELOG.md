@@ -11,6 +11,11 @@ before or as part of the push itself.
 
 ## 2026-11-16
 
+**Wallet: offers that are easier to read** (`pages/mycards.js`, `css/app.css`, `data/cards.json`, `CLAUDE.md`)
+* An open offer shows one short bullet per point, then where it runs as one short line ("At Loblaws, No Frills and 8 more") and the source in small print, instead of a paragraph.
+* The Zwilling "2 knives for 20 stamps" window (until Nov 25) is its own offer, separate from collecting stamps (until Jan 13, redeem by Jan 27).
+* The daily check writes offers the same way and keeps a promotion inside a longer program as its own offer.
+
 **Card Rewards: a Points tab, and shorter tab names** (new `pages/cardpoints.js`, `pages/point_values.js`, `tools/points_calc.js`, `tests/points_calc.test.js`, `pages/mycards.js`, `main.js`, `store.js`, the card pages' wording, `css/app.css`, `CLAUDE.md`)
 * New Points tab: your balances and what they are worth; "Is this a good use of points?" for a flight, hotel night or anything with a cash price (cents per point after taxes and fees, against your point value, and fairly counting what paying cash would earn); where Amex points are best sent (Aeroplan, Marriott Bonvoy or a statement credit); and PC Optimum bonus redemption tiers against your balance.
 * Wallet keeps a one-line total with a link to Points.

@@ -2124,8 +2124,8 @@
     },
     {
       "id": "loblaw-zwilling-stamps-2026-11",
-      "title": "Zwilling knife stamps at Loblaw stores",
-      "detail": "1 stamp per $20 spent before tax, until January 13. 20 stamps get 60% to 85% off one Zwilling knife item; redeem full cards by January 27. Opt in on the PC Optimum app for 8 bonus stamps.",
+      "title": "Zwilling stamps at Loblaw stores",
+      "detail": "1 stamp per $20 spent. 20 stamps get 60% to 85% off a Zwilling knife. Redeem full cards by Jan 27. Opt in on the PC Optimum app for 8 free stamps.",
       "starts": "2026-09-24",
       "ends": "2027-01-13",
       "everyone": true,
@@ -2142,6 +2142,27 @@
         "Atlantic Superstore"
       ],
       "source": "No Frills, Loblaws and Atlantic Superstore Collect and Save pages, PC Optimum"
+    },
+    {
+      "id": "loblaw-zwilling-double-2026-11",
+      "title": "Zwilling double: 2 knives for 20 stamps",
+      "detail": "A full card of 20 stamps gets 2 Zwilling items instead of 1.",
+      "starts": "2026-11-12",
+      "ends": "2026-11-25",
+      "everyone": true,
+      "shops": [
+        "Loblaws",
+        "No Frills",
+        "Real Canadian Superstore",
+        "Zehrs",
+        "Fortinos",
+        "Provigo",
+        "Maxi",
+        "Valu-mart",
+        "Your Independent Grocer",
+        "Atlantic Superstore"
+      ],
+      "source": "Loblaws and No Frills flyers"
     },
     {
       "id": "sdm-20k-points-2026-11",
