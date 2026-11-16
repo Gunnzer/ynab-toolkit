@@ -20,6 +20,7 @@ before or as part of the push itself.
 * New For your spending tab: your yearly card spending by category, what your cards earn on it if each purchase goes on the best one, and which other cards would add the most a year after their fee.
 * Which card to use no longer asks whether a linked card's cap is used up: it adds up this month's or year's spending from YNAB and shows it ("Cobalt: $625 of $2,500 this month").
 * My cards works out what your points are worth: type in each balance and see its value at your point values, and in your preferred points.
+* Fixed: rent paid through Chexy counts as a recurring bill payment (4% on a Scotia Momentum), not "everything else" at 1%.
 * Two new Home widgets: Card offers (offers and events running or starting soon) and Best card (your top card for each kind of purchase you pick). Add them from Customize.
 
 **Card Rewards: the latest card details on every open** (`tools/card_feed.js`, `pages/mycards.js`, `pages/cardrewards.js`, `pages/welcomebonuses.js`, `pages/cardtiers.js`, `tests/card_feed.test.js`, `CLAUDE.md`)

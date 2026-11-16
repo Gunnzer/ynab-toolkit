@@ -137,6 +137,10 @@ export const MERCHANTS = [
   streaming("Apple Music"),
   streaming("YouTube Premium", ["youtube"]),
 
+  // Rent put on a card through Chexy codes as a recurring bill payment
+  // (reported live: a Scotia Momentum's rent through Chexy earns its 4% bill
+  // rate, but read as 1% "everything else").
+  bills("Chexy"),
   bills("Rogers"),
   bills("Bell"),
   bills("Telus"),

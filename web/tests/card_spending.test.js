@@ -44,6 +44,7 @@ describe("sorting spending into card categories", () => {
     assert.equal(purchaseOf({ payee: "LUIGI PIZZERIA", category: "Groceries" }).purchase, "dining");
     assert.equal(purchaseOf({ payee: "ACME LTD", category: "Groceries" }).purchase, "groceries");
     assert.equal(purchaseOf({ payee: "ACME LTD", category: "Rent" }).purchase, "other");
+    assert.equal(purchaseOf({ payee: "CHEXY", category: "Rent" }).purchase, "bills", "rent through Chexy is a bill payment");
   });
 
   test("transfers and income are left out, split legs count on their own, refunds take away", () => {
