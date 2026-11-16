@@ -4,7 +4,7 @@
 // rearrange on their own device with Edit. See tools/card_tiers.js.
 
 import { CARDS, POINT_TYPES, TIERS } from "../tools/card_catalogue.js";
-import { browserFetchJson, loadCatalogue } from "../tools/card_feed.js";
+import { browserFetchJson, loadCatalogue, useSavedCatalogue } from "../tools/card_feed.js";
 import { shortName } from "../tools/card_rewards.js";
 import { moveCard, tierBoard } from "../tools/card_tiers.js";
 import { button, card, clear, confirmDialog, el, hint, pageHeading, pill } from "../ui.js";
@@ -125,14 +125,12 @@ export function cardTiersPage(app) {
     return new Date(y, m - 1, d).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" });
   }
 
+  // The saved copy at once, then the latest whenever the page opens (at
+  // most every FEED_MAX_AGE_MS, so hopping between the card tabs is free).
+  let storage = null;
+  try { storage = window.localStorage; } catch { storage = null; }
+  useSavedCatalogue(storage);
   render();
-  if (!CARDS.length) {
-    (async () => {
-      let storage = null;
-      try { storage = window.localStorage; } catch { storage = null; }
-      await loadCatalogue({ fetchJson: browserFetchJson, storage });
-      render();
-    })();
-  }
+  loadCatalogue({ fetchJson: browserFetchJson, storage }).then(render);
   return root;
 }

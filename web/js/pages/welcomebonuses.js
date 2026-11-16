@@ -4,7 +4,7 @@
 // same card details file as Card Rewards; tracked bonuses are saved here.
 
 import { CARDS, NETWORKS, POINT_TYPES } from "../tools/card_catalogue.js";
-import { browserFetchJson, loadCatalogue } from "../tools/card_feed.js";
+import { browserFetchJson, loadCatalogue, useSavedCatalogue } from "../tools/card_feed.js";
 import { shortName } from "../tools/card_rewards.js";
 import {
   CHEXY_FEE, NO_FILTERS, addMonths, filterOffers, offerDeadline, progress, rankOffers, spentOnAccount,
@@ -395,15 +395,17 @@ export function welcomeBonusesPage(app) {
     return new Date(y, m - 1, d).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" });
   }
 
+  let storage = null;
+  try { storage = window.localStorage; } catch { storage = null; }
+  // The saved copy at once, then the latest whenever the page opens (at
+  // most every FEED_MAX_AGE_MS, so hopping between the card tabs is free).
+  useSavedCatalogue(storage);
   renderTracked();
   renderOffers();
   (async () => {
-    // The same downloaded card details as Card Rewards.
-    if (!CARDS.length) {
-      let storage = null;
-      try { storage = window.localStorage; } catch { storage = null; }
-      await loadCatalogue({ fetchJson: browserFetchJson, storage });
-    }
+    await loadCatalogue({ fetchJson: browserFetchJson, storage });
+    renderTracked();
+    renderOffers();
     await loadYnab();
     renderTracked();
     renderOffers();

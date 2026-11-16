@@ -6,7 +6,7 @@
 // bonuses and the Tier list all read the same cardRewards.wallet.
 
 import { CARDS, CATALOGUE_CHECKED, NETWORKS, OFFERS, POINT_TYPES, PURCHASES } from "../tools/card_catalogue.js";
-import { browserFetchJson, loadCatalogue } from "../tools/card_feed.js";
+import { browserFetchJson, loadCatalogue, useSavedCatalogue } from "../tools/card_feed.js";
 import {
   asPreferred, centsPerPoint, daysSince, groupName, groupUnit, offersFor, pickLabel, shortName, transferRatio, walletCards,
 } from "../tools/card_rewards.js";
@@ -567,6 +567,9 @@ export function myCardsPage(app) {
     renderAll();
   }
 
+  // The saved copy at once, then the latest whenever the page opens (at
+  // most every FEED_MAX_AGE_MS, so hopping between the card tabs is free).
+  try { useSavedCatalogue(window.localStorage); } catch { /* no storage */ }
   renderAll();
   refreshCatalogue();
   return root;

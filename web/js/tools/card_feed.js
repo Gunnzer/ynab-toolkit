@@ -39,6 +39,18 @@ function writeCache(storage, entry) {
 }
 
 /**
+ * Show the copy saved on this device straight away, before any download
+ * (at explicit user request: "auto check for updates on loading of the
+ * page"), so a page can paint at once and then check for news. Returns the
+ * saved entry, or null when there is none.
+ */
+export function useSavedCatalogue(storage) {
+  const cached = readCache(storage);
+  if (cached) setCatalogue(cached.data);
+  return cached;
+}
+
+/**
  * Load the catalogue, downloading it only when the saved copy is more than
  * a day old (or `force` is set). Resolves to:
  *   { ok, source: "saved" | "downloaded" | "saved-fallback" | "none",

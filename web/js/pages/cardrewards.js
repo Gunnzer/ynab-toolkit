@@ -5,7 +5,7 @@
 // are checked for on this site each time the page opens (tools/card_feed.js).
 
 import { CARDS, OFFERS, PURCHASES } from "../tools/card_catalogue.js";
-import { browserFetchJson, loadCatalogue } from "../tools/card_feed.js";
+import { browserFetchJson, loadCatalogue, useSavedCatalogue } from "../tools/card_feed.js";
 import { merchantByName, normalise, searchMerchants } from "../tools/merchants.js";
 import { OPEN_OFFER_KEY } from "../tools/my_cards.js";
 import {
@@ -751,6 +751,9 @@ export function cardRewardsPage(app) {
     render();
   }
 
+  // The saved copy at once, then the latest whenever the page opens (at
+  // most every FEED_MAX_AGE_MS, so hopping between the card tabs is free).
+  try { useSavedCatalogue(window.localStorage); } catch { /* no storage */ }
   render();
   refreshCatalogue();
   return root;

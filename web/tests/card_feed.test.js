@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 import { CARDS, setCatalogue } from "../js/tools/card_catalogue.js";
-import { FEED_CACHE_KEY, FEED_MAX_AGE_MS, loadCatalogue } from "../js/tools/card_feed.js";
+import { FEED_CACHE_KEY, FEED_MAX_AGE_MS, loadCatalogue, useSavedCatalogue } from "../js/tools/card_feed.js";
 
 const SHIPPED = JSON.parse(readFileSync(new URL("../data/cards.json", import.meta.url), "utf8"));
 const NOW = Date.UTC(2026, 10, 1, 12);
@@ -87,6 +87,15 @@ describe("daily card details download", () => {
     assert.equal(CARDS.find((c) => c.id === broken.cards[0].id).network, SHIPPED.cards[0].network);
     assert.equal(JSON.parse(storage.data[FEED_CACHE_KEY]).fetchedAt, NOW - 2 * FEED_MAX_AGE_MS,
       "the good copy is not overwritten");
+  });
+
+  test("the saved copy can be shown before any download", () => {
+    setCatalogue({ checked: "", pointTypes: {}, cards: [] });
+    assert.equal(useSavedCatalogue(memoryStorage()), null, "nothing saved, nothing shown");
+    assert.equal(CARDS.length, 0);
+    const entry = useSavedCatalogue(memoryStorage(saved(NOW - 10 * FEED_MAX_AGE_MS)));
+    assert.equal(entry.fetchedAt, NOW - 10 * FEED_MAX_AGE_MS);
+    assert.equal(CARDS.length, SHIPPED.cards.length, "even an old copy shows while the new one loads");
   });
 
   test("nothing saved and no download: nothing to show, with a reason", async () => {

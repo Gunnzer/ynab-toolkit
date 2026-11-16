@@ -9,6 +9,12 @@ Maintained going forward: add a new dated entry for each push, in this same
 style (feature/fix name and files, then bullets on what changed and why),
 before or as part of the push itself.
 
+## 2026-11-16
+
+**Card Rewards: the latest card details on every open** (`tools/card_feed.js`, `pages/mycards.js`, `pages/cardrewards.js`, `pages/welcomebonuses.js`, `pages/cardtiers.js`, `tests/card_feed.test.js`, `CLAUDE.md`)
+* Every card tab shows the copy saved on your device straight away, then checks for newer card details in the background and redraws if anything changed. Sign-up bonuses and Card rankings used to keep whatever was loaded first.
+* A check is skipped if one ran in the last 5 minutes, so moving between the card tabs costs nothing.
+
 ## 2026-11-15
 
 **Card Rewards: limited-time offers count in the ranking** (`tools/card_rewards.js`, `tools/card_catalogue.js`, `pages/cardrewards.js`, `data/cards.json`, `tests/card_rewards.test.js`, `CLAUDE.md`)
