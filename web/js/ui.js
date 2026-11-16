@@ -79,6 +79,8 @@ const ICONS = {
     '<rect x="3.5" y="3.5" width="17" height="17" rx="3"/>' +
     '<path d="m8 12.5 3 3 5.5-6"/>',
   x: '<path d="m6 6 12 12"/><path d="m18 6-12 12"/>',
+  refresh: '<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4h-4"/>',
+  done: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
   grip:
     '<circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/>' +
     '<circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/>' +

@@ -15,6 +15,10 @@
 //
 // The data file: { checked, pointTypes, cards, offers?, tiers? }
 //   checked: "YYYY-MM-DD", the newest card's `checked`
+//   updated (optional): "YYYY-MM-DD", the last day anything in the file
+//     changed (a daily offers run moves this, not `checked`), so the page
+//     can say when its details last changed (reported live: "Checked Nov 14
+//     seems wrong" the day offers were updated)
 //   pointTypes: { id: { name, unit: "points" | "percent", cents?, note? } }
 //     cents: what one point is worth in CAD cents, at the LOW END of
 //     published valuations for a normal redemption (at explicit user
@@ -135,6 +139,8 @@ export const NETWORKS = {
 // them sees the new values after setCatalogue(). Empty until the data file
 // has been loaded once.
 export let CATALOGUE_CHECKED = "";
+// The later of `updated` and `checked`.
+export let CATALOGUE_UPDATED = "";
 export let POINT_TYPES = {};
 export let CARDS = [];
 export let OFFERS = [];
@@ -143,6 +149,7 @@ export let TIERS = null;
 /** Swap in a catalogue. Validate it first (validateCatalogue). */
 export function setCatalogue(data) {
   CATALOGUE_CHECKED = data?.checked || "";
+  CATALOGUE_UPDATED = data?.updated && data.updated > CATALOGUE_CHECKED ? data.updated : CATALOGUE_CHECKED;
   POINT_TYPES = data?.pointTypes || {};
   CARDS = Array.isArray(data?.cards) ? data.cards : [];
   OFFERS = Array.isArray(data?.offers) ? data.offers : [];

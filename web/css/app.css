@@ -2564,6 +2564,17 @@ select.is-empty option { color: var(--text); }
 .mycards-add-more { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 12px; margin: -4px 0 -8px; }
 .mycards-feed { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 .mycards-feed .hint { margin: 0; font-size: 12px; }
+.mycards-refresh {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%;
+  background: transparent; color: var(--accent); cursor: pointer;
+}
+.mycards-refresh:hover:not(:disabled) { background: var(--accent-soft); }
+.mycards-refresh:disabled { cursor: default; }
+.mycards-refresh.is-busy svg { animation: mycards-spin 0.8s linear infinite; }
+.mycards-refresh.is-done { color: var(--ok); }
+@keyframes mycards-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .mycards-refresh.is-busy svg { animation: none; opacity: 0.5; } }
 .mycards-add-more .reward-quiet { font-size: 13px; padding: 0; }
 .mycards-points-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
 .mycards-points-label { font-weight: 600; font-size: 14px; }

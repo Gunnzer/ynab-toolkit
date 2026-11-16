@@ -5,7 +5,9 @@
 // The one place cards are added, set up and removed; Best card, Welcome
 // bonuses and the Tier list all read the same cardRewards.wallet.
 
-import { CARDS, CATALOGUE_CHECKED, NETWORKS, OFFERS, POINT_TYPES, PURCHASES, TIERS } from "../tools/card_catalogue.js";
+import {
+  CARDS, CATALOGUE_CHECKED, CATALOGUE_UPDATED, NETWORKS, OFFERS, POINT_TYPES, PURCHASES, TIERS,
+} from "../tools/card_catalogue.js";
 import { browserFetchJson, loadCatalogue, useSavedCatalogue } from "../tools/card_feed.js";
 import {
   asPreferred, centsPerPoint, daysSince, groupName, groupUnit, offersFor, pickLabel, purchaseLabel, shortName,
@@ -18,7 +20,7 @@ import {
 } from "../tools/my_cards.js";
 import {
   button, card, checkbox, clear, confirmDialog, customDialog, dateLabel, el, field, hint,
-  pageHeading, pill, sectionTitle, select, textInput, todayIso,
+  icon, pageHeading, pill, sectionTitle, select, textInput, todayIso,
 } from "../ui.js";
 
 const NETWORK_MARK = { amex: "AMEX", visa: "VISA", mastercard: "Mastercard" };
@@ -54,12 +56,16 @@ export function myCardsPage(app) {
   });
   addSelect.addEventListener("change", () => { addButton.disabled = !addSelect.value; });
   const feedStatus = el("span", { class: "hint" });
+  // A small refresh icon (at explicit user request: the text button that
+  // read "Up to date" afterwards was "not great"): it spins while checking
+  // and shows a tick for a moment when done; the date beside it is the news.
   const updateButton = el("button", {
     type: "button",
-    class: "reward-quiet",
-    text: "Check for updates",
+    class: "mycards-refresh",
+    title: "Check for updates",
+    "aria-label": "Check for updates",
     onClick: () => refreshCatalogue(true),
-  });
+  }, icon("refresh", { size: 16 }));
   // Compact (at explicit user request): the picker and Add on one line, the
   // rest as small links under it, no title or help text.
   const addCard = el("div", { class: "card mycards-add" },
@@ -109,25 +115,30 @@ export function myCardsPage(app) {
     // Check for updates "blinks some text"); it only says something while
     // there is nothing saved to show yet.
     updateButton.disabled = true;
+    updateButton.classList.toggle("is-busy", force);
     if (!CATALOGUE_CHECKED) feedStatus.textContent = "Getting the latest card details...";
-    const snapshot = () => JSON.stringify([CATALOGUE_CHECKED, CARDS, OFFERS, TIERS]);
+    const snapshot = () => JSON.stringify([CATALOGUE_UPDATED, CARDS, OFFERS, TIERS]);
     const before = snapshot();
     let storage = null;
     try { storage = window.localStorage; } catch { storage = null; }
     feed = await loadCatalogue({ fetchJson: browserFetchJson, storage, force });
     updateButton.disabled = false;
+    updateButton.classList.remove("is-busy");
     paintFeed();
     renderAll();
-    // Pressed by hand: say how it went on the button for a moment, at the
-    // button's own width so nothing beside it moves.
     if (force && feed.ok && feed.source === "downloaded") {
-      updateButton.style.minWidth = `${updateButton.offsetWidth}px`;
-      updateButton.textContent = snapshot() !== before ? "Updated" : "Up to date";
+      const said = snapshot() !== before ? "Updated just now" : "Up to date";
+      updateButton.replaceChildren(icon("done", { size: 16 }));
+      updateButton.classList.add("is-done");
+      updateButton.setAttribute("aria-label", said);
+      updateButton.title = said;
       clearTimeout(updateButton.resetTimer);
       updateButton.resetTimer = setTimeout(() => {
-        updateButton.textContent = "Check for updates";
-        updateButton.style.minWidth = "";
-      }, 2500);
+        updateButton.replaceChildren(icon("refresh", { size: 16 }));
+        updateButton.classList.remove("is-done");
+        updateButton.setAttribute("aria-label", "Check for updates");
+        updateButton.title = "Check for updates";
+      }, 1500);
     }
   }
 
@@ -140,13 +151,15 @@ export function myCardsPage(app) {
     }
     // Short, so it shares a line with the links on a phone; the long form
     // is only for when something is wrong.
+    // When anything last changed (offers are checked daily); the full check
+    // of every card's rates is the older date, in the tooltip.
     const age = daysSince(CATALOGUE_CHECKED, todayIso());
-    const [y, m, d] = String(CATALOGUE_CHECKED).split("-").map(Number);
-    const parts = [`Checked ${new Date(y, m - 1, d).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}` +
-      (age !== null && age > 45 ? ` (${age} days ago, so may be out of date)` : "")];
+    const [y, m, d] = String(CATALOGUE_UPDATED).split("-").map(Number);
+    const parts = [`Updated ${new Date(y, m - 1, d).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}` +
+      (age !== null && age > 45 ? ` (rates checked ${age} days ago, so may be out of date)` : "")];
     if (feed.source === "saved-fallback") parts.push(`${feed.error} Using the copy saved on this device.`);
     feedStatus.textContent = parts.join(". ");
-    feedStatus.title = `Card details checked ${dateLabel(CATALOGUE_CHECKED)}`;
+    feedStatus.title = `Offers and events are checked daily. Every card's rates and fees were last checked ${dateLabel(CATALOGUE_CHECKED)}.`;
   }
 
   function localToday() {

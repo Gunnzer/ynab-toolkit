@@ -11,6 +11,10 @@ before or as part of the push itself.
 
 ## 2026-11-16
 
+**My cards: when the card list last changed, and a quieter update button** (`pages/mycards.js`, `tools/card_catalogue.js`, `tools/card_rewards.js`, `ui.js`, `css/app.css`, `data/cards.json`, `tests/card_feed.test.js`, `CLAUDE.md`)
+* The line next to the update button now says when anything in the card list last changed ("Updated Nov 16"), not only the last full check of every card, which moves to its tooltip. Offers are checked daily, so the old date looked stale.
+* Check for updates is a small refresh icon that spins while it checks and shows a green tick when done, instead of a text button that changed its words.
+
 **Card Rewards: your real spending** (new `tools/card_spending.js`, new `pages/cardspending.js`, `pages/mycards.js`, `pages/cardrewards.js`, `pages/home_widgets.js`, `tools/card_rewards.js`, `main.js`, `store.js`, `css/app.css`, `tests/card_spending.test.js`, `CLAUDE.md`)
 * Is each card worth its fee? Link a card on My cards to its YNAB account to see the last 12 months: what you spent on it, about how much it gave back, and whether that beats its annual fee.
 * New For your spending tab: your yearly card spending by category, what your cards earn on it if each purchase goes on the best one, and which other cards would add the most a year after their fee.

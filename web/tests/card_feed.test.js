@@ -2,7 +2,7 @@ import { describe, test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import { CARDS, setCatalogue } from "../js/tools/card_catalogue.js";
+import { CARDS, CATALOGUE_UPDATED, setCatalogue } from "../js/tools/card_catalogue.js";
 import { FEED_CACHE_KEY, FEED_MAX_AGE_MS, loadCatalogue, useSavedCatalogue } from "../js/tools/card_feed.js";
 
 const SHIPPED = JSON.parse(readFileSync(new URL("../data/cards.json", import.meta.url), "utf8"));
@@ -87,6 +87,16 @@ describe("daily card details download", () => {
     assert.equal(CARDS.find((c) => c.id === broken.cards[0].id).network, SHIPPED.cards[0].network);
     assert.equal(JSON.parse(storage.data[FEED_CACHE_KEY]).fetchedAt, NOW - 2 * FEED_MAX_AGE_MS,
       "the good copy is not overwritten");
+  });
+
+  test("the date shown is the later of when anything changed and the full check", () => {
+    setCatalogue({ ...SHIPPED, checked: "2026-11-14", updated: "2026-11-16" });
+    assert.equal(CATALOGUE_UPDATED, "2026-11-16", "a day offers changed");
+    setCatalogue({ ...SHIPPED, checked: "2026-11-18", updated: "2026-11-16" });
+    assert.equal(CATALOGUE_UPDATED, "2026-11-18", "a full check after it");
+    const { updated, ...plain } = SHIPPED;
+    setCatalogue({ ...plain, checked: "2026-11-14" });
+    assert.equal(CATALOGUE_UPDATED, "2026-11-14", "no updated date: the check date");
   });
 
   test("the saved copy can be shown before any download", () => {

@@ -137,6 +137,8 @@ export function validateCatalogue(data) {
   const problems = [];
   if (!data || typeof data !== "object") return ["It is not a catalogue at all."];
   if (!DATE.test(data.checked || "")) problems.push("`checked` is not a YYYY-MM-DD date.");
+  // The page shows whichever of the two is later, so either may lead.
+  if (data.updated !== undefined && !DATE.test(data.updated)) problems.push("`updated` is not a YYYY-MM-DD date.");
   const types = data.pointTypes && typeof data.pointTypes === "object" ? data.pointTypes : null;
   if (!types) problems.push("`pointTypes` is missing.");
   for (const [id, type] of Object.entries(types || {})) {
