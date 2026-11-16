@@ -11,6 +11,10 @@ before or as part of the push itself.
 
 ## 2026-11-15
 
+**Card Rewards: limited-time offers count in the ranking** (`tools/card_rewards.js`, `tools/card_catalogue.js`, `pages/cardrewards.js`, `data/cards.json`, `tests/card_rewards.test.js`, `CLAUDE.md`)
+* An offer can now raise what a card earns while it runs, like this weekend's Shoppers event (20x the points for everyone, 25x with a PC Financial card). Between its dates the ranking uses the boosted rate where it beats the card's usual one, and the row says "Limited-time offer: ..., until ...". It drops off by itself when the offer ends.
+* The Card Rewards check now runs every day at 6am Toronto time and searches more sites for events (RedFlagDeals, retailer email archives, Milesopedia, Rewards Canada and others), adding boosted rates when they can be confirmed.
+
 **Every tab can be switched off, and a category can have its own split** (`main.js`, `store.js`, `pages/setup.js`, `pages/home_widgets.js`, `pages/shared.js`, `pages/categorize.js`, `tools/shared_expenses.js`, `css/app.css`, tests, `CLAUDE.md`)
 * Settings lists every tab under its space, each with its own switch, plus a switch on each space for all of its tabs. Home and each of Reports' five tabs can now be switched off on their own.
 * A space with every tab switched off disappears from the menu (sidebar, bottom bar and More). With Home off, the app opens on the first space still on.
