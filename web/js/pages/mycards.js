@@ -5,7 +5,7 @@
 // The one place cards are added, set up and removed; Best card, Welcome
 // bonuses and the Tier list all read the same cardRewards.wallet.
 
-import { CARDS, CATALOGUE_CHECKED, NETWORKS, OFFERS, POINT_TYPES, PURCHASES } from "../tools/card_catalogue.js";
+import { CARDS, CATALOGUE_CHECKED, NETWORKS, OFFERS, POINT_TYPES, PURCHASES, TIERS } from "../tools/card_catalogue.js";
 import { browserFetchJson, loadCatalogue, useSavedCatalogue } from "../tools/card_feed.js";
 import {
   asPreferred, centsPerPoint, daysSince, groupName, groupUnit, offersFor, pickLabel, shortName, transferRatio, walletCards,
@@ -98,14 +98,30 @@ export function myCardsPage(app) {
   let feed = null;
 
   async function refreshCatalogue(force = false) {
+    // The status line stays put while checking (reported live: pressing
+    // Check for updates "blinks some text"); it only says something while
+    // there is nothing saved to show yet.
     updateButton.disabled = true;
-    feedStatus.textContent = "Getting the latest card details...";
+    if (!CATALOGUE_CHECKED) feedStatus.textContent = "Getting the latest card details...";
+    const snapshot = () => JSON.stringify([CATALOGUE_CHECKED, CARDS, OFFERS, TIERS]);
+    const before = snapshot();
     let storage = null;
     try { storage = window.localStorage; } catch { storage = null; }
     feed = await loadCatalogue({ fetchJson: browserFetchJson, storage, force });
     updateButton.disabled = false;
     paintFeed();
     renderAll();
+    // Pressed by hand: say how it went on the button for a moment, at the
+    // button's own width so nothing beside it moves.
+    if (force && feed.ok && feed.source === "downloaded") {
+      updateButton.style.minWidth = `${updateButton.offsetWidth}px`;
+      updateButton.textContent = snapshot() !== before ? "Updated" : "Up to date";
+      clearTimeout(updateButton.resetTimer);
+      updateButton.resetTimer = setTimeout(() => {
+        updateButton.textContent = "Check for updates";
+        updateButton.style.minWidth = "";
+      }, 2500);
+    }
   }
 
   function paintFeed() {
