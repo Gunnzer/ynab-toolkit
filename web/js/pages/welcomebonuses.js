@@ -205,7 +205,7 @@ export function welcomeBonusesPage(app) {
   function planLines(c, net, plan) {
     if (!plan) return "";
     const worth = (cost) => `Worth about ${money(Math.round(net - cost))}` +
-      (cost >= 1 ? ` after ${money(Math.round(cost))} your other cards would have earned on it.` : ".");
+      (cost >= 1 ? ` after giving up ${money(Math.round(cost))} of rewards from your other cards.` : ".");
     const w = plan.without;
     const r = plan.withRent;
     const lines = [w.reachable
@@ -334,7 +334,7 @@ export function welcomeBonusesPage(app) {
       lines.push(rent
         ? `That's ${rent.payments} Chexy payment${rent.payments === 1 ? "" : "s"}` +
           (known.viaChexy
-            ? (rent.cost >= 1 ? `, giving up about ${money(Math.round(rent.cost))} your other cards would have earned on it.` : ".")
+            ? (rent.cost >= 1 ? `, giving up about ${money(Math.round(rent.cost))} of rewards from your other cards.` : ".")
             : `, about ${money(Math.round(rent.cost))} in Chexy's fees after what the card earns.`)
         : `Putting the rest through Chexy would cost about ${money(p.chexyFee)} in fees (${+(CHEXY_FEE * 100).toFixed(2)}%).`);
     }
