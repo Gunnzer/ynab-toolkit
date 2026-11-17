@@ -11,6 +11,9 @@ before or as part of the push itself.
 
 ## 2026-11-17
 
+**Bonuses: clearer cost wording** (`pages/welcomebonuses.js`, `CLAUDE.md`)
+* Offers now say "Worth about $533 after giving up $217 of rewards from your other cards" instead of "after $217 your other cards would have earned on it", and tracked bonuses match.
+
 **Bonuses: track a card you already have** (`pages/welcomebonuses.js`, `CLAUDE.md`)
 * An offer for a card in your Wallet keeps its Track it button, which becomes "Tracking" once it is tracked.
 * Track a bonus starts with a "From your Wallet" list that fills in the card's minimum spend, months and linked YNAB account.
