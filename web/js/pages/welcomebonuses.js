@@ -46,7 +46,9 @@ export function welcomeBonusesPage(app) {
   // year of card spending for whether each offer is reachable.
   let ynab = null;
   let spending = null;
-  // Rent a month, when typed (blank = what went through Chexy in YNAB).
+  // What goes through Chexy a month, when typed (blank = what went through
+  // Chexy in YNAB). Labelled as Chexy, not rent (at explicit user request:
+  // "what if I just want to put the amount that's going through chexy").
   if (!(Number(settings.rent) >= 0)) settings.rent = "";
 
   const root = el("div", { class: "page-body" });
@@ -182,7 +184,7 @@ export function welcomeBonusesPage(app) {
     const input = el("input", {
       type: "number", min: "0", step: "1", inputmode: "decimal", enterkeyhint: "done",
       placeholder: found ? String(Math.round(found)) : "e.g. 2000",
-      "aria-label": "Rent a month",
+      "aria-label": "Through Chexy a month",
     });
     input.value = settings.rent === "" ? "" : String(settings.rent);
     input.addEventListener("change", () => {
@@ -194,10 +196,10 @@ export function welcomeBonusesPage(app) {
     });
     return el("div", { class: "bonus-rent" },
       el("label", { class: "bonus-rent-field" },
-        el("span", { class: "field-label", text: "Rent a month" }), input),
+        el("span", { class: "field-label", text: "Through Chexy a month" }), input),
       hint(found
         ? `${money(Math.round(found))} a month went through Chexy in YNAB. Type a different amount to try it.`
-        : "Type your rent to see each offer with rent paid through Chexy."));
+        : "Type what you could pay through Chexy a month to see each offer with it."));
   }
 
   function planLines(c, net, plan) {
@@ -207,14 +209,14 @@ export function welcomeBonusesPage(app) {
     const w = plan.without;
     const r = plan.withRent;
     const lines = [w.reachable
-      ? { ok: true, lead: "Without rent:", text: `Reachable. ${worth(w.cost)}` }
-      : { ok: false, lead: "Without rent:", text: `${money(Math.round(w.short))} short. Your cards see about ${money(Math.round(plan.monthly))} a month besides rent.` }];
+      ? { ok: true, lead: "Without Chexy:", text: `Reachable. ${worth(w.cost)}` }
+      : { ok: false, lead: "Without Chexy:", text: `${money(Math.round(w.short))} short. Your cards see about ${money(Math.round(plan.monthly))} a month besides Chexy.` }];
     // Rent is offered when it is needed, or when it is the cheaper way there
     // (rent off a 4% card can cost less than moving everyday spending).
     if (r && (!w.reachable || (r.payments > 0 && r.cost + 0.5 < w.cost))) {
       lines.push(r.reachable
-        ? { ok: true, lead: "With rent through Chexy:", text: `${r.payments} rent payment${r.payments === 1 ? "" : "s"}. ${worth(r.cost)}` }
-        : { ok: false, lead: "Even with rent:", text: `${money(Math.round(r.short))} short in ${plan.months} month${plan.months === 1 ? "" : "s"}.` });
+        ? { ok: true, lead: "With Chexy:", text: `${r.payments} Chexy payment${r.payments === 1 ? "" : "s"}. ${worth(r.cost)}` }
+        : { ok: false, lead: "Even with Chexy:", text: `${money(Math.round(r.short))} short in ${plan.months} month${plan.months === 1 ? "" : "s"}.` });
     }
     return el("div", { class: "bonus-plan" }, lines.map((line) => el("div", {
       class: `bonus-plan-line ${line.ok ? "is-ok" : "is-short"}`,
@@ -325,11 +327,11 @@ export function welcomeBonusesPage(app) {
       const known = profile();
       const rent = known ? rentToClose(CARDS.find((c) => c.id === t.cardId) || null, known, p.left) : null;
       lines.push(rent
-        ? `That's ${rent.payments} rent payment${rent.payments === 1 ? "" : "s"} through Chexy` +
+        ? `That's ${rent.payments} Chexy payment${rent.payments === 1 ? "" : "s"}` +
           (known.viaChexy
             ? (rent.cost >= 1 ? `, giving up about ${money(Math.round(rent.cost))} your other cards would have earned on it.` : ".")
             : `, about ${money(Math.round(rent.cost))} in Chexy's fees after what the card earns.`)
-        : `Putting the rest through Chexy for rent would cost about ${money(p.chexyFee)} in fees (${+(CHEXY_FEE * 100).toFixed(2)}%).`);
+        : `Putting the rest through Chexy would cost about ${money(p.chexyFee)} in fees (${+(CHEXY_FEE * 100).toFixed(2)}%).`);
     }
     return el("div", { class: "bonus-track" },
       el("div", { class: "reward-name" },
