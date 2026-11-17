@@ -11,6 +11,12 @@ before or as part of the push itself.
 
 ## 2026-11-17
 
+**Bonuses: whether each offer is reachable, with and without Chexy** (`pages/welcomebonuses.js`, `tools/card_spending.js`, `tests/card_spending.test.js`, `css/app.css`, `CLAUDE.md`)
+* A "Through Chexy a month" box, filled in from your Chexy charges in YNAB, or type any amount.
+* Each offer says whether your usual card spending reaches its minimum in time ("Without Chexy"), and if not, or if it is cheaper, how many Chexy payments it takes ("With Chexy").
+* Each shows what the bonus is still worth after the rewards your other cards would have earned on that spending, such as the Momentum's 4% on what goes through Chexy.
+* A bonus you are working towards says how many Chexy payments the rest is, and what it gives up.
+
 **Wallet: Fee waived lined up, and no jump when linking an account** (`pages/mycards.js`, `css/app.css`, `CLAUDE.md`)
 * Fee waived is a plain row with the card's other facts, its box where the values line up.
 * Picking a card's YNAB account on a phone no longer throws you back up the page.
