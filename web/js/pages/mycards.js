@@ -173,6 +173,18 @@ export function myCardsPage(app) {
   const pct = (n) => `${Number(n.toFixed(2))}%`;
 
   function renderAll() {
+    // Rebuilding the tiles empties the grid for a moment, which on a phone
+    // let the browser clamp the scroll and throw you back up the page
+    // (reported live: linking a YNAB account jumped to the top). Hold the
+    // page's height while it redraws and put the scroll back after.
+    const y = window.scrollY;
+    grid.style.minHeight = `${grid.offsetHeight}px`;
+    paintAll();
+    grid.style.minHeight = "";
+    if (Math.abs(window.scrollY - y) > 1) window.scrollTo(0, y);
+  }
+
+  function paintAll() {
     const cards = walletCards(settings.wallet);
     pointsCard.hidden = !settings.wallet.length;
     renderOffers(cards);

@@ -9,6 +9,12 @@ Maintained going forward: add a new dated entry for each push, in this same
 style (feature/fix name and files, then bullets on what changed and why),
 before or as part of the push itself.
 
+## 2026-11-17
+
+**Wallet: Fee waived lined up, and no jump when linking an account** (`pages/mycards.js`, `css/app.css`, `CLAUDE.md`)
+* Fee waived is a plain row with the card's other facts, its box where the values line up.
+* Picking a card's YNAB account on a phone no longer throws you back up the page.
+
 ## 2026-11-16
 
 **Wallet: offers that are easier to read** (`pages/mycards.js`, `css/app.css`, `data/cards.json`, `CLAUDE.md`)
