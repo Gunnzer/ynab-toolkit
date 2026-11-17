@@ -10,6 +10,7 @@
 import { QUESTIONS, answerScenarios, asPreferred, capQuestionId, centsPerPoint, earnFor } from "./card_rewards.js";
 import { payeeKind } from "./categorize.js";
 import { merchantInPayee } from "./merchants.js";
+import { CHEXY_FEE } from "./welcome_bonuses.js";
 
 // YNAB category names to purchase types, checked in order (so "Natural
 // gas" is a bill before "gas" is fuel, and "Food delivery" is delivery
@@ -350,4 +351,118 @@ export function cardsToAdd(held, catalogue, groups, { values = {}, preferred = "
     })
     .sort((a, b) => b.gain - a.gain || a.card.name.localeCompare(b.card.name))
     .slice(0, limit);
+}
+
+// ---------- reaching a sign-up bonus ----------
+// At explicit user request (2026-11-17: "how do I know if the bonuses make
+// sense with and without Chexy?"): whether your own card spending reaches a
+// bonus's minimum in its window, how many rent payments through Chexy close
+// the gap, and what moving that spending onto the new card costs in rewards
+// your other cards would have earned on it.
+
+/** Whether a spending item is rent paid through Chexy. */
+export const isRent = (item) => item.shop === "Chexy";
+
+/**
+ * What every bonus plan is worked out from, from a year of spendItems() on
+ * your credit cards: the spending besides rent, and rent a month (the one
+ * typed in, else what went through Chexy, averaged over the months it did).
+ * `viaChexy` is whether rent already goes on a card, which decides whether
+ * Chexy's fee is a new cost or one you pay anyway.
+ */
+export function bonusProfile(items, held, { rent = 0, values = {}, preferred = "" } = {}) {
+  const rentItems = items.filter(isRent);
+  const rentPaid = rentItems.reduce((n, i) => n + i.amount, 0);
+  const rentMonths = new Set(rentItems.filter((i) => i.amount > 0).map((i) => i.date.slice(0, 7))).size;
+  const foundRent = rentMonths && rentPaid > 0 ? round2(rentPaid / rentMonths) : 0;
+  const monthlyRent = Number(rent) > 0 ? Number(rent) : foundRent;
+  const groups = spendGroups(items.filter((i) => !isRent(i)));
+  const chexy = inCad(purchaseOf({ payee: "Chexy" }));
+  return {
+    held,
+    groups,
+    yearly: round2(groups.reduce((n, g) => n + g.amount, 0)),
+    foundRent,
+    monthlyRent,
+    viaChexy: rentItems.length > 0,
+    rentGroups: monthlyRent > 0 ? [{ purchase: chexy.purchase, answers: chexy.answers, amount: monthlyRent * 12 }] : [],
+    view: { values, preferred, table: valuer(values) },
+  };
+}
+
+const rate = (result, amount) => (amount > 0 ? result.earned / amount : 0);
+
+/**
+ * Rewards given up per dollar moved onto `card`: what your other cards
+ * would have earned on it, less what the new card earns. Rent that does not
+ * go on a card yet earns nothing now, but costs Chexy's fee.
+ */
+function lossRates(card, profile) {
+  const others = profile.held.filter((c) => c.id !== card.id);
+  const mine = bestOfSet([card], profile.groups, profile.view);
+  const movable = mine.perCard[0].spend;
+  const heldNormal = others.length ? rate(bestOfSet(others, profile.groups, profile.view), profile.yearly) : 0;
+  let rent = 0;
+  const rentYear = profile.monthlyRent * 12;
+  if (rentYear > 0) {
+    const newRent = rate(bestOfSet([card], profile.rentGroups, profile.view), rentYear);
+    const nowRent = profile.viaChexy && others.length
+      ? rate(bestOfSet(others, profile.rentGroups, profile.view), rentYear)
+      : profile.viaChexy ? 0 : CHEXY_FEE;
+    rent = Math.max(0, nowRent - newRent);
+  }
+  return { movable, normal: Math.max(0, heldNormal - rate(mine, movable)), rent };
+}
+
+/**
+ * Whether a bonus's `minSpend` in `months` can be reached, without rent and
+ * with rent through Chexy (the cheaper of the two used first), and what it
+ * costs in rewards given up:
+ *   { months, minSpend, monthly, monthlyRent,
+ *     without: { reachable, short, cost },
+ *     withRent: { reachable, short, cost, rentUsed, payments } | null }
+ * `monthly` is the card spending a month the new card would take.
+ */
+export function bonusPlan(card, profile, { minSpend, months }) {
+  const loss = lossRates(card, profile);
+  const need = Math.max(0, Number(minSpend) || 0);
+  const span = Math.max(1, Number(months) || 1);
+  const normalAvail = loss.movable / 12 * span;
+  const rentAvail = profile.monthlyRent * span;
+  const without = {
+    reachable: normalAvail + 0.005 >= need,
+    short: round2(Math.max(0, need - normalAvail)),
+    cost: round2(Math.min(need, normalAvail) * loss.normal),
+  };
+  let withRent = null;
+  if (profile.monthlyRent > 0) {
+    const sources = [
+      { kind: "normal", avail: normalAvail, loss: loss.normal },
+      { kind: "rent", avail: rentAvail, loss: loss.rent },
+    ].sort((a, b) => a.loss - b.loss || (a.kind === "normal" ? -1 : 1));
+    let left = need;
+    let cost = 0;
+    let rentUsed = 0;
+    for (const source of sources) {
+      const used = Math.min(left, source.avail);
+      left -= used;
+      cost += used * source.loss;
+      if (source.kind === "rent") rentUsed = used;
+    }
+    withRent = {
+      reachable: left <= 0.005,
+      short: round2(Math.max(0, left)),
+      cost: round2(cost),
+      rentUsed: round2(rentUsed),
+      payments: rentUsed > 0.005 ? Math.ceil(rentUsed / profile.monthlyRent - 1e-9) : 0,
+    };
+  }
+  return { months: span, minSpend: need, monthly: round2(loss.movable / 12), monthlyRent: profile.monthlyRent, without, withRent };
+}
+
+/** Closing a gap with rent alone: how many payments, and the rewards given up. */
+export function rentToClose(card, profile, amount) {
+  if (!(profile.monthlyRent > 0) || !(amount > 0)) return null;
+  const loss = card ? lossRates(card, profile).rent : (profile.viaChexy ? 0 : CHEXY_FEE);
+  return { payments: Math.ceil(amount / profile.monthlyRent - 1e-9), cost: round2(amount * loss) };
 }

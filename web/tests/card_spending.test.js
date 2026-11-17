@@ -5,7 +5,8 @@ import { readFileSync } from "node:fs";
 import { CARDS, setCatalogue } from "../js/tools/card_catalogue.js";
 import { walletCards } from "../js/tools/card_rewards.js";
 import {
-  bestOfSet, capUsage, cardEarnings, cardsToAdd, categoryPurchase, purchaseOf, spendByPurchase, spendGroups, spendItems,
+  bestOfSet, bonusPlan, bonusProfile, capUsage, cardEarnings, cardsToAdd, categoryPurchase, purchaseOf, rentToClose,
+  spendByPurchase, spendGroups, spendItems,
 } from "../js/tools/card_spending.js";
 
 setCatalogue(JSON.parse(readFileSync(new URL("../data/cards.json", import.meta.url), "utf8")));
@@ -175,5 +176,70 @@ describe("best cards for your spending", () => {
     assert.equal(ranked.length, 3);
     assert.ok(ranked.every((r) => Number.isFinite(r.gain)));
     assert.ok(!ranked.some((r) => r.card.id === "amex-cobalt"), "a card already held is never offered");
+  });
+});
+
+describe("reaching a sign-up bonus, with and without rent", () => {
+  // Rent through Chexy earns 4% on the card it is on now; the new card
+  // earns 1% on everything, the same as the old one does on dining.
+  const now = { id: "now", name: "Now", network: "visa", points: "cash", base: 1, annualFee: 0, earn: [{ on: ["bills"], rate: 4 }] };
+  const next = { id: "next", name: "Next", network: "visa", points: "cash", base: 1, annualFee: 0, earn: [] };
+  const year = (withRent) => {
+    const list = [];
+    for (let m = 1; m <= 12; m += 1) {
+      const month = String(m).padStart(2, "0");
+      list.push(tx(`2026-${month}-05`, "SOME BISTRO", 500, { category_id: "d" }));
+      if (withRent) list.push(tx(`2026-${month}-01`, "CHEXY", 2000, { category_id: "r" }));
+    }
+    return spendItems(list, { categoryName: (id) => ({ d: "Dining", r: "Rent" })[id] || "" });
+  };
+
+  test("rent through Chexy is found and averaged, and kept out of everyday spending", () => {
+    const profile = bonusProfile(year(true), [now]);
+    assert.equal(profile.foundRent, 2000);
+    assert.equal(profile.monthlyRent, 2000);
+    assert.equal(profile.viaChexy, true);
+    assert.equal(profile.yearly, 6000);
+    assert.equal(bonusProfile(year(true), [now], { rent: 2500 }).monthlyRent, 2500, "a typed rent wins");
+  });
+
+  test("short without rent; rent closes the gap at the rewards it no longer earns", () => {
+    const plan = bonusPlan(next, bonusProfile(year(true), [now]), { minSpend: 3000, months: 3 });
+    assert.equal(plan.monthly, 500);
+    assert.deepEqual(plan.without, { reachable: false, short: 1500, cost: 0 });
+    // Dining moves at no loss (1% either way), then $1,500 of rent loses 4% - 1%.
+    assert.deepEqual(plan.withRent, { reachable: true, short: 0, cost: 45, rentUsed: 1500, payments: 1 });
+  });
+
+  test("a big minimum over a year: how many rent payments it takes", () => {
+    const plan = bonusPlan(next, bonusProfile(year(true), [now, next]), { minSpend: 12000, months: 12 });
+    assert.equal(plan.without.short, 6000);
+    assert.equal(plan.withRent.payments, 3, "$6,000 of rent at $2,000 a month");
+    assert.equal(plan.withRent.cost, 180);
+  });
+
+  test("rent not on a card yet costs Chexy's fee less what the new card earns", () => {
+    const profile = bonusProfile(year(false), [now], { rent: 2000 });
+    assert.equal(profile.viaChexy, false);
+    const plan = bonusPlan(next, profile, { minSpend: 3000, months: 3 });
+    assert.equal(plan.withRent.cost, 11.25, "$1,500 at 1.75% - 1%");
+  });
+
+  test("still short with every rent payment", () => {
+    const plan = bonusPlan(next, bonusProfile(year(true), [now]), { minSpend: 20000, months: 3 });
+    assert.equal(plan.withRent.reachable, false);
+    assert.equal(plan.withRent.short, 12500);
+  });
+
+  test("no rent known: only the plan without it", () => {
+    const plan = bonusPlan(next, bonusProfile(year(false), [now]), { minSpend: 1000, months: 3 });
+    assert.equal(plan.without.reachable, true);
+    assert.equal(plan.withRent, null);
+  });
+
+  test("closing what is left of a tracked bonus with rent", () => {
+    const profile = bonusProfile(year(true), [now]);
+    assert.deepEqual(rentToClose(next, profile, 4500), { payments: 3, cost: 135 });
+    assert.equal(rentToClose(next, profile, 0), null);
   });
 });

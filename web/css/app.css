@@ -2586,6 +2586,17 @@ select.is-empty option { color: var(--text); }
 .mycards-points { gap: 8px; }
 .mycards-points .hint { margin: 0; }
 
+/* Bonuses: reaching an offer with your own spending. */
+.bonus-rent { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.bonus-rent-field { display: flex; align-items: center; gap: 8px; }
+.bonus-rent-field .field-label { margin: 0; white-space: nowrap; }
+.bonus-rent-field input { width: 120px; }
+.bonus-rent .hint { margin: 0; font-size: 12px; }
+.bonus-plan { display: flex; flex-direction: column; gap: 2px; font-size: 13px; line-height: 1.4; }
+.bonus-plan-line { padding-left: 10px; border-left: 3px solid var(--border-strong); }
+.bonus-plan-line.is-ok { border-left-color: var(--ok); }
+.bonus-plan-line.is-short { border-left-color: var(--caution); }
+
 /* Points. */
 .points-card { gap: 12px; }
 .points-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }

@@ -5,7 +5,9 @@
 
 import { CARDS, NETWORKS, POINT_TYPES } from "../tools/card_catalogue.js";
 import { browserFetchJson, loadCatalogue, useSavedCatalogue } from "../tools/card_feed.js";
-import { shortName } from "../tools/card_rewards.js";
+import { shortName, walletCards } from "../tools/card_rewards.js";
+import { bonusPlan, bonusProfile, rentToClose, spendItems } from "../tools/card_spending.js";
+import { readyToAssignCategoryIds } from "../tools/rta_tracker.js";
 import {
   CHEXY_FEE, NO_FILTERS, addMonths, filterOffers, offerDeadline, progress, rankOffers, spentOnAccount,
 } from "../tools/welcome_bonuses.js";
@@ -40,8 +42,12 @@ export function welcomeBonusesPage(app) {
   settings.filters = { ...NO_FILTERS, ...(settings.filters || {}) };
   let showDismissed = false;
   const rewards = store.section("cardRewards");
-  // YNAB spending per account, loaded once per visit when a bonus is linked.
+  // YNAB transactions, loaded once per visit: for linked bonuses, and a
+  // year of card spending for whether each offer is reachable.
   let ynab = null;
+  let spending = null;
+  // Rent a month, when typed (blank = what went through Chexy in YNAB).
+  if (!(Number(settings.rent) >= 0)) settings.rent = "";
 
   const root = el("div", { class: "page-body" });
   root.append(pageHeading(
@@ -63,8 +69,14 @@ export function welcomeBonusesPage(app) {
 
   // ---------- offers ----------
 
+  let currentProfile = null;
+  const planFor = (c) => (currentProfile && c.welcome?.minSpend
+    ? bonusPlan(c, currentProfile, { minSpend: c.welcome.minSpend, months: c.welcome.months })
+    : null);
+
   function renderOffers() {
     clear(offersHost);
+    currentProfile = profile();
     const all = rankOffers(CARDS, { values: rewards.values || {}, held: held(), today });
     const isDismissed = (o) => settings.dismissed.includes(o.card.id);
     const dismissedCount = all.filter(isDismissed).length;
@@ -83,6 +95,7 @@ export function welcomeBonusesPage(app) {
         el("h3", { class: "section-title", text: "Offers" }),
         el("span", { class: "hint", text: "Best first year first: the bonus at your point values, less the first year's fee" })),
       all.length ? filterBar(all) : "",
+      spending ? rentField() : "",
       all.some((o) => o.held) ? toggle : "",
       shown.length
         ? shown.map(offerRow)
@@ -150,6 +163,64 @@ export function welcomeBonusesPage(app) {
         : "");
   }
 
+  // ---------- reaching an offer with your own spending ----------
+  // At explicit user request (2026-11-17: "how do I know if the bonuses make
+  // sense with and without Chexy?"): each offer says whether your card
+  // spending reaches its minimum in time, how many rent payments through
+  // Chexy would close the gap, and what it is worth after the rewards your
+  // other cards would have earned on that spending.
+
+  function profile() {
+    if (!spending || !CARDS.length) return null;
+    return bonusProfile(spending, walletCards(rewards.wallet || []), {
+      rent: Number(settings.rent) || 0, values: rewards.values || {}, preferred: rewards.preferred || "",
+    });
+  }
+
+  function rentField() {
+    const found = profile()?.foundRent || 0;
+    const input = el("input", {
+      type: "number", min: "0", step: "1", inputmode: "decimal", enterkeyhint: "done",
+      placeholder: found ? String(Math.round(found)) : "e.g. 2000",
+      "aria-label": "Rent a month",
+    });
+    input.value = settings.rent === "" ? "" : String(settings.rent);
+    input.addEventListener("change", () => {
+      const n = Number(input.value);
+      settings.rent = input.value.trim() && n > 0 ? n : "";
+      store.save();
+      renderOffers();
+      renderTracked();
+    });
+    return el("div", { class: "bonus-rent" },
+      el("label", { class: "bonus-rent-field" },
+        el("span", { class: "field-label", text: "Rent a month" }), input),
+      hint(found
+        ? `${money(Math.round(found))} a month went through Chexy in YNAB. Type a different amount to try it.`
+        : "Type your rent to see each offer with rent paid through Chexy."));
+  }
+
+  function planLines(c, net, plan) {
+    if (!plan) return "";
+    const worth = (cost) => `Worth about ${money(Math.round(net - cost))}` +
+      (cost >= 1 ? ` after ${money(Math.round(cost))} your other cards would have earned on it.` : ".");
+    const w = plan.without;
+    const r = plan.withRent;
+    const lines = [w.reachable
+      ? { ok: true, lead: "Without rent:", text: `Reachable. ${worth(w.cost)}` }
+      : { ok: false, lead: "Without rent:", text: `${money(Math.round(w.short))} short. Your cards see about ${money(Math.round(plan.monthly))} a month besides rent.` }];
+    // Rent is offered when it is needed, or when it is the cheaper way there
+    // (rent off a 4% card can cost less than moving everyday spending).
+    if (r && (!w.reachable || (r.payments > 0 && r.cost + 0.5 < w.cost))) {
+      lines.push(r.reachable
+        ? { ok: true, lead: "With rent through Chexy:", text: `${r.payments} rent payment${r.payments === 1 ? "" : "s"}. ${worth(r.cost)}` }
+        : { ok: false, lead: "Even with rent:", text: `${money(Math.round(r.short))} short in ${plan.months} month${plan.months === 1 ? "" : "s"}.` });
+    }
+    return el("div", { class: "bonus-plan" }, lines.map((line) => el("div", {
+      class: `bonus-plan-line ${line.ok ? "is-ok" : "is-short"}`,
+    }, el("strong", { text: line.lead }), " ", el("span", { text: line.text }))));
+  }
+
   function offerRow({ card: c, value, fee, net, held: have }) {
     const w = c.welcome;
     const dismissed = settings.dismissed.includes(c.id);
@@ -190,6 +261,7 @@ export function welcomeBonusesPage(app) {
             `First year fee ${fee ? money(fee) : "$0"}${fee !== (Number(c.annualFee) || 0) ? `, then ${money(Number(c.annualFee) || 0)}` : ""}.`,
         }),
         deadlineLine(deadline),
+        planLines(c, net, planFor(c)),
         el("div", { class: "card-row bonus-actions" },
           el("span", { class: "hint", text: `Source: ${w.source}.` }),
           dismissed
@@ -250,7 +322,14 @@ export function welcomeBonusesPage(app) {
           : `${money(p.left)} to go by ${longDate(p.deadline)} (${p.daysLeft} day${p.daysLeft === 1 ? "" : "s"}), about ${money(p.perDay)} a day.`,
     ];
     if (p.status === "on-track" || p.status === "behind") {
-      lines.push(`Putting the rest through Chexy for rent would cost about ${money(p.chexyFee)} in fees (${+(CHEXY_FEE * 100).toFixed(2)}%).`);
+      const known = profile();
+      const rent = known ? rentToClose(CARDS.find((c) => c.id === t.cardId) || null, known, p.left) : null;
+      lines.push(rent
+        ? `That's ${rent.payments} rent payment${rent.payments === 1 ? "" : "s"} through Chexy` +
+          (known.viaChexy
+            ? (rent.cost >= 1 ? `, giving up about ${money(Math.round(rent.cost))} your other cards would have earned on it.` : ".")
+            : `, about ${money(Math.round(rent.cost))} in Chexy's fees after what the card earns.`)
+        : `Putting the rest through Chexy for rent would cost about ${money(p.chexyFee)} in fees (${+(CHEXY_FEE * 100).toFixed(2)}%).`);
     }
     return el("div", { class: "bonus-track" },
       el("div", { class: "reward-name" },
@@ -374,15 +453,36 @@ export function welcomeBonusesPage(app) {
   // ---------- data ----------
 
   async function loadYnab() {
-    const linked = settings.tracked.filter((t) => t.accountId);
-    if (!linked.length || !state.token || !state.budgetId) return;
-    const since = linked.map((t) => t.opened).sort()[0];
+    if (!(state.token && state.budgetId && state.hasBudgetData)) return;
+    const start = new Date();
+    start.setFullYear(start.getFullYear() - 1);
+    start.setDate(start.getDate() + 1);
+    const yearAgo = isoDate(start);
+    const since = [yearAgo, ...settings.tracked.filter((t) => t.accountId).map((t) => t.opened)].sort()[0];
     try {
       ynab = (await state.transactions(since)).list;
     } catch {
       // Offline or signed out: fall back to the amounts typed in.
       ynab = null;
+      spending = null;
+      return;
     }
+    // A year of credit card spending, the kind a new card could take over.
+    const cards = new Set((state.accounts || [])
+      .filter((a) => !a.deleted && a.on_budget !== false && (a.type === "creditCard" || a.type === "lineOfCredit"))
+      .map((a) => a.id));
+    const names = new Map(state.flatCategories(true).map((i) => [i.category.id, i.category.name]));
+    spending = cards.size
+      ? spendItems(ynab, {
+        accountIds: cards, since: yearAgo, until: today,
+        categoryName: (id) => names.get(id) || "",
+        exclude: readyToAssignCategoryIds(state.categoryGroups),
+      })
+      : null;
+  }
+
+  function isoDate(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   }
 
   function shortDate(iso) {
