@@ -11,6 +11,10 @@ before or as part of the push itself.
 
 ## 2026-11-17
 
+**Bonuses: track a card you already have** (`pages/welcomebonuses.js`, `CLAUDE.md`)
+* An offer for a card in your Wallet keeps its Track it button, which becomes "Tracking" once it is tracked.
+* Track a bonus starts with a "From your Wallet" list that fills in the card's minimum spend, months and linked YNAB account.
+
 **Bonuses: whether each offer is reachable, with and without Chexy** (`pages/welcomebonuses.js`, `tools/card_spending.js`, `tests/card_spending.test.js`, `css/app.css`, `CLAUDE.md`)
 * A "Through Chexy a month" box, filled in from your Chexy charges in YNAB, or type any amount.
 * Each offer says whether your usual card spending reaches its minimum in time ("Without Chexy"), and if not, or if it is cheaper, how many Chexy payments it takes ("With Chexy").
