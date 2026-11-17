@@ -266,9 +266,14 @@ export function welcomeBonusesPage(app) {
         planLines(c, net, planFor(c)),
         el("div", { class: "card-row bonus-actions" },
           el("span", { class: "hint", text: `Source: ${w.source}.` }),
+          // A card you already have can be tracked too (asked live: "I should
+          // be able to track cards I already have no?"): a new card is in
+          // the Wallet the day it arrives, while its bonus is still running.
           dismissed
             ? button("Bring back", { small: true, onClick: () => setDismissed(false) })
-            : have ? "" : button("Track it", { small: true, onClick: () => editTracked(null, c) }))));
+            : settings.tracked.some((t) => t.cardId === c.id)
+              ? pill("Tracking", "info")
+              : button("Track it", { small: true, onClick: () => editTracked(null, c) }))));
   }
 
   // Every offer says when it ends, or that no end is announced, and how
@@ -382,9 +387,13 @@ export function welcomeBonusesPage(app) {
       minSpend: fromCard?.welcome?.minSpend ?? "",
       months: fromCard?.welcome?.months ?? 3,
       spent: 0,
-      accountId: "",
+      accountId: walletAccount(fromCard?.id),
     };
     const creditAccounts = (state.accounts || []).filter((a) => a.type === "creditCard" && !a.closed && !a.deleted);
+    // Cards in the Wallet with an offer, so "Track a bonus..." can fill one in.
+    const fromWallet = existing || fromCard ? [] : (rewards.wallet || [])
+      .map((w) => CARDS.find((c) => c.id === w.id))
+      .filter((c) => c?.welcome && !settings.tracked.some((t) => t.cardId === c.id));
     const result = await customDialog(existing ? "Edit bonus" : "Track a bonus", (body) => {
       const name = textInput(base.name, { placeholder: "e.g. Amex Cobalt" });
       const opened = textInput(base.opened, { type: "date" });
@@ -403,8 +412,24 @@ export function welcomeBonusesPage(app) {
         base.accountId || "",
         (value) => { spentField.hidden = Boolean(value); });
       spentField.hidden = Boolean(account.value);
+      const pick = fromWallet.length
+        ? select([{ value: "", label: "Another card" }, ...fromWallet.map((c) => ({ value: c.id, label: shortName(c) }))], "", (id) => {
+          const c = CARDS.find((x) => x.id === id);
+          base.cardId = c ? c.id : "";
+          if (!c) return;
+          name.value = shortName(c);
+          minSpend.value = c.welcome.minSpend ?? "";
+          months.value = c.welcome.months ?? 3;
+          const linked = walletAccount(c.id);
+          if (linked && creditAccounts.some((a) => a.id === linked)) {
+            account.value = linked;
+            spentField.hidden = true;
+          }
+        })
+        : null;
       const error = el("p", { class: "hint is-error" });
       body.append(
+        pick ? field("From your Wallet", pick) : "",
         el("div", { class: "card-grid" },
           field("Card", name),
           field("Opened", opened),
@@ -443,6 +468,11 @@ export function welcomeBonusesPage(app) {
     await loadYnab();
     renderTracked();
     renderOffers();
+  }
+
+  /** The YNAB account a Wallet card is linked to, if any. */
+  function walletAccount(cardId) {
+    return (cardId && (rewards.wallet || []).find((w) => w.id === cardId)?.accountId) || "";
   }
 
   async function removeTracked(t) {
