@@ -1,6 +1,6 @@
 {
-  "checked": "2026-11-14",
-  "updated": "2026-11-16",
+  "checked": "2026-11-18",
+  "updated": "2026-11-18",
   "pointTypes": {
     "mr": {
       "name": "Amex Membership Rewards",
@@ -149,7 +149,7 @@
         }
       ],
       "source": "americanexpress.com/ca, Milesopedia, Frugal Flyer",
-      "checked": "2026-11-11",
+      "checked": "2026-11-18",
       "welcome": {
         "points": 15000,
         "minSpend": 9000,
@@ -210,7 +210,7 @@
         }
       ],
       "source": "americanexpress.com/ca, NerdWallet Canada, Rewards Canada",
-      "checked": "2026-11-11",
+      "checked": "2026-11-18",
       "welcome": {
         "points": 60000,
         "minSpend": 12000,
@@ -284,7 +284,7 @@
         }
       ],
       "source": "americanexpress.com/ca, Milesopedia, NerdWallet Canada",
-      "checked": "2026-11-11",
+      "checked": "2026-11-18",
       "welcome": {
         "points": 45000,
         "minSpend": 7500,
@@ -339,7 +339,6 @@
       ],
       "notes": [
         "Air Canada 1.5x counts purchases made directly with Air Canada, Air Canada Vacations included.",
-        "TD is raising its Aeroplan card fees from January 25, 2027, reported as matching CIBC's (this card to $159).",
         "TD's terms put the 1.5x on gas, grocery and Air Canada purchases on up to $80,000 a year combined; EV charging at 1.5x is from Ratehub and Milesopedia."
       ],
       "perks": [
@@ -361,7 +360,7 @@
         }
       ],
       "source": "td.com, Milesopedia, The Point Calculator",
-      "checked": "2026-11-11",
+      "checked": "2026-11-18",
       "welcome": {
         "points": 50000,
         "minSpend": 12000,
@@ -370,6 +369,11 @@
         "detail": "Up to 50,000 Aeroplan points over the first year, starting with 10,000 on the first purchase, for $12,000 of purchases in 12 months, with the first year's fee rebated.",
         "source": "Milesopedia, Prince of Travel, FlyTrippers",
         "checked": "2026-11-11"
+      },
+      "feeChange": {
+        "fee": 159,
+        "from": "2027-01-25",
+        "detail": "From the first annual fee due on or after January 25, 2027."
       }
     },
     {
@@ -446,7 +450,16 @@
         }
       ],
       "source": "cibc.com, Finder Canada, Prince of Travel",
-      "checked": "2026-11-11"
+      "checked": "2026-11-18",
+      "welcome": {
+        "points": 50000,
+        "minSpend": 12000,
+        "months": 12,
+        "firstYearFee": 0,
+        "detail": "Up to 50,000 Aeroplan points: 10,000 on the first purchase, 15,000 after $6,000 in 6 months, and 25,000 after $12,000 in 12 months, paid at the first anniversary. The first year's fee is rebated.",
+        "source": "CIBC, Milesopedia, Prince of Travel",
+        "checked": "2026-11-18"
+      }
     },
     {
       "id": "scotia-gold-amex",
@@ -532,7 +545,7 @@
         }
       ],
       "source": "scotiabank.com, Ratehub, Milesopedia",
-      "checked": "2026-11-11",
+      "checked": "2026-11-18",
       "welcome": {
         "points": 65000,
         "minSpend": 7500,
@@ -603,7 +616,7 @@
         }
       ],
       "source": "scotiabank.com, NerdWallet Canada, Rewards Canada",
-      "checked": "2026-11-11",
+      "checked": "2026-11-18",
       "welcome": {
         "points": 35000,
         "minSpend": 10000,
@@ -671,7 +684,7 @@
         }
       ],
       "source": "scotiabank.com, Prince of Travel, Ratehub",
-      "checked": "2026-11-11"
+      "checked": "2026-11-18"
     },
     {
       "id": "pc-world-elite",
@@ -744,15 +757,15 @@
         }
       ],
       "source": "pcfinancial.ca, Ratehub, Milesopedia",
-      "checked": "2026-11-11",
+      "checked": "2026-11-18",
       "welcome": {
-        "points": 50000,
-        "minSpend": 100,
+        "points": 20000,
+        "minSpend": 50,
         "months": 2,
         "ends": "2026-12-31",
-        "detail": "50,000 PC Optimum points after $100 at participating stores within 60 days of approval.",
-        "source": "Prince of Travel, Your Best Cards",
-        "checked": "2026-11-05"
+        "detail": "20,000 PC Optimum points after $50 at participating stores within 60 days of approval.",
+        "source": "PC Financial, Ratehub",
+        "checked": "2026-11-18"
       }
     },
     {
@@ -809,8 +822,8 @@
         }
       ],
       "notes": [
-        "From November 18, 2026: up to 5% on Rogers purchases, and cash back no longer redeems at 1.5x on Rogers bills.",
-        "From November 18, 2026, trip cancellation, interruption and delay insurance ends, and emergency medical cover goes to 15 days per trip for ages 64 and under."
+        "Since November 18, 2026: up to 5% on eligible Rogers purchases, and cash back redeems at face value everywhere, Rogers bills included.",
+        "Since November 18, 2026, trip cancellation, interruption and delay insurance has ended, and emergency medical covers 15 days per trip for ages 64 and under."
       ],
       "perks": [
         {
@@ -827,11 +840,11 @@
         },
         {
           "kind": "insurance",
-          "text": "Travel medical for 10 days (64 and under) and trip cancellation; insurance changes on November 18, 2026"
+          "text": "Travel medical for 15 days per trip (64 and under); trip cancellation, interruption and delay cover ended November 18, 2026"
         }
       ],
       "source": "rogersbank.com, Milesopedia, Prince of Travel",
-      "checked": "2026-11-11"
+      "checked": "2026-11-18"
     },
     {
       "id": "bmo-cashback-we",
@@ -915,7 +928,7 @@
         }
       ],
       "source": "bmo.com, NerdWallet Canada, Rates.ca, Ratehub",
-      "checked": "2026-11-11"
+      "checked": "2026-11-18"
     },
     {
       "id": "bmo-eclipse-vi",
@@ -991,7 +1004,7 @@
         }
       ],
       "source": "bmo.com, NerdWallet Canada, Milesopedia",
-      "checked": "2026-11-11"
+      "checked": "2026-11-18"
     },
     {
       "id": "rbc-avion-vi",
@@ -1031,7 +1044,7 @@
         }
       ],
       "source": "rbcroyalbank.com, NerdWallet Canada, Ratehub",
-      "checked": "2026-11-11",
+      "checked": "2026-11-18",
       "welcome": {
         "points": 70000,
         "minSpend": 5000,
@@ -1090,7 +1103,7 @@
         }
       ],
       "source": "cibc.com, Milesopedia, Frugal Flyer",
-      "checked": "2026-11-11"
+      "checked": "2026-11-18"
     },
     {
       "id": "amex-simplycash-preferred",
@@ -1149,7 +1162,7 @@
         }
       ],
       "source": "americanexpress.com/ca, Rewards Canada, Frugal Flyer",
-      "checked": "2026-11-11",
+      "checked": "2026-11-18",
       "welcome": {
         "cash": 250,
         "minSpend": 2000,
@@ -1207,7 +1220,7 @@
         }
       ],
       "source": "americanexpress.com/ca, Frugal Flyer, creditcardGenius",
-      "checked": "2026-11-11"
+      "checked": "2026-11-18"
     },
     {
       "id": "td-first-class-vi",
@@ -1288,7 +1301,7 @@
         }
       ],
       "source": "td.com, MoneySense",
-      "checked": "2026-11-11"
+      "checked": "2026-11-18"
     },
     {
       "id": "td-cashback-vi",
@@ -1379,7 +1392,7 @@
         }
       ],
       "source": "td.com, MoneySense, creditcardGenius",
-      "checked": "2026-11-11",
+      "checked": "2026-11-18",
       "welcome": {
         "cash": 350,
         "minSpend": 3500,
@@ -1444,7 +1457,7 @@
         }
       ],
       "source": "cibc.com, creditcardGenius, Milesopedia",
-      "checked": "2026-11-08"
+      "checked": "2026-11-18"
     },
     {
       "id": "tangerine-mc",
@@ -1528,7 +1541,7 @@
         }
       ],
       "source": "tangerine.ca",
-      "checked": "2026-11-11"
+      "checked": "2026-11-18"
     },
     {
       "id": "amex-platinum",
@@ -1604,7 +1617,7 @@
         "checked": "2026-11-11"
       },
       "fxFee": 0.025,
-      "checked": "2026-11-11"
+      "checked": "2026-11-18"
     },
     {
       "id": "amex-aeroplan-reserve",
@@ -1693,7 +1706,7 @@
         "checked": "2026-11-06"
       },
       "fxFee": 0.025,
-      "checked": "2026-11-11"
+      "checked": "2026-11-18"
     },
     {
       "id": "td-aeroplan-vip",
@@ -1779,7 +1792,7 @@
       ],
       "source": "td.com, Milesopedia, Unravel Travel",
       "fxFee": 0.025,
-      "checked": "2026-11-11"
+      "checked": "2026-11-18"
     },
     {
       "id": "cibc-aeroplan-vip",
@@ -1852,7 +1865,7 @@
       ],
       "source": "cibc.com, Milesopedia, Frugal Flyer, Money.ca",
       "fxFee": 0.025,
-      "checked": "2026-11-11"
+      "checked": "2026-11-18"
     },
     {
       "id": "scotia-platinum-amex",
@@ -1887,7 +1900,7 @@
         }
       ],
       "source": "scotiabank.com, Milesopedia, Ratehub",
-      "checked": "2026-11-08"
+      "checked": "2026-11-18"
     },
     {
       "id": "marriott-bonvoy-amex",
@@ -1952,7 +1965,7 @@
         "checked": "2026-11-11"
       },
       "fxFee": 0.025,
-      "checked": "2026-11-14"
+      "checked": "2026-11-18"
     },
     {
       "id": "mbna-rewards-we",
@@ -2004,7 +2017,7 @@
       ],
       "source": "mbna.ca, Milesopedia, Frugal Flyer",
       "fxFee": 0.025,
-      "checked": "2026-11-11"
+      "checked": "2026-11-18"
     },
     {
       "id": "bmo-eclipse-vip",
@@ -2107,7 +2120,7 @@
         }
       ],
       "source": "BMO announcement, Prince of Travel, Milesopedia",
-      "checked": "2026-11-11"
+      "checked": "2026-11-18"
     }
   ],
   "offers": [
