@@ -1,6 +1,6 @@
 {
   "checked": "2026-11-18",
-  "updated": "2026-11-18",
+  "updated": "2026-11-20",
   "pointTypes": {
     "mr": {
       "name": "Amex Membership Rewards",
@@ -2176,21 +2176,6 @@
         "Atlantic Superstore"
       ],
       "source": "Loblaws and No Frills flyers"
-    },
-    {
-      "id": "sdm-20k-points-2026-11",
-      "title": "20,000 bonus points at Shoppers",
-      "detail": "Wednesday and Thursday: load the 20,000 points offer in the PC Optimum app and meet its spend in one visit. The spend is only shown in the app. A beauty bonus redemption (up to $225 off) runs the same days.",
-      "starts": "2026-11-18",
-      "ends": "2026-11-19",
-      "everyone": true,
-      "points": [
-        "pc"
-      ],
-      "shops": [
-        "Shoppers Drug Mart"
-      ],
-      "source": "SmartCanucks, Shoppers Drug Mart flyer"
     }
   ],
   "tiers": {
