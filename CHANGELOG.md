@@ -9,6 +9,12 @@ Maintained going forward: add a new dated entry for each push, in this same
 style (feature/fix name and files, then bullets on what changed and why),
 before or as part of the push itself.
 
+## 2026-11-21
+
+**Best card: ties share a place** (`pages/cardrewards.js`, `CLAUDE.md`)
+* Cards that give back the same now share a number and medal (1, 1, 3) with a small "Tie" label, instead of reading as 1st and 2nd.
+* Within a tie the card sure to be accepted is still listed first, and the other says how likely it is not to be accepted.
+
 ## 2026-11-17
 
 **Bonuses: clearer cost wording** (`pages/welcomebonuses.js`, `CLAUDE.md`)
