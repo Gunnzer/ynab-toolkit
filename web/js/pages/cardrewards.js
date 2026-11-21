@@ -648,7 +648,7 @@ export function cardRewardsPage(app) {
       // Numbered best first; the top three are tinted gold, silver and
       // bronze (at explicit user request). A card not accepted here gets no
       // number, since it is not an option at all.
-      // Cards that give back the same share it (1, 1, 3), reported live as
+      // Cards that give back the same share it (1, 1, 2), reported live as
       // misleading: at Canadian Tire the TD Aeroplan and the Cobalt both gave
       // 1.5% but showed as 1st and 2nd. The order within a tie still puts
       // the card more sure to be accepted first; its own line says why.
@@ -666,20 +666,21 @@ export function cardRewardsPage(app) {
   }
 
   /**
-   * Each card's place, shared when two accepted cards give back the same
-   * (standard competition ranking: 1, 1, 3), and whether it is tied. A card
-   * not accepted here gets 0.
+   * Each card's place, shared when two accepted cards give back the same,
+   * and whether it is tied. The next different amount takes the next place
+   * (1, 1, 2, 2; asked live: "wouldn't the second one tie for second"). A
+   * card not accepted here gets 0.
    */
   function tiedRanks(cards) {
     const key = (stat) => Math.round(stat.score * 1e6);
     const out = [];
-    let seen = 0;
+    let place = 0;
     let previous = null;
     for (const stat of cards) {
       if (!stat.accepted) { out.push({ rank: 0, tied: false }); continue; }
-      seen += 1;
       const same = previous && key(previous.stat) === key(stat);
-      const rank = same ? previous.rank : seen;
+      if (!same) place += 1;
+      const rank = place;
       if (same) previous.entry.tied = true;
       const entry = { rank, tied: Boolean(same) };
       out.push(entry);
