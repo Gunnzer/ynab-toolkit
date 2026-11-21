@@ -648,7 +648,11 @@ export function cardRewardsPage(app) {
       // Numbered best first; the top three are tinted gold, silver and
       // bronze (at explicit user request). A card not accepted here gets no
       // number, since it is not an option at all.
-      let rank = 0;
+      // Cards that give back the same share it (1, 1, 3), reported live as
+      // misleading: at Canadian Tire the TD Aeroplan and the Cobalt both gave
+      // 1.5% but showed as 1st and 2nd. The order within a tie still puts
+      // the card more sure to be accepted first; its own line says why.
+      const ranks = tiedRanks(group.cards);
       resultsHost.append(el("section", { class: "card reward-group" },
         el("div", { class: "reward-group-head" },
           el("h3", { class: "section-title", text: shop ? `Your cards at ${shop.name}` : `Your cards for ${what}` }),
@@ -657,8 +661,31 @@ export function cardRewardsPage(app) {
         group.cards.some((stat) => stat.accepted)
           ? ""
           : el("p", { class: "reward-answer-none", text: "None of your cards are accepted here." }),
-        group.cards.map((stat) => resultRow(stat, stat.accepted ? ++rank : 0, spend))));
+        group.cards.map((stat, i) => resultRow(stat, ranks[i].rank, spend, ranks[i].tied))));
     }
+  }
+
+  /**
+   * Each card's place, shared when two accepted cards give back the same
+   * (standard competition ranking: 1, 1, 3), and whether it is tied. A card
+   * not accepted here gets 0.
+   */
+  function tiedRanks(cards) {
+    const key = (stat) => Math.round(stat.score * 1e6);
+    const out = [];
+    let seen = 0;
+    let previous = null;
+    for (const stat of cards) {
+      if (!stat.accepted) { out.push({ rank: 0, tied: false }); continue; }
+      seen += 1;
+      const same = previous && key(previous.stat) === key(stat);
+      const rank = same ? previous.rank : seen;
+      if (same) previous.entry.tied = true;
+      const entry = { rank, tied: Boolean(same) };
+      out.push(entry);
+      previous = { stat, rank, entry };
+    }
+    return out;
   }
 
   /** What a card gives back, as a percent of the purchase: "10%". */
@@ -722,7 +749,7 @@ export function cardRewardsPage(app) {
     return parts.map((text) => el("div", { class: className, text }));
   }
 
-  function resultRow(stat, rank, spend) {
+  function resultRow(stat, rank, spend, tied = false) {
     const lines = explain(stat, settings.purchase, allAnswers());
     const detail = stat.accepted ? detailLine(stat, spend) : [];
     const medal = ["", "gold", "silver", "bronze"][rank] || "";
@@ -738,6 +765,7 @@ export function cardRewardsPage(app) {
         el("div", { class: "reward-name" },
           cardName(stat.card),
           stat.accepted ? null : pill("Not accepted", "error"),
+          tied ? pill("Tie", "muted") : null,
           offerForCard(stat.card.id) ? offerTag(offerForCard(stat.card.id)) : null),
         detailLines(detail, "reward-detail-line"),
         lines.map((line) => el("div", { class: "hint", text: line }))));
