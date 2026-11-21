@@ -1,6 +1,6 @@
 {
   "checked": "2026-11-18",
-  "updated": "2026-11-20",
+  "updated": "2026-11-21",
   "pointTypes": {
     "mr": {
       "name": "Amex Membership Rewards",
@@ -2125,17 +2125,6 @@
   ],
   "offers": [
     {
-      "id": "avion-avios-30-2026-11",
-      "title": "Avion to Avios: 30% transfer bonus",
-      "detail": "10,000 Avion points become 13,000 British Airways Avios. The extra Avios can post a few days later.",
-      "starts": "2026-11-01",
-      "ends": "2026-11-30",
-      "points": [
-        "avion"
-      ],
-      "source": "Milesopedia, AwardWallet"
-    },
-    {
       "id": "loblaw-zwilling-stamps-2026-11",
       "title": "Zwilling stamps at Loblaw stores",
       "detail": "1 stamp per $20 spent. 20 stamps get 60% to 85% off a Zwilling knife. Redeem full cards by Jan 27. Opt in on the PC Optimum app for 8 free stamps.",
@@ -2157,6 +2146,17 @@
       "source": "No Frills, Loblaws and Atlantic Superstore Collect and Save pages, PC Optimum"
     },
     {
+      "id": "avion-avios-30-2026-11",
+      "title": "Avion to Avios: 30% transfer bonus",
+      "detail": "10,000 Avion points become 13,000 British Airways Avios. The extra Avios can post a few days later.",
+      "starts": "2026-11-01",
+      "ends": "2026-11-30",
+      "points": [
+        "avion"
+      ],
+      "source": "Milesopedia, AwardWallet"
+    },
+    {
       "id": "loblaw-zwilling-double-2026-11",
       "title": "Zwilling double: 2 knives for 20 stamps",
       "detail": "A full card of 20 stamps gets 2 Zwilling items instead of 1.",
@@ -2176,6 +2176,33 @@
         "Atlantic Superstore"
       ],
       "source": "Loblaws and No Frills flyers"
+    },
+    {
+      "id": "aeroplan-black-friday-2026",
+      "title": "Aeroplan Black Friday: up to 10x eStore",
+      "detail": "Up to 10 Aeroplan points per $1 at select eStore shops, like Amazon. Aeroplan cardholders get 50% more eStore points. Air Canada gift cards earn 4 points per $1.",
+      "starts": "2026-11-19",
+      "ends": "2026-11-30",
+      "everyone": true,
+      "points": [
+        "aeroplan"
+      ],
+      "source": "Milesopedia, Prince of Travel, Points Miles and Bling"
+    },
+    {
+      "id": "sdm-super-redemption-2026-11",
+      "title": "Shoppers Super Redemption: up to $900 off",
+      "detail": "Redeem 500,000 PC Optimum points for $900 off. Smaller tiers give less. Online from Nov 26 at 2pm ET, in stores Nov 27. The value comes off the price before tax.",
+      "starts": "2026-11-26",
+      "ends": "2026-12-02",
+      "everyone": true,
+      "points": [
+        "pc"
+      ],
+      "shops": [
+        "Shoppers Drug Mart"
+      ],
+      "source": "RedFlagDeals, 89X"
     }
   ],
   "tiers": {
