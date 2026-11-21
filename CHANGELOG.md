@@ -12,7 +12,7 @@ before or as part of the push itself.
 ## 2026-11-21
 
 **Best card: ties share a place** (`pages/cardrewards.js`, `CLAUDE.md`)
-* Cards that give back the same now share a number and medal (1, 1, 3) with a small "Tie" label, instead of reading as 1st and 2nd.
+* Cards that give back the same now share a number and medal with a small "Tie" label, instead of reading as 1st and 2nd, and the next amount takes the next place (1, 1, 2, 2).
 * Within a tie the card sure to be accepted is still listed first, and the other says how likely it is not to be accepted.
 
 ## 2026-11-17
