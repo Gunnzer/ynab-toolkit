@@ -9,6 +9,13 @@ Maintained going forward: add a new dated entry for each push, in this same
 style (feature/fix name and files, then bullets on what changed and why),
 before or as part of the push itself.
 
+## 2026-11-23
+
+**Bank Import: EQ Bank dates and clearer warnings** (`tools/bank_convert.js`, `pages/bank.js`, `css/app.css`, `tests/tools.test.js`, `CLAUDE.md`)
+* Dates with a two-digit year, such as EQ Bank's "26-11-18", are read again; the reading nearest today is used, since the order cannot be told from the text.
+* Dates with a time after them ("2026-11-19 09:15", "11/18/2026 2:32 PM") and "18-Nov-2026" are read too.
+* A date or amount that still cannot be read names its row in the log and is highlighted in the preview, and blank lines are no longer counted as rows.
+
 ## 2026-11-21
 
 **Best card: ties share a place** (`pages/cardrewards.js`, `CLAUDE.md`)
