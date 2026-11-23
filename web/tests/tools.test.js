@@ -84,6 +84,17 @@ describe("bank import", () => {
     assert.deepEqual(bank.parseDate("Pending"), { value: "Pending", ok: false });
   });
 
+  test("a two-digit year is read the way that lands nearest today", () => {
+    const today = new Date(2026, 10, 23);
+    const read = (text) => bank.parseDate(text, "yyyy-MM-dd", { today }).value;
+    assert.equal(read("26-11-18"), "2026-11-18", "year first, as EQ Bank writes it");
+    assert.equal(read("26-11-03"), "2026-11-03");
+    assert.equal(read("18/11/26"), "2026-11-18", "day first");
+    assert.equal(read("11/18/26"), "2026-11-18", "month first");
+    assert.equal(read("25-12-31"), "2025-12-31");
+    assert.equal(bank.parseDate("26-13-40", "yyyy-MM-dd", { today }).ok, false);
+  });
+
   test("rows that need a look are named, and blank lines are not rows", () => {
     const text = "Transfer date,Description,Amount\n" +
       "2026-11-18,Coffee,-4.50\n" +

@@ -184,7 +184,7 @@ function pad(value) {
  * the desktop app's ordering.
  */
 export function parseDate(raw, outFormat = "yyyy-MM-dd", {
-  dateOrder = MONTH_FIRST,
+  dateOrder = MONTH_FIRST, today = new Date(),
 } = {}) {
   const full = String(raw ?? "").trim();
   if (!full) return { value: "", ok: false };
@@ -211,6 +211,25 @@ export function parseDate(raw, outFormat = "yyyy-MM-dd", {
     }
     if (parts.m < 1 || parts.m > 12 || parts.d < 1 || parts.d > 31) continue;
     return { value: formatDate(parts, outFormat), ok: true };
+  }
+
+  // A two-digit year ("26-11-18", reported live on an EQ Bank file): the
+  // order cannot be told from the text, so of the readings that make a real
+  // date (year first, day first, month first), take the one nearest today.
+  const short = text.match(/^(\d{1,2})([-/.])(\d{1,2})\2(\d{1,2})$/);
+  if (short) {
+    const [a, b, c] = [short[1], short[3], short[4]].map(Number);
+    const now = today.getTime();
+    const century = (yy) => 2000 + yy;
+    let best = null;
+    for (const [y, m, d] of [[a, b, c], [c, b, a], [c, a, b]]) {
+      if (m < 1 || m > 12 || d < 1 || d > 31) continue;
+      const when = new Date(century(y), m - 1, d);
+      if (when.getMonth() !== m - 1) continue;
+      const gap = Math.abs(when.getTime() - now);
+      if (!best || gap < best.gap) best = { gap, parts: { y: century(y), m, d } };
+    }
+    if (best) return { value: formatDate(best.parts, outFormat), ok: true };
   }
 
   // "5 Mar 2025", "05-Mar-2025", "Mar 5, 2025"
