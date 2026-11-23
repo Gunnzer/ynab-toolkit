@@ -2597,6 +2597,9 @@ select.is-empty option { color: var(--text); }
 .bonus-plan-line.is-ok { border-left-color: var(--ok); }
 .bonus-plan-line.is-short { border-left-color: var(--caution); }
 
+/* Bank Import: a converted row whose date or amount could not be read. */
+tr.bank-needs-look td { background: var(--caution-soft); }
+
 /* Points. */
 .points-card { gap: 12px; }
 .points-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }

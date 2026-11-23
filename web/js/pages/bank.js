@@ -930,7 +930,7 @@ export function bankImportPage(app) {
     converted = result;
     clear(preview.tbody);
     for (const row of result.rows) {
-      preview.tbody.append(el("tr", {},
+      preview.tbody.append(el("tr", row.needsLook ? { class: "bank-needs-look" } : {},
         el("td", { text: row.Date }),
         el("td", { text: row.Payee }),
         el("td", { text: row.Memo }),
@@ -938,13 +938,24 @@ export function bankImportPage(app) {
     }
 
     for (const warning of result.warnings) log.write(warning, "warn");
+    // Name each row that needs a look (reported live: "1 date could not be
+    // read" on an EQ Bank file said nothing about which row it was).
+    const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
     if (result.unparsedDates) {
-      log.write(`${result.unparsedDates} date(s) could not be read and were ` +
-        "left exactly as they were. Check those rows before importing.", "warn");
+      log.write(`${plural(result.unparsedDates, "date", "dates")} could not be read and ` +
+        `${result.unparsedDates === 1 ? "was" : "were"} left as in the file. ` +
+        "Fix it in the file, or in YNAB after importing.", "warn");
     }
     if (result.unparsedAmounts) {
-      log.write(`${result.unparsedAmounts} amount(s) could not be read and ` +
+      log.write(`${plural(result.unparsedAmounts, "amount", "amounts")} could not be read and ` +
         "became 0.00. Check those rows before importing.", "warn");
+    }
+    for (const p of result.problems || []) {
+      const what = [
+        p.date !== null ? `date ${p.date ? `"${p.date}"` : "is empty"}` : "",
+        p.amount !== null ? `amount ${p.amount ? `"${p.amount}"` : "is empty"}` : "",
+      ].filter(Boolean).join(", ");
+      log.write(`Row ${p.row} in the preview${p.payee ? ` (${p.payee})` : ""}: ${what}.`, "warn");
     }
     log.write(`Converted ${result.rows.length} row(s), renamed ` +
       `${result.renamedPayees} payee(s). Nothing has been saved yet.`, "ok");

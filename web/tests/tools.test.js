@@ -74,6 +74,33 @@ describe("bank import", () => {
       { value: "not a date", ok: false });
   });
 
+  test("dates with a time after them, and day-month-year with dashes", () => {
+    assert.deepEqual(bank.parseDate("2026-11-18 14:32"), { value: "2026-11-18", ok: true });
+    assert.deepEqual(bank.parseDate("2026-11-18T14:32:05Z"), { value: "2026-11-18", ok: true });
+    assert.deepEqual(bank.parseDate("11/18/2026 2:32 PM"), { value: "2026-11-18", ok: true });
+    assert.deepEqual(bank.parseDate("Nov 18, 2026 2:32 p.m. EST"), { value: "2026-11-18", ok: true });
+    assert.deepEqual(bank.parseDate("18-Nov-2026"), { value: "2026-11-18", ok: true });
+    assert.deepEqual(bank.parseDate("18 NOV 2026"), { value: "2026-11-18", ok: true });
+    assert.deepEqual(bank.parseDate("Pending"), { value: "Pending", ok: false });
+  });
+
+  test("rows that need a look are named, and blank lines are not rows", () => {
+    const text = "Transfer date,Description,Amount\n" +
+      "2026-11-18,Coffee,-4.50\n" +
+      ",,\n" +
+      "Pending,Grocer,-80.00\n" +
+      "2026-11-19,Refund,abc\n";
+    const result = bank.convert(bank.parseDelimited(text), settings);
+    assert.equal(result.rows.length, 3, "the blank line is skipped");
+    assert.equal(result.unparsedDates, 1);
+    assert.equal(result.unparsedAmounts, 1);
+    assert.deepEqual(result.problems, [
+      { row: 2, date: "Pending", amount: null, payee: "Grocer" },
+      { row: 3, date: null, amount: "abc", payee: "Refund" },
+    ]);
+    assert.deepEqual(result.rows.map((r) => r.needsLook), [false, true, true]);
+  });
+
   test("e-transfer payee rules", () => {
     const { compiled, errors } = bank.compileRules(settings.payeeRules);
     assert.deepEqual(errors, []);

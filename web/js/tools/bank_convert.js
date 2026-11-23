@@ -186,8 +186,12 @@ function pad(value) {
 export function parseDate(raw, outFormat = "yyyy-MM-dd", {
   dateOrder = MONTH_FIRST,
 } = {}) {
-  const text = String(raw ?? "").trim();
-  if (!text) return { value: "", ok: false };
+  const full = String(raw ?? "").trim();
+  if (!full) return { value: "", ok: false };
+  // A time after the date ("2026-11-18 14:32", "2026-11-18T14:32:00Z",
+  // "11/18/2026 2:32 PM") is dropped: a bank export that started adding
+  // one stopped reading at all (reported live on an EQ Bank file).
+  const text = full.replace(/[ T]\d{1,2}:\d{2}(:\d{2}(\.\d+)?)?\s*([AaPp]\.?[Mm]\.?)?\s*(Z|[+-]\d{2}:?\d{2}|[A-Z]{2,4})?$/, "").trim();
 
   const shortOrder = dateOrder === DAY_FIRST
     ? ["d", "m", "y"] : ["m", "d", "y"];
@@ -209,8 +213,8 @@ export function parseDate(raw, outFormat = "yyyy-MM-dd", {
     return { value: formatDate(parts, outFormat), ok: true };
   }
 
-  // "5 Mar 2025", "Mar 5, 2025"
-  const named = text.match(/^(\d{1,2})\s+([A-Za-z]{3,})\.?\s+(\d{4})$/) ||
+  // "5 Mar 2025", "05-Mar-2025", "Mar 5, 2025"
+  const named = text.match(/^(\d{1,2})[\s-]+([A-Za-z]{3,})\.?[\s-]+(\d{4})$/) ||
     text.match(/^([A-Za-z]{3,})\.?\s+(\d{1,2}),?\s+(\d{4})$/);
   if (named) {
     const isDayFirst = /^\d/.test(named[1]);
@@ -227,7 +231,7 @@ export function parseDate(raw, outFormat = "yyyy-MM-dd", {
     }
   }
 
-  return { value: text, ok: false };
+  return { value: full, ok: false };
 }
 
 function formatDate({ y, m, d }, outFormat) {
@@ -322,7 +326,7 @@ export function applyPayeeRules(rawPayee, compiled) {
  */
 export function convert({ headers, rows }, settings) {
   const result = {
-    rows: [], totalIn: rows.length, unparsedDates: 0,
+    rows: [], totalIn: rows.length, unparsedDates: 0, problems: [],
     unparsedAmounts: 0, renamedPayees: 0, warnings: [],
   };
 
@@ -358,6 +362,8 @@ export function convert({ headers, rows }, settings) {
   result.warnings.push(...errors.map((error) => `Rule skipped - ${error}`));
 
   for (const row of rows) {
+    // A line with nothing in it (a trailing blank row) is not a transaction.
+    if (Object.values(row).every((value) => !String(value ?? "").trim())) continue;
     const date = parseDate(row[dateColumn], settings.dateFormat || "yyyy-MM-dd",
       { dateOrder: settings.dateOrder || MONTH_FIRST });
     if (!date.ok) result.unparsedDates += 1;
@@ -384,12 +390,27 @@ export function convert({ headers, rows }, settings) {
     const { payee, changed } = applyPayeeRules(row[payeeColumn], compiled);
     if (changed) result.renamedPayees += 1;
 
+    // Which rows need a look, by their place in the converted list (as the
+    // preview shows them), so the page can name them instead of only
+    // counting them.
+    if (!date.ok || !amountOk) {
+      result.problems.push({
+        row: result.rows.length + 1,
+        date: date.ok ? null : String(row[dateColumn] ?? "").trim(),
+        amount: amountOk ? null : String(useFlowPair
+          ? [row[outflowColumn], row[inflowColumn]].filter(Boolean).join(" / ")
+          : row[amountColumn] ?? "").trim(),
+        payee: payee.trim(),
+      });
+    }
+
     result.rows.push({
       Date: date.value,
       Payee: payee.trim(),
       Memo: memoColumn ? String(row[memoColumn] ?? "").trim() : "",
       Amount: amount.toFixed(2),
       ISODate: isoDate.value,
+      needsLook: !date.ok || !amountOk,
     });
   }
 
