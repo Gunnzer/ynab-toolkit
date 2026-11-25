@@ -1,6 +1,6 @@
 {
   "checked": "2026-11-18",
-  "updated": "2026-11-21",
+  "updated": "2026-11-25",
   "pointTypes": {
     "mr": {
       "name": "Amex Membership Rewards",
@@ -2155,6 +2155,20 @@
         "avion"
       ],
       "source": "Milesopedia, AwardWallet"
+    },
+    {
+      "id": "rogers-chexy-3-2026-11",
+      "title": "Rogers Red: 1% extra on Chexy",
+      "detail": "An extra 1% back on rent, bills and taxes paid through Chexy. That makes 3% with a Rogers, Fido or Shaw service. The extra 1% has a cap and can take months to post. Chexy charges its own fee.",
+      "starts": "2026-11-11",
+      "ends": "2027-05-10",
+      "cards": [
+        "rogers-red-we"
+      ],
+      "shops": [
+        "Chexy"
+      ],
+      "source": "Chexy, Milesopedia, NerdWallet"
     },
     {
       "id": "loblaw-zwilling-double-2026-11",
