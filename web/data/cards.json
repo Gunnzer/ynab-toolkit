@@ -1,6 +1,6 @@
 {
   "checked": "2026-11-18",
-  "updated": "2026-11-25",
+  "updated": "2026-11-26",
   "pointTypes": {
     "mr": {
       "name": "Amex Membership Rewards",
@@ -1044,16 +1044,7 @@
         }
       ],
       "source": "rbcroyalbank.com, NerdWallet Canada, Ratehub",
-      "checked": "2026-11-18",
-      "welcome": {
-        "points": 70000,
-        "minSpend": 5000,
-        "months": 6,
-        "ends": "2026-11-25",
-        "detail": "35,000 Avion points on approval, 20,000 after $5,000 in the first 6 months, and 15,000 on the first anniversary (after the second year's fee).",
-        "source": "Frugal Flyer, Points Miles and Bling",
-        "checked": "2026-11-11"
-      }
+      "checked": "2026-11-18"
     },
     {
       "id": "cibc-dividend-vi",
@@ -2169,27 +2160,6 @@
         "Chexy"
       ],
       "source": "Chexy, Milesopedia, NerdWallet"
-    },
-    {
-      "id": "loblaw-zwilling-double-2026-11",
-      "title": "Zwilling double: 2 knives for 20 stamps",
-      "detail": "A full card of 20 stamps gets 2 Zwilling items instead of 1.",
-      "starts": "2026-11-12",
-      "ends": "2026-11-25",
-      "everyone": true,
-      "shops": [
-        "Loblaws",
-        "No Frills",
-        "Real Canadian Superstore",
-        "Zehrs",
-        "Fortinos",
-        "Provigo",
-        "Maxi",
-        "Valu-mart",
-        "Your Independent Grocer",
-        "Atlantic Superstore"
-      ],
-      "source": "Loblaws and No Frills flyers"
     },
     {
       "id": "aeroplan-black-friday-2026",
