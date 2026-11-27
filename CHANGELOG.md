@@ -9,6 +9,12 @@ Maintained going forward: add a new dated entry for each push, in this same
 style (feature/fix name and files, then bullets on what changed and why),
 before or as part of the push itself.
 
+## 2026-11-27
+
+**Deploy: no more missing-upload failures** (`.github/workflows/pages.yml`, `CLAUDE.md`)
+* Half the deploys since Nov 23 failed with "No artifacts named github-pages", a GitHub timing problem: the deploy looked for the site 0.3 seconds after it was uploaded. The tests passed every time and the previous version stayed live.
+* The site is now uploaded by the test job, from the files the tests ran on, and deployed by a separate job, which tries once more after 30 seconds if needed. The GitHub actions are on their current versions.
+
 ## 2026-11-23
 
 **Bank Import: EQ Bank dates and clearer warnings** (`tools/bank_convert.js`, `pages/bank.js`, `css/app.css`, `tests/tools.test.js`, `CLAUDE.md`)
