@@ -7,7 +7,7 @@
 # details (web/data/cards.json) are re-checked weekly by a scheduled task
 # that commits only to the `card-data` branch, never to main. Each run takes
 # the newest copy from there, the tests validate it (card_rewards.test.js),
-# and the deploy publishes exactly the copy the tests passed. With no
+# and the test job uploads exactly the copy the tests passed. With no
 # `card-data` branch yet, the copy on main is used.
 
 name: Deploy to GitHub Pages
@@ -32,42 +32,45 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
-    outputs:
-      cards: ${{ steps.cards.outputs.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Use the latest card details
-        id: cards
         run: |
           if git fetch --depth=1 origin card-data; then
-            echo "sha=$(git rev-parse FETCH_HEAD)" >> "$GITHUB_OUTPUT"
             git show FETCH_HEAD:web/data/cards.json > web/data/cards.json
           else
             echo "No card-data branch yet; using the copy on main."
           fi
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: "22"
       - name: Run the test suite
         run: node --test "web/tests/*.test.js"
+      # The site is uploaded here, from the very files the tests just ran on,
+      # and deployed by a separate job. Uploading and deploying in the same
+      # job failed about half the time from 2026-11-23: deploy-pages asked
+      # for the upload 0.3 seconds after it finished and found nothing (an
+      # open GitHub issue, actions/deploy-pages "Intermittent No artifacts
+      # named github-pages").
+      - uses: actions/configure-pages@v6
+      - name: Upload the web folder
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: web
 
   deploy:
     needs: test
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.retry.outputs.page_url || steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-      - name: Use the same card details the tests passed with
-        if: needs.test.outputs.cards != ''
-        run: |
-          git fetch --depth=1 origin "${{ needs.test.outputs.cards }}"
-          git show FETCH_HEAD:web/data/cards.json > web/data/cards.json
-      - uses: actions/configure-pages@v5
-      - name: Upload the web folder
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: web
       - id: deployment
-        uses: actions/deploy-pages@v4
+        continue-on-error: true
+        uses: actions/deploy-pages@v5
+      - name: Wait before trying again
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 30
+      - id: retry
+        if: steps.deployment.outcome == 'failure'
+        uses: actions/deploy-pages@v5

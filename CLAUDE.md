@@ -441,6 +441,15 @@ on every push to `main`, gated on the test suite (including the privacy
 sweep) passing first. No separate build/bundle step - what's in `web/` is
 what ships.
 
+**Gotcha (2026-11-23 to 27, half the runs failed):** with the upload and the
+deploy in the same job, `deploy-pages` asked for the `github-pages` upload
+0.3 seconds after it finished and got "No artifacts named github-pages"
+(an open upstream issue). The tests passed every time. The test job now
+uploads the site itself, from the files the tests ran on, and the deploy job
+only deploys, trying once more after 30 seconds if the first attempt fails.
+A red run of this kind means nothing new went live; the previous deploy is
+still up.
+
 **Only push when the user says to (at explicit user request, 2026-11-15:
 "only push when I tell you").** Make the change, test it, commit it locally
 on the working branch, and say it is ready; push (branch and `main`) only
